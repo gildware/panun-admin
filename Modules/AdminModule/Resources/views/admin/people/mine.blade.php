@@ -163,6 +163,10 @@
                                 <dd>{{ $profile->employment_type === 'contract' ? 'Contract' : 'Full time' }}</dd>
                             </div>
                             <div class="ep-fact">
+                                <dt>Billing</dt>
+                                <dd>{{ \Modules\AdminModule\Entities\PeopleProfile::billingTypeLabel($profile->billing_type ?: 'billable') }}</dd>
+                            </div>
+                            <div class="ep-fact">
                                 <dt>Department</dt>
                                 <dd class="{{ $profile->department ? '' : 'is-empty' }}">{{ $profile->department ?: '—' }}</dd>
                             </div>
@@ -172,7 +176,7 @@
                             </div>
                             <div class="ep-fact">
                                 <dt>Work location</dt>
-                                <dd class="{{ $profile->work_location ? '' : 'is-empty' }}">{{ $profile->work_location ?: '—' }}</dd>
+                                <dd class="{{ $profile->work_location ? '' : 'is-empty' }}">{{ \Modules\AdminModule\Entities\PeopleProfile::workLocationLabel($profile->work_location) ?: '—' }}</dd>
                             </div>
                             <div class="ep-fact">
                                 <dt>Date of joining</dt>
@@ -223,7 +227,16 @@
                             </div>
                             <div class="field">
                                 <label for="work_location">Work location</label>
-                                <input id="work_location" name="work_location" value="{{ old('work_location', $profile->work_location) }}" maxlength="120">
+                                @php $locationValue = (string) old('work_location', $profile->work_location); @endphp
+                                <select id="work_location" name="work_location">
+                                    <option value="">Not set</option>
+                                    @foreach(\Modules\AdminModule\Entities\PeopleProfile::WORK_LOCATIONS as $value => $label)
+                                        <option value="{{ $value }}" @selected($locationValue === $value)>{{ $label }}</option>
+                                    @endforeach
+                                    @if($locationValue !== '' && ! isset(\Modules\AdminModule\Entities\PeopleProfile::WORK_LOCATIONS[$locationValue]))
+                                        <option value="{{ $locationValue }}" selected>{{ $locationValue }}</option>
+                                    @endif
+                                </select>
                                 @error('work_location')<p class="ep-error">{{ $message }}</p>@enderror
                             </div>
                             <div class="field">

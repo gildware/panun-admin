@@ -5,6 +5,8 @@ namespace Modules\AdminModule\Services;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Modules\AdminModule\Entities\PeopleAttendanceMark;
 use Modules\AdminModule\Entities\PeopleHoliday;
 use Modules\AdminModule\Entities\PeopleLeaveRequest;
 use Modules\AdminModule\Entities\PeoplePayAdjustment;
@@ -89,7 +91,7 @@ class PeoplePayroll
         }
     }
 
-    public function buildMonth(string $period, bool $countMissingWeeks): PeoplePayrollRun
+    public function buildMonth(string $period, bool $countMissingDays): PeoplePayrollRun
     {
         $run = $this->runFor($period);
         if ($run && in_array($run->status, ['published', 'locked'], true)) {
@@ -112,7 +114,7 @@ class PeoplePayroll
             ->orderBy('first_name')
             ->get();
 
-        DB::transaction(function () use ($staff, $period, $start, $end, $holidays, $workspace, $countMissingWeeks) {
+        DB::transaction(function () use ($staff, $period, $start, $end, $holidays, $workspace, $countMissingDays) {
             foreach ($staff as $person) {
                 $profile = PeopleProfile::query()->where('user_id', $person->id)->first();
                 if ($profile && $profile->employment_status === 'exited') {
@@ -158,7 +160,7 @@ class PeoplePayroll
 
                 $workingDays = max(0, PeopleWorkspace::countWorkingDays($start, $end, $holidays, $workspace->weekOffDays($person)) - $workspace->extraWeekOffCount($person, $start, $end, $holidays));
                 $lopDays = $this->unpaidDays($person, $start, $end, $holidays, $workspace);
-                if ($countMissingWeeks) {
+                if ($countMissingDays) {
                     $lopDays += $this->unapprovedDays($person, $start, $end, $holidays, $workspace);
                 }
 
@@ -233,13 +235,31 @@ class PeoplePayroll
             ->get()
             ->keyBy(fn (PeopleTimesheet $sheet) => $sheet->week_starts_on->toDateString());
 
-        $paidLeave = PeopleLeaveRequest::query()
+        $leaves = PeopleLeaveRequest::query()
             ->where('user_id', $person->id)
-            ->where('status', 'approved')
-            ->whereNotIn('leave_type', $workspace->unpaidLeaveTypeCodes())
+            ->whereIn('status', ['approved', 'pending'])
             ->whereDate('starts_on', '<=', $end->toDateString())
             ->whereDate('ends_on', '>=', $start->toDateString())
             ->get();
+
+        $profile = $person->relationLoaded('peopleProfile')
+            ? $person->peopleProfile
+            : PeopleProfile::query()->where('user_id', $person->id)->first();
+        $joined = $profile?->joined_on?->toDateString();
+        $left = $profile?->last_working_day?->toDateString();
+        $today = now()->startOfDay();
+
+        $manual = [];
+        if (Schema::hasTable('people_attendance_marks')) {
+            $saved = PeopleAttendanceMark::query()
+                ->where('user_id', $person->id)
+                ->whereDate('marked_on', '>=', $start->toDateString())
+                ->whereDate('marked_on', '<=', $end->toDateString())
+                ->get(['marked_on', 'status']);
+            foreach ($saved as $mark) {
+                $manual[$mark->marked_on->toDateString()] = $mark->status;
+            }
+        }
 
         $days = 0.0;
         $cursor = Carbon::parse($start->toDateString());
@@ -250,13 +270,57 @@ class PeoplePayroll
         }
         while ($cursor->lte($last)) {
             $key = $cursor->toDateString();
+            if ($cursor->gte($today)) {
+                break;
+            }
+            if (($joined && $key < $joined) || ($left && $key > $left)) {
+                $cursor->addDay();
+
+                continue;
+            }
+
             $week = $cursor->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
             $sheet = $sheets->get($week);
-            $onLeave = $paidLeave->contains(fn (PeopleLeaveRequest $leave) => $cursor->betweenIncluded($leave->starts_on, $leave->ends_on));
             $dayKey = PeopleWorkspace::DAY_KEYS[$cursor->dayOfWeekIso - 1] ?? '';
             $markedEntry = $sheet?->entries[$key] ?? null;
             $markedOff = is_array($markedEntry) && ($markedEntry['status'] ?? null) === 'week_off';
-            if (! isset($weekOff[$dayKey]) && ! $markedOff && ! isset($holidayMap[$key]) && ! $onLeave && (! $sheet || $sheet->status !== 'approved')) {
+            $working = ! isset($weekOff[$dayKey]) && ! $markedOff && ! isset($holidayMap[$key]);
+            if (! $working) {
+                $cursor->addDay();
+
+                continue;
+            }
+
+            $hand = $manual[$key] ?? null;
+            if ($hand === 'present') {
+                $cursor->addDay();
+
+                continue;
+            }
+            if ($hand === 'half') {
+                $days += 0.5;
+                $cursor->addDay();
+
+                continue;
+            }
+            if ($hand === 'absent') {
+                $days++;
+                $cursor->addDay();
+
+                continue;
+            }
+
+            $onLeave = $leaves->contains(fn (PeopleLeaveRequest $leave) => $cursor->betweenIncluded($leave->starts_on, $leave->ends_on));
+            if ($onLeave) {
+                $cursor->addDay();
+
+                continue;
+            }
+
+            $submitted = is_array($markedEntry) && ($markedEntry['status'] ?? null) === 'submitted';
+            if ($submitted && ! empty($markedEntry['half'])) {
+                $days += 0.5;
+            } elseif (! $submitted) {
                 $days++;
             }
             $cursor->addDay();

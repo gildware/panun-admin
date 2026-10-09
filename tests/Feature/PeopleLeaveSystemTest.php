@@ -7,6 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Modules\AdminModule\Entities\PeopleAttendanceMark;
 use Modules\AdminModule\Entities\PeopleDepartment;
 use Modules\AdminModule\Entities\PeopleLeaveBalance;
 use Modules\AdminModule\Entities\PeopleLeaveGrant;
@@ -16,8 +17,11 @@ use Modules\AdminModule\Entities\PeopleHoliday;
 use Modules\AdminModule\Entities\PeopleLeaveType;
 use Modules\AdminModule\Entities\PeopleProfile;
 use Modules\AdminModule\Entities\PeopleStageLeavePolicy;
+use Modules\AdminModule\Entities\PeoplePayslip;
+use Modules\AdminModule\Entities\PeopleSalaryStructure;
 use Modules\AdminModule\Entities\PeopleTimesheet;
 use Modules\AdminModule\Services\PeopleLeaveAccrual;
+use Modules\AdminModule\Services\PeoplePayroll;
 use Modules\AdminModule\Services\PeopleWorkspace;
 use Modules\UserManagement\Entities\User;
 use Tests\TestCase;
@@ -460,6 +464,277 @@ class PeopleLeaveSystemTest extends TestCase
         $this->assertSame('today', $days['2026-10-08']['kind']);
     }
 
+    public function test_attendance_month_is_one_row_per_employee(): void
+    {
+        $asha = $this->person('permanent');
+        $this->type('Casual', 'casual');
+        $rohanId = (string) Str::uuid();
+        DB::table('users')->insert([
+            'id' => $rohanId,
+            'first_name' => 'Rohan',
+            'last_name' => 'Bhat',
+            'email' => $rohanId.'@example.test',
+            'password' => 'secret',
+            'user_type' => 'super-admin',
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $rohan = PeopleProfile::query()->create([
+            'user_id' => $rohanId,
+            'employee_code' => 'PK201',
+            'department' => '',
+            'employment_status' => 'active',
+            'employment_stage' => 'permanent',
+        ]);
+        PeopleLeaveRequest::query()->create([
+            'user_id' => $asha->user_id,
+            'leave_type' => 'casual',
+            'starts_on' => '2026-10-01',
+            'ends_on' => '2026-10-01',
+            'days' => 0.5,
+            'reason' => 'Morning',
+            'status' => 'approved',
+            'decided_at' => now(),
+        ]);
+        PeopleLeaveRequest::query()->create([
+            'user_id' => $asha->user_id,
+            'leave_type' => 'casual',
+            'starts_on' => '2026-10-03',
+            'ends_on' => '2026-10-03',
+            'days' => 1,
+            'reason' => 'Waiting',
+            'status' => 'pending',
+        ]);
+        PeopleLeaveRequest::query()->create([
+            'user_id' => $asha->user_id,
+            'leave_type' => 'casual',
+            'starts_on' => '2026-10-05',
+            'ends_on' => '2026-10-05',
+            'days' => 1,
+            'reason' => 'Family',
+            'status' => 'approved',
+            'decided_at' => now(),
+        ]);
+        PeopleHoliday::query()->create([
+            'holiday_on' => '2026-10-02',
+            'name' => 'Gandhi Jayanti',
+        ]);
+        PeopleTimesheet::query()->create([
+            'user_id' => $asha->user_id,
+            'week_starts_on' => '2026-10-05',
+            'hours' => ['mon' => 0, 'tue' => 8, 'wed' => 0, 'thu' => 0, 'fri' => 0, 'sat' => 0],
+            'entries' => [
+                '2026-10-06' => [
+                    'status' => 'submitted',
+                    'rows' => [['ticket_id' => 'task', 'hours' => 8]],
+                ],
+                '2026-10-10' => [
+                    'status' => 'week_off',
+                    'rows' => [],
+                ],
+            ],
+            'status' => 'draft',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-10-08 09:00:00'));
+        try {
+            $staff = User::query()->whereIn('id', [$asha->user_id, $rohan->user_id])->orderBy('first_name')->get();
+            $profiles = PeopleProfile::query()->whereIn('user_id', [$asha->user_id, $rohan->user_id])->get()->keyBy('user_id');
+            $grid = $this->workspace->attendanceMonth($staff, $profiles, '2026-10');
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->assertCount(31, $grid['days']);
+        $this->assertSame('1', (string) $grid['days'][0]['day']);
+        $this->assertSame(['Asha Koul', 'Rohan Bhat'], array_column($grid['rows'], 'name'));
+
+        $ashaCells = [];
+        foreach ($grid['rows'][0]['cells'] as $index => $cell) {
+            $ashaCells[$grid['days'][$index]['date']] = $cell;
+        }
+        $this->assertSame('half', $ashaCells['2026-10-01']['kind']);
+        $this->assertSame('HD', $ashaCells['2026-10-01']['mark']);
+        $this->assertSame('holiday', $ashaCells['2026-10-02']['kind']);
+        $this->assertSame('H', $ashaCells['2026-10-02']['mark']);
+        $this->assertSame('pending', $ashaCells['2026-10-03']['kind']);
+        $this->assertSame('CA', $ashaCells['2026-10-03']['mark']);
+        $this->assertSame('off', $ashaCells['2026-10-04']['kind']);
+        $this->assertSame('WO', $ashaCells['2026-10-04']['mark']);
+        $this->assertSame('leave', $ashaCells['2026-10-05']['kind']);
+        $this->assertSame('CA', $ashaCells['2026-10-05']['mark']);
+        $this->assertSame('present', $ashaCells['2026-10-06']['kind']);
+        $this->assertSame('P', $ashaCells['2026-10-06']['mark']);
+        $this->assertSame('absent', $ashaCells['2026-10-07']['kind']);
+        $this->assertSame('A', $ashaCells['2026-10-07']['mark']);
+        $this->assertSame('today', $ashaCells['2026-10-08']['kind']);
+        $this->assertSame('', $ashaCells['2026-10-08']['mark']);
+        $this->assertSame('future', $ashaCells['2026-10-09']['kind']);
+        $this->assertSame('off', $ashaCells['2026-10-10']['kind']);
+        $this->assertSame(1, $grid['rows'][0]['counts']['present']);
+        $this->assertSame(1, $grid['rows'][0]['counts']['leave']);
+        $this->assertSame(1, $grid['rows'][0]['counts']['half']);
+
+        $rohanCells = [];
+        foreach ($grid['rows'][1]['cells'] as $index => $cell) {
+            $rohanCells[$grid['days'][$index]['date']] = $cell;
+        }
+        $this->assertSame('absent', $rohanCells['2026-10-01']['kind']);
+        $this->assertSame('holiday', $rohanCells['2026-10-02']['kind']);
+        $this->assertSame('off', $rohanCells['2026-10-04']['kind']);
+        $this->assertSame('today', $rohanCells['2026-10-08']['kind']);
+        $this->assertSame('future', $rohanCells['2026-10-09']['kind']);
+    }
+
+    public function test_attendance_month_marks_days_before_joining(): void
+    {
+        $person = $this->person('permanent');
+        $person->forceFill(['joined_on' => '2026-10-06'])->save();
+
+        Carbon::setTestNow(Carbon::parse('2026-10-08 09:00:00'));
+        try {
+            $staff = User::query()->whereKey($person->user_id)->get();
+            $profiles = PeopleProfile::query()->where('user_id', $person->user_id)->get()->keyBy('user_id');
+            $grid = $this->workspace->attendanceMonth($staff, $profiles, '2026-10');
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $cells = [];
+        foreach ($grid['rows'][0]['cells'] as $index => $cell) {
+            $cells[$grid['days'][$index]['date']] = $cell;
+        }
+
+        $this->assertSame('6 Oct 2026', $grid['rows'][0]['joined']);
+        $this->assertSame('before', $cells['2026-10-05']['kind']);
+        $this->assertSame('—', $cells['2026-10-05']['mark']);
+        $this->assertSame('absent', $cells['2026-10-06']['kind']);
+        $this->assertSame('today', $cells['2026-10-08']['kind']);
+    }
+
+    public function test_a_hand_mark_sets_present_for_someone_without_a_timesheet(): void
+    {
+        $person = $this->person('permanent');
+        $actor = User::query()->findOrFail($person->user_id);
+
+        Carbon::setTestNow(Carbon::parse('2026-10-08 09:00:00'));
+        try {
+            $this->workspace->saveAttendanceMarks($actor, $person->user_id, '2026-10', [
+                '2026-10-06' => 'present',
+                '2026-10-07' => 'half',
+                '2026-10-04' => 'present',
+            ]);
+            $staff = User::query()->whereKey($person->user_id)->get();
+            $profiles = PeopleProfile::query()->where('user_id', $person->user_id)->get()->keyBy('user_id');
+            $grid = $this->workspace->attendanceMonth($staff, $profiles, '2026-10');
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $cells = [];
+        foreach ($grid['rows'][0]['cells'] as $index => $cell) {
+            $cells[$grid['days'][$index]['date']] = $cell;
+        }
+
+        $this->assertSame('present', $cells['2026-10-06']['kind']);
+        $this->assertSame('present', $cells['2026-10-06']['hand']);
+        $this->assertTrue($cells['2026-10-06']['editable']);
+        $this->assertSame('half', $cells['2026-10-07']['kind']);
+        $this->assertSame('off', $cells['2026-10-04']['kind']);
+        $this->assertFalse($cells['2026-10-04']['editable']);
+        $this->assertSame(1, PeopleAttendanceMark::query()->where('status', 'present')->count());
+        $this->assertSame(1, $grid['rows'][0]['counts']['present']);
+        $this->assertSame(1, $grid['rows'][0]['counts']['half']);
+    }
+
+    public function test_missing_attendance_counts_one_day_at_a_time(): void
+    {
+        Schema::create('people_payslips', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('user_id');
+            $table->char('period', 7);
+            $table->decimal('gross', 12, 2);
+            $table->decimal('deductions', 12, 2)->default(0);
+            $table->decimal('net', 12, 2);
+            $table->json('breakdown')->nullable();
+            $table->decimal('lop_days', 5, 1)->default(0);
+            $table->boolean('held')->default(false);
+            $table->string('status', 20)->default('draft');
+            $table->timestamp('published_at')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('people_salary_structures', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('user_id');
+            $table->char('effective_from', 7);
+            $table->decimal('basic', 12, 2)->default(0);
+            $table->decimal('hra', 12, 2)->default(0);
+            $table->decimal('special_allowance', 12, 2)->default(0);
+            $table->decimal('pf_employee', 12, 2)->default(0);
+            $table->decimal('pf_employer', 12, 2)->default(0);
+            $table->decimal('professional_tax', 12, 2)->default(0);
+            $table->decimal('tds', 12, 2)->default(0);
+            $table->decimal('other_deduction', 12, 2)->default(0);
+            $table->timestamps();
+        });
+        Schema::create('people_pay_adjustments', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('user_id');
+            $table->char('period', 7);
+            $table->string('label', 120);
+            $table->decimal('amount', 12, 2);
+            $table->timestamps();
+        });
+        Schema::create('people_payroll_runs', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->char('period', 7)->unique();
+            $table->string('status', 20)->default('draft');
+            $table->boolean('attendance_locked')->default(false);
+            $table->timestamps();
+        });
+
+        $person = $this->person('permanent');
+        PeopleSalaryStructure::query()->create([
+            'user_id' => $person->user_id,
+            'effective_from' => '2026-10',
+            'basic' => 20000,
+        ]);
+        PeopleTimesheet::query()->create([
+            'user_id' => $person->user_id,
+            'week_starts_on' => '2026-09-28',
+            'hours' => [],
+            'entries' => [
+                '2026-10-01' => ['status' => 'submitted', 'half' => false, 'rows' => []],
+                '2026-10-02' => ['status' => 'submitted', 'half' => true, 'rows' => []],
+            ],
+            'status' => 'pending',
+        ]);
+        PeopleTimesheet::query()->create([
+            'user_id' => $person->user_id,
+            'week_starts_on' => '2026-10-05',
+            'hours' => [],
+            'entries' => [
+                '2026-10-06' => ['status' => 'submitted', 'half' => false, 'rows' => []],
+            ],
+            'status' => 'approved',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-10-08 09:00:00'));
+        try {
+            $payroll = app(PeoplePayroll::class);
+            $payroll->buildMonth('2026-10', false);
+            $without = (float) PeoplePayslip::query()->where('user_id', $person->user_id)->value('lop_days');
+            $payroll->buildMonth('2026-10', true);
+            $with = (float) PeoplePayslip::query()->where('user_id', $person->user_id)->value('lop_days');
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->assertSame(0.0, $without);
+        $this->assertSame(3.5, $with);
+    }
+
     public function test_a_leave_type_without_a_balance_counts_as_unpaid(): void
     {
         $this->type('Unpaid', 'unpaid', false);
@@ -501,6 +776,8 @@ class PeopleLeaveSystemTest extends TestCase
             $table->string('work_schedule', 20)->default('full_time');
             $table->decimal('min_hours_override', 4, 1)->nullable();
             $table->json('week_off_override')->nullable();
+            $table->date('joined_on')->nullable();
+            $table->date('last_working_day')->nullable();
             $table->timestamps();
         });
         Schema::create('people_departments', function (Blueprint $table) {
@@ -600,6 +877,15 @@ class PeopleLeaveSystemTest extends TestCase
             $table->string('name');
             $table->timestamps();
         });
+        Schema::create('people_attendance_marks', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('user_id');
+            $table->date('marked_on');
+            $table->string('status', 20);
+            $table->uuid('marked_by')->nullable();
+            $table->timestamps();
+            $table->unique(['user_id', 'marked_on']);
+        });
         Schema::create('people_timesheets', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('user_id');
@@ -610,6 +896,7 @@ class PeopleLeaveSystemTest extends TestCase
             $table->string('status', 20)->default('draft');
             $table->uuid('decided_by')->nullable();
             $table->timestamp('decided_at')->nullable();
+            $table->text('decision_note')->nullable();
             $table->timestamps();
         });
         Schema::create('people_timesheet_settings', function (Blueprint $table) {

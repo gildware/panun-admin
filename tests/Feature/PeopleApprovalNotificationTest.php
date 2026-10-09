@@ -247,6 +247,7 @@ class PeopleApprovalNotificationTest extends TestCase
             $table->string('status', 20)->default('draft');
             $table->uuid('decided_by')->nullable();
             $table->timestamp('decided_at')->nullable();
+            $table->text('decision_note')->nullable();
             $table->timestamps();
         });
         Schema::create('people_timesheet_settings', function (Blueprint $table) {

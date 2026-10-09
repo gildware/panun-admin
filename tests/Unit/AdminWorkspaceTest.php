@@ -51,7 +51,7 @@ class AdminWorkspaceTest extends TestCase
         $this->assertSame(AdminWorkspace::OPERATIONS, AdminWorkspace::detect(Request::create('/admin/booking/list', 'GET')));
 
         $this->assertSame(AdminWorkspace::ACCOUNTS, AdminWorkspace::detect(Request::create('/admin/accounts/payroll', 'GET')));
-        $this->assertSame(AdminWorkspace::ACCOUNTS, AdminWorkspace::detect(Request::create('/admin/accounts/attendance', 'GET')));
+        $this->assertSame(AdminWorkspace::HR, AdminWorkspace::detect(Request::create('/admin/hr/attendance', 'GET')));
         $this->assertSame(AdminWorkspace::ACCOUNTS, AdminWorkspace::detect(Request::create('/admin/accounts/salary', 'GET')));
         $this->assertSame(AdminWorkspace::ACCOUNTS, AdminWorkspace::detect(Request::create('/admin/dashboard/finance', 'GET')));
         $this->assertSame(AdminWorkspace::ACCOUNTS, AdminWorkspace::detect(Request::create('/admin/ledger', 'GET')));

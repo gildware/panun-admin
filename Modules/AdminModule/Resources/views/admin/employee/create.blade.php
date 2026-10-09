@@ -41,6 +41,23 @@
                                     <option value="part_time" @selected(old('work_schedule') === 'part_time')>Part time</option>
                                 </select>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="billing_type">Billing</label>
+                                <select id="billing_type" class="form-control" name="billing_type" required>
+                                    @foreach(\Modules\AdminModule\Entities\PeopleProfile::BILLING_TYPES as $value => $label)
+                                        <option value="{{ $value }}" @selected(old('billing_type', 'billable') === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="work_location">Work location</label>
+                                <select id="work_location" class="form-control" name="work_location">
+                                    <option value="">Not set</option>
+                                    @foreach(\Modules\AdminModule\Entities\PeopleProfile::WORK_LOCATIONS as $value => $label)
+                                        <option value="{{ $value }}" @selected(old('work_location') === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label">Roles</label>
                                 <div class="d-flex flex-column gap-2">

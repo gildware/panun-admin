@@ -14,7 +14,7 @@
     <article class="people-ws-card people-ws-stat"><div class="label">People</div><div class="value">{{ $staff->count() }}</div><div class="sub">Active sign-ins</div></article>
     <article class="people-ws-card people-ws-stat"><div class="label">Documents missing</div><div class="value">{{ $missingDocuments }}</div><div class="sub">Asked, not uploaded</div></article>
     <article class="people-ws-card people-ws-stat"><div class="label">Leave waiting</div><div class="value">{{ $pendingLeave }}</div><div class="sub">Manager decides. HR decides only when no manager is set.</div></article>
-    <article class="people-ws-card people-ws-stat"><div class="label">{{ $monthLabel }}</div><div class="value">{{ $run ? $workspace->statusLabel($run->status) : 'Not built' }}</div><div class="sub">{{ $drafts }} drafts · {{ $held }} held · ₹{{ number_format((float) $net, 0) }} published</div></article>
+    <article class="people-ws-card people-ws-stat"><div class="label">{{ $monthLabel }}</div><div class="value">{{ $workspace->payrollRunLabel($run->status ?? null) }}</div><div class="sub">{{ $drafts }} will be paid · {{ $held }} left out · ₹{{ number_format((float) $net, 0) }} sent</div></article>
 </div>
 @php
     $actorId = (string) auth()->id();

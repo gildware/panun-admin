@@ -13,7 +13,7 @@
     $bankErrors = old('section') === 'bank' && $errors->hasAny(['bank_name', 'bank_account', 'bank_ifsc', 'pan', 'aadhaar', 'uan']);
     $basicErrors = old('section') !== 'password' && $errors->hasAny(['first_name', 'last_name', 'email', 'phone', 'employment_status', 'date_of_birth', 'emergency_contact', 'address']);
     $passwordErrors = old('section') === 'password' && $errors->has('password');
-    $operationErrors = $errors->hasAny(['department', 'work_location', 'manager_id', 'joined_on', 'role_ids', 'employment_stage', 'work_schedule', 'min_hours_override', 'week_off_override']) || $errors->has('role_ids.*') || $errors->has('week_off_override.*');
+    $operationErrors = $errors->hasAny(['department', 'work_location', 'billing_type', 'manager_id', 'joined_on', 'role_ids', 'employment_stage', 'work_schedule', 'min_hours_override', 'week_off_override']) || $errors->has('role_ids.*') || $errors->has('week_off_override.*');
 @endphp
 @if(! $user || ! $profile)
     <div class="people-ws-head"><div><h1>People file</h1><p>Choose a person from the People tab.</p></div></div>
@@ -193,7 +193,7 @@
                     </div>
                     <div class="ep-fact">
                         <dt>Work location</dt>
-                        <dd class="{{ $profile->work_location ? '' : 'is-empty' }}">{{ $profile->work_location ?: '—' }}</dd>
+                        <dd class="{{ $profile->work_location ? '' : 'is-empty' }}">{{ \Modules\AdminModule\Entities\PeopleProfile::workLocationLabel($profile->work_location) ?: '—' }}</dd>
                     </div>
                     <div class="ep-fact">
                         <dt>Date of joining</dt>
@@ -206,6 +206,10 @@
                     <div class="ep-fact">
                         <dt>Hours</dt>
                         <dd>{{ ($profile->work_schedule ?: 'full_time') === 'part_time' ? 'Part time' : 'Full time' }}</dd>
+                    </div>
+                    <div class="ep-fact">
+                        <dt>Billing</dt>
+                        <dd>{{ \Modules\AdminModule\Entities\PeopleProfile::billingTypeLabel($profile->billing_type ?: 'billable') }}</dd>
                     </div>
                     <div class="ep-fact">
                         <dt>Minimum hours</dt>
@@ -274,7 +278,16 @@
                         </div>
                         <div class="field">
                             <label for="work_location">Work location</label>
-                            <input id="work_location" name="work_location" value="{{ old('work_location', $profile->work_location) }}">
+                            @php $locationValue = (string) old('work_location', $profile->work_location); @endphp
+                            <select id="work_location" name="work_location">
+                                <option value="">Not set</option>
+                                @foreach(\Modules\AdminModule\Entities\PeopleProfile::WORK_LOCATIONS as $value => $label)
+                                    <option value="{{ $value }}" @selected($locationValue === $value)>{{ $label }}</option>
+                                @endforeach
+                                @if($locationValue !== '' && ! isset(\Modules\AdminModule\Entities\PeopleProfile::WORK_LOCATIONS[$locationValue]))
+                                    <option value="{{ $locationValue }}" selected>{{ $locationValue }}</option>
+                                @endif
+                            </select>
                             @error('work_location')<p class="ep-error">{{ $message }}</p>@enderror
                         </div>
                         <div class="field">
@@ -292,6 +305,15 @@
                                 <option value="part_time" @selected($scheduleValue === 'part_time')>Part time</option>
                             </select>
                             @error('work_schedule')<p class="ep-error">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="field">
+                            <label for="billing_type">Billing</label>
+                            <select id="billing_type" name="billing_type" required>
+                                @foreach(\Modules\AdminModule\Entities\PeopleProfile::BILLING_TYPES as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('billing_type', $profile->billing_type ?: 'billable') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('billing_type')<p class="ep-error">{{ $message }}</p>@enderror
                         </div>
                         <div class="field span-2">
                             <label class="ep-check" for="override_min_hours">
@@ -523,10 +545,31 @@
             @else
                 <ul class="ep-doc-list">
                     @foreach($profileDocuments->take(3) as $document)
+                        @php
+                            $previewExt = strtolower(pathinfo($document->original_name ?: $document->file_path, PATHINFO_EXTENSION));
+                            $previewKind = in_array($previewExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : ($previewExt === 'pdf' ? 'pdf' : 'file');
+                        @endphp
                         <li>
                             <span class="material-icons" aria-hidden="true">description</span>
-                            <span class="ep-doc-name">{{ $document->title }}</span>
+                            <button
+                                class="ep-doc-name people-doc-open"
+                                type="button"
+                                data-doc-view
+                                data-url="{{ route('admin.people.documents.view', $document) }}"
+                                data-download="{{ route('admin.people.documents.download', $document) }}"
+                                data-name="{{ $document->title }}"
+                                data-kind="{{ $previewKind }}"
+                            >{{ $document->title }}</button>
                             <span class="ep-doc-date">{{ $document->uploaded_at ? $document->uploaded_at->format('j M Y') : '—' }}</span>
+                            <button
+                                class="ep-doc-view"
+                                type="button"
+                                data-doc-view
+                                data-url="{{ route('admin.people.documents.view', $document) }}"
+                                data-download="{{ route('admin.people.documents.download', $document) }}"
+                                data-name="{{ $document->title }}"
+                                data-kind="{{ $previewKind }}"
+                            >View</button>
                         </li>
                     @endforeach
                 </ul>
@@ -1088,7 +1131,7 @@
                         <td>₹{{ number_format((float) $payslip->gross, 0) }}</td>
                         <td>₹{{ number_format((float) $payslip->deductions, 0) }}</td>
                         <td>₹{{ number_format((float) $payslip->net, 0) }}</td>
-                        <td>@include('adminmodule::admin.people._badge', ['status' => $payslip->held ? 'held' : $payslip->status])</td>
+                        <td>@include('adminmodule::admin.people._badge', ['status' => $payslip->held ? 'held' : $payslip->status, 'label' => $workspace->payrollStatusLabel($payslip->status, (bool) $payslip->held)])</td>
                         <td><a class="btn-pw" href="{{ route('admin.people.payslips.download', $payslip) }}">Download</a></td>
                     </tr>
                 @empty

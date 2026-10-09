@@ -11,11 +11,52 @@ class PeopleProfile extends Model
 {
     use HasUuid;
 
+    public const WORK_LOCATIONS = [
+        'in_office' => 'In office',
+        'hybrid' => 'Hybrid',
+        'work_from_home' => 'Work from home',
+    ];
+
+    public const BILLING_TYPES = [
+        'billable' => 'Billable',
+        'non_billable' => 'No billable',
+    ];
+
+    public static function workLocationLabel(?string $value): string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return '';
+        }
+
+        return self::WORK_LOCATIONS[$value] ?? $value;
+    }
+
+    public static function billingTypeLabel(?string $value): string
+    {
+        return self::BILLING_TYPES[trim((string) $value)] ?? '';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function allowedWorkLocations(?string $current = null): array
+    {
+        $allowed = array_keys(self::WORK_LOCATIONS);
+        $current = trim((string) $current);
+        if ($current !== '' && ! in_array($current, $allowed, true)) {
+            $allowed[] = $current;
+        }
+
+        return $allowed;
+    }
+
     protected $fillable = [
         'user_id',
         'employee_code',
         'job_title',
         'work_location',
+        'billing_type',
         'address',
         'manager_id',
         'joined_on',

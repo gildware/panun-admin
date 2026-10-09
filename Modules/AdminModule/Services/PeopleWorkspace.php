@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Modules\AdminModule\Entities\PeopleAttendanceMark;
 use Modules\AdminModule\Entities\PeopleDocument;
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Entities\PeopleHoliday;
@@ -143,7 +144,7 @@ class PeopleWorkspace
 
     public function canReviewApprovals(User $user): bool
     {
-        return $this->isManager($user);
+        return $this->isManager($user) || $this->isHr($user);
     }
 
     /**
@@ -1295,21 +1296,32 @@ class PeopleWorkspace
         return PeopleLeaveBalance::query()->whereKey($balance->id)->lockForUpdate()->first() ?? $balance;
     }
 
-    public function decideTimesheet(User $actor, PeopleTimesheet $sheet, string $decision): void
+    public function canDecideTimesheet(User $actor, User $employee): bool
+    {
+        if ((string) $actor->id === '' || (string) $actor->id === (string) $employee->id) {
+            return false;
+        }
+
+        return $this->isHr($actor) || $this->canDecideFor($actor, $employee);
+    }
+
+    public function decideTimesheet(User $actor, PeopleTimesheet $sheet, string $decision, ?string $note = null): void
     {
         $employee = $sheet->user;
-        if (! $employee || ! $this->canDecideFor($actor, $employee)) {
+        if (! $employee || ! $this->canDecideTimesheet($actor, $employee)) {
             throw new \InvalidArgumentException('You cannot decide this timesheet.');
         }
 
-        if ($sheet->status !== 'pending') {
+        if (! in_array($sheet->status, ['pending', 'draft', 'sent_back'], true)) {
             throw new \InvalidArgumentException('This timesheet is not waiting for a decision.');
         }
 
+        $reason = trim((string) $note);
         $sheet->forceFill([
             'status' => $decision === 'approve' ? 'approved' : 'sent_back',
             'decided_by' => $actor->id,
             'decided_at' => now(),
+            'decision_note' => $decision === 'sent_back' && $reason !== '' ? $reason : null,
         ])->save();
         $this->notifyTimesheetDecided($actor, $sheet);
     }
@@ -1483,6 +1495,349 @@ class PeopleWorkspace
     }
 
     /**
+     * One row per employee for a month. Each day is present, absent, leave, half day, week off, or a holiday.
+     *
+     * @param  Collection<int, User>  $staff
+     * @param  Collection<string, PeopleProfile>  $profiles
+     * @return array{days: array<int, array<string, mixed>>, rows: array<int, array<string, mixed>>}
+     */
+    public function attendanceMonth(Collection $staff, Collection $profiles, string $period): array
+    {
+        $month = Carbon::parse($period.'-01');
+        $start = $month->copy()->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+        $today = now()->startOfDay();
+        $startsOn = $this->timesheetStartsOn();
+        $companyOff = array_flip($this->weekOffDays());
+        $letters = [1 => 'Mo', 2 => 'Tu', 3 => 'We', 4 => 'Th', 5 => 'Fr', 6 => 'Sa', 7 => 'Su'];
+
+        $days = [];
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+            $dayKey = self::DAY_KEYS[$cursor->dayOfWeekIso - 1] ?? '';
+            $days[] = [
+                'date' => $cursor->toDateString(),
+                'day' => $cursor->day,
+                'letter' => $letters[$cursor->dayOfWeekIso] ?? '',
+                'off' => isset($companyOff[$dayKey]),
+                'today' => $cursor->isSameDay($today),
+            ];
+        }
+
+        $userIds = $staff->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $holidayNames = [];
+        if (Schema::hasTable('people_holidays')) {
+            $holidays = PeopleHoliday::query()
+                ->whereDate('holiday_on', '>=', $start->toDateString())
+                ->whereDate('holiday_on', '<=', $end->toDateString())
+                ->get(['holiday_on', 'name']);
+            foreach ($holidays as $holiday) {
+                $holidayNames[$holiday->holiday_on->toDateString()] = $holiday->name;
+            }
+        }
+
+        $shorts = [];
+        $names = [];
+        if (Schema::hasTable('people_leave_types')) {
+            foreach (PeopleLeaveType::query()->get(['code', 'name', 'short_name']) as $type) {
+                $names[$type->code] = $type->name;
+                $short = strtoupper(trim((string) $type->short_name));
+                $shorts[$type->code] = $short !== '' ? mb_substr($short, 0, 3) : strtoupper(mb_substr((string) $type->code, 0, 2));
+            }
+        }
+
+        $entriesByUser = [];
+        if ($userIds !== [] && Schema::hasTable('people_timesheets')) {
+            $sheets = PeopleTimesheet::query()
+                ->whereIn('user_id', $userIds)
+                ->whereDate('week_starts_on', '>=', $start->copy()->startOfWeek(Carbon::MONDAY)->toDateString())
+                ->whereDate('week_starts_on', '<=', $end->toDateString())
+                ->get(['user_id', 'entries']);
+            foreach ($sheets as $sheet) {
+                foreach ($sheet->entries ?? [] as $date => $entry) {
+                    if (! is_string($date) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || ! is_array($entry)) {
+                        continue;
+                    }
+                    $entriesByUser[(string) $sheet->user_id][$date] = $entry;
+                }
+            }
+        }
+
+        $leaveByUser = [];
+        if ($userIds !== [] && Schema::hasTable('people_leave_requests')) {
+            $requests = PeopleLeaveRequest::query()
+                ->whereIn('user_id', $userIds)
+                ->whereIn('status', ['approved', 'pending'])
+                ->whereDate('ends_on', '>=', $start->toDateString())
+                ->whereDate('starts_on', '<=', $end->toDateString())
+                ->get();
+            foreach ($requests as $request) {
+                $cursor = $request->starts_on->copy()->startOfDay();
+                $leaveEnd = $request->ends_on->copy()->startOfDay();
+                $half = $this->isHalfDayLeave($request);
+                $label = $names[$request->leave_type] ?? $this->leaveLabel($request->leave_type);
+                $code = $shorts[$request->leave_type] ?? 'L';
+                if ($code === '') {
+                    $code = 'L';
+                }
+                while ($cursor->lte($leaveEnd)) {
+                    $key = $cursor->toDateString();
+                    $cursor->addDay();
+                    if ($key < $start->toDateString() || $key > $end->toDateString()) {
+                        continue;
+                    }
+                    $existing = $leaveByUser[(string) $request->user_id][$key] ?? null;
+                    if ($existing && $existing['status'] === 'approved' && $request->status !== 'approved') {
+                        continue;
+                    }
+                    $leaveByUser[(string) $request->user_id][$key] = [
+                        'status' => $request->status,
+                        'half' => $half,
+                        'code' => $half ? 'HD' : $code,
+                        'label' => $label.($half ? ' · half day' : ''),
+                    ];
+                }
+            }
+        }
+
+        $handsByUser = [];
+        if ($userIds !== [] && Schema::hasTable('people_attendance_marks')) {
+            $savedMarks = PeopleAttendanceMark::query()
+                ->whereIn('user_id', $userIds)
+                ->whereDate('marked_on', '>=', $start->toDateString())
+                ->whereDate('marked_on', '<=', $end->toDateString())
+                ->get(['user_id', 'marked_on', 'status']);
+            foreach ($savedMarks as $mark) {
+                $handsByUser[(string) $mark->user_id][$mark->marked_on->toDateString()] = $mark->status;
+            }
+        }
+
+        $rows = [];
+        foreach ($staff as $user) {
+            $profile = $profiles->get($user->id);
+            $user->setRelation('peopleProfile', $profile);
+            $joined = $profile?->joined_on?->toDateString();
+            $left = $profile?->last_working_day?->toDateString();
+            if (($joined && $joined > $end->toDateString()) || ($left && $left < $start->toDateString())) {
+                continue;
+            }
+            $joinedLabel = $joined ? Carbon::parse($joined)->format('j M Y') : '';
+            $weekOff = array_flip($this->weekOffDays($user));
+            $userEntries = $entriesByUser[(string) $user->id] ?? [];
+            $userLeave = $leaveByUser[(string) $user->id] ?? [];
+            $userHands = $handsByUser[(string) $user->id] ?? [];
+            $cells = [];
+            $counts = ['present' => 0, 'absent' => 0, 'leave' => 0, 'half' => 0];
+            foreach ($days as $day) {
+                $when = Carbon::parse($day['date']);
+                $dayKey = self::DAY_KEYS[$when->dayOfWeekIso - 1] ?? '';
+                $cell = $this->attendanceDay(
+                    $when,
+                    $today,
+                    $startsOn,
+                    $joined,
+                    $joinedLabel,
+                    $left,
+                    isset($weekOff[$dayKey]),
+                    $holidayNames[$day['date']] ?? null,
+                    $userEntries[$day['date']] ?? null,
+                    $userLeave[$day['date']] ?? null,
+                    $userHands[$day['date']] ?? null,
+                );
+                $cells[] = $cell;
+                if (isset($counts[$cell['kind']])) {
+                    $counts[$cell['kind']]++;
+                }
+            }
+            $rows[] = [
+                'user_id' => (string) $user->id,
+                'name' => $this->displayName($user),
+                'code' => trim((string) ($profile->employee_code ?? '')),
+                'joined' => ($joined && $joined > $start->toDateString()) ? $joinedLabel : '',
+                'cells' => $cells,
+                'counts' => $counts,
+            ];
+        }
+
+        return [
+            'days' => $days,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $entry
+     * @param  array{status: string, half: bool, code: string, label: string}|null  $leave
+     * @return array{kind: string, mark: string, title: string, editable: bool, hand: ?string}
+     */
+    private function attendanceDay(
+        CarbonInterface $day,
+        CarbonInterface $today,
+        ?CarbonInterface $startsOn,
+        ?string $joined,
+        string $joinedLabel,
+        ?string $left,
+        bool $recurringOff,
+        ?string $holidayName,
+        ?array $entry,
+        ?array $leave,
+        ?string $hand,
+    ): array {
+        $key = $day->toDateString();
+        $when = $day->format('D j M Y');
+        $hand = in_array($hand, ['present', 'absent', 'half'], true) ? $hand : null;
+        $cell = function (string $kind, string $mark, string $title, bool $editable, ?string $chosen = null): array {
+            return [
+                'kind' => $kind,
+                'mark' => $mark,
+                'title' => $title,
+                'editable' => $editable,
+                'hand' => $chosen,
+            ];
+        };
+        $employed = ($joined === null || $key >= $joined) && ($left === null || $key <= $left);
+        if (! $employed) {
+            if ($joined && $key < $joined) {
+                return $cell('before', '—', $when.' · Joined '.$joinedLabel, false);
+            }
+
+            return $cell('after', '—', $when.' · After last working day', false);
+        }
+
+        $markedOff = is_array($entry) && ($entry['status'] ?? null) === 'week_off';
+        if ($recurringOff || $markedOff) {
+            return $cell('off', 'WO', $when.' · Week off', false);
+        }
+        if ($holidayName) {
+            return $cell('holiday', 'H', $when.' · '.$holidayName, false);
+        }
+        if (! $day->gt($today) && $hand === 'present') {
+            return $cell('present', 'P', $when.' · Present · Set by hand', true, 'present');
+        }
+        if (! $day->gt($today) && $hand === 'absent') {
+            return $cell('absent', 'A', $when.' · Absent · Set by hand', true, 'absent');
+        }
+        if (! $day->gt($today) && $hand === 'half') {
+            return $cell('half', 'HD', $when.' · Half day · Set by hand', true, 'half');
+        }
+
+        $open = ! $day->gt($today);
+        if ($leave && $leave['status'] === 'approved') {
+            $kind = $leave['half'] ? 'half' : 'leave';
+
+            return $cell($kind, $leave['code'], $when.' · '.$leave['label'].' · Approved', $open);
+        }
+
+        if (is_array($entry) && ($entry['status'] ?? null) === 'submitted') {
+            $rows = is_array($entry['rows'] ?? null) ? $entry['rows'] : [];
+            $onlyLeave = $rows !== [] && collect($rows)->every(fn ($row) => is_array($row) && ($row['ticket_id'] ?? '') === 'leave');
+            if (! empty($entry['half']) || ($leave['half'] ?? false)) {
+                $label = $leave['label'] ?? 'Half day';
+
+                return $cell('half', 'HD', $when.' · '.$label, $open);
+            }
+            if ($onlyLeave) {
+                return $cell('leave', 'L', $when.' · Leave', $open);
+            }
+
+            return $cell('present', 'P', $when.' · Present', $open);
+        }
+
+        if ($leave && $leave['status'] === 'pending') {
+            return $cell('pending', $leave['code'], $when.' · '.$leave['label'].' · Pending', $open);
+        }
+
+        if ($startsOn && $day->copy()->startOfDay()->lt($startsOn)) {
+            return $cell('none', '', $when, $open);
+        }
+        if ($day->gt($today)) {
+            return $cell('future', '', $when, false);
+        }
+        if ($day->isSameDay($today)) {
+            return $cell('today', '', $when.' · Today', $open);
+        }
+
+        return $cell('absent', 'A', $when.' · Absent', $open);
+    }
+
+    /**
+     * Hand marks for people who do not fill a timesheet. An empty status clears that day.
+     *
+     * @param  array<string, string|null>  $marks
+     */
+    public function saveAttendanceMarks(User $actor, string $userId, string $period, array $marks): void
+    {
+        $start = Carbon::parse($period.'-01')->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+        if ($this->attendanceIsLocked($start)) {
+            throw new \InvalidArgumentException('Attendance for '.$start->format('F Y').' is locked.');
+        }
+
+        $employee = User::query()->find($userId);
+        if (! $employee || ! in_array($employee->user_type, ADMIN_USER_TYPES, true)) {
+            throw new \InvalidArgumentException('That person is not an employee.');
+        }
+
+        $profile = PeopleProfile::query()->where('user_id', $employee->id)->first();
+        $employee->setRelation('peopleProfile', $profile);
+        $joined = $profile?->joined_on?->toDateString();
+        $left = $profile?->last_working_day?->toDateString();
+        $today = now()->startOfDay();
+        $holidays = [];
+        if (Schema::hasTable('people_holidays')) {
+            $holidays = PeopleHoliday::query()
+                ->whereDate('holiday_on', '>=', $start->toDateString())
+                ->whereDate('holiday_on', '<=', $end->toDateString())
+                ->pluck('name', 'holiday_on')
+                ->mapWithKeys(fn ($name, $date) => [Carbon::parse($date)->toDateString() => $name])
+                ->all();
+        }
+        $weekOffEntries = [];
+        if (Schema::hasTable('people_timesheets')) {
+            $sheets = PeopleTimesheet::query()
+                ->where('user_id', $employee->id)
+                ->whereDate('week_starts_on', '>=', $start->copy()->startOfWeek(Carbon::MONDAY)->toDateString())
+                ->whereDate('week_starts_on', '<=', $end->toDateString())
+                ->get(['entries']);
+            foreach ($sheets as $sheet) {
+                foreach ($sheet->entries ?? [] as $date => $entry) {
+                    if (is_string($date) && is_array($entry) && ($entry['status'] ?? null) === 'week_off') {
+                        $weekOffEntries[$date] = true;
+                    }
+                }
+            }
+        }
+
+        foreach ($marks as $date => $status) {
+            $date = (string) $date;
+            if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                continue;
+            }
+            $day = Carbon::parse($date)->startOfDay();
+            if ($day->lt($start) || $day->gt($end) || $day->gt($today)) {
+                continue;
+            }
+            if (($joined && $date < $joined) || ($left && $date > $left)) {
+                continue;
+            }
+            if ($this->isRecurringWeekOff($day, $employee) || isset($weekOffEntries[$date]) || isset($holidays[$date])) {
+                continue;
+            }
+
+            $status = is_string($status) ? $status : '';
+            if (! in_array($status, ['present', 'absent', 'half'], true)) {
+                PeopleAttendanceMark::query()->where('user_id', $employee->id)->whereDate('marked_on', $date)->delete();
+
+                continue;
+            }
+
+            PeopleAttendanceMark::query()->updateOrCreate(
+                ['user_id' => $employee->id, 'marked_on' => $date],
+                ['status' => $status, 'marked_by' => $actor->id]
+            );
+        }
+    }
+
+    /**
      * @return Collection<int, array{at: ?CarbonInterface, leave: string, what: string, how: string, why: string}>
      */
     public function leaveHistory(string $userId): Collection
@@ -1648,18 +2003,47 @@ class PeopleWorkspace
             'pending' => 'Pending',
             'approved' => 'Approved',
             'sent_back' => 'Sent back',
+            'submitted' => 'Submitted',
+            'unsubmitted' => 'Unsubmitted',
+            'upcoming' => 'Upcoming',
+            'holiday' => 'Holiday',
+            'week_off' => 'Week off',
+            'before' => 'Not open',
             'draft' => 'Draft',
             'published' => 'Published',
             'verified' => 'On file',
             'missing' => 'Missing',
             'rejected' => 'Rejected',
             'cancelled' => 'Cancelled',
-            'held' => 'Held',
+            'held' => 'Left out',
             'locked' => 'Locked',
             'notice' => 'On notice',
             'exited' => 'Exited',
             'active' => 'Active',
             default => ucfirst(str_replace('_', ' ', $status)),
+        };
+    }
+
+    public function payrollRunLabel(?string $status): string
+    {
+        return match ($status) {
+            'draft' => 'Not sent yet',
+            'published' => 'Payslips sent',
+            'locked' => 'Locked',
+            default => 'Not calculated',
+        };
+    }
+
+    public function payrollStatusLabel(string $status, bool $leftOut): string
+    {
+        if ($leftOut) {
+            return 'Left out';
+        }
+
+        return match ($status) {
+            'draft' => 'Will be paid',
+            'published' => 'Payslip sent',
+            default => $this->statusLabel($status),
         };
     }
 
@@ -1766,11 +2150,16 @@ class PeopleWorkspace
 
         try {
             $week = $sheet->week_starts_on?->format('j M Y') ?? '';
+            $body = $week !== '' ? 'Week of '.$week : '';
+            $why = trim((string) ($sheet->decision_note ?? ''));
+            if ($why !== '') {
+                $body = trim($body.' '.$why);
+            }
             $this->notifyPerson(
                 (string) $sheet->user_id,
                 UserNotification::TYPE_TIMESHEET_DECIDED,
                 'Your timesheet was '.$this->statusLabel((string) $sheet->status),
-                $week !== '' ? 'Week of '.$week : null,
+                $body !== '' ? $body : null,
                 route('admin.people.index', ['section' => 'timesheet']),
                 'people_timesheet_decided',
                 (string) $sheet->id.':'.(string) $sheet->status.':'.($sheet->decided_at?->getTimestamp() ?? time()),
@@ -1878,7 +2267,7 @@ class PeopleWorkspace
         }
 
         return $tab === 'timesheet'
-            ? route('admin.accounts.attendance')
+            ? route('admin.hr.attendance')
             : route('admin.people.records');
     }
 

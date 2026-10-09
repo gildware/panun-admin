@@ -12,38 +12,69 @@
         <div class="people-ws">
             <div class="people-ws-main">
                 @php
-                    $approvalQuery = $selectedEmployee !== '' ? ['employee' => $selectedEmployee] : [];
+                    $approvalQuery = [];
+                    if ($selectedEmployee !== '') {
+                        $approvalQuery['employee'] = $selectedEmployee;
+                    }
+                    if ($timesheetPeriod === 'last') {
+                        $approvalQuery['period'] = 'last';
+                    }
+                    $periodRanges = [
+                        'current' => now()->startOfMonth(),
+                        'last' => now()->subMonthNoOverflow()->startOfMonth(),
+                    ];
                 @endphp
-                <div class="people-ws-head people-approval-head">
-                    <div>
-                        <h1>Approval requests</h1>
-                        <p>Leave and timesheets from people who report to you.</p>
-                    </div>
-                    <form class="people-approval-filter" method="get" action="{{ route('admin.people.approvals') }}">
+                <div class="people-approval-bar">
+                    <nav class="people-ws-tabs people-ws-tabs--counts" aria-label="Approval requests">
+                        <a class="{{ $tab === 'leaves' ? 'is-on' : '' }}" href="{{ route('admin.people.approvals', array_merge(['tab' => 'leaves'], $approvalQuery)) }}">
+                            Leaves
+                            @if($pendingLeave)
+                                <span class="people-ws-tab-count">{{ $pendingLeave > 99 ? '99+' : $pendingLeave }}</span>
+                            @endif
+                        </a>
+                        <a class="{{ $tab === 'timesheet' ? 'is-on' : '' }}" href="{{ route('admin.people.approvals', array_merge(['tab' => 'timesheet'], $timesheetPeriod === 'last' ? ['period' => 'last'] : [])) }}">
+                            Timesheet
+                            @if($pendingTimesheets)
+                                <span class="people-ws-tab-count">{{ $pendingTimesheets > 99 ? '99+' : $pendingTimesheets }}</span>
+                            @endif
+                        </a>
+                    </nav>
+                    <form class="people-approval-filters" method="get" action="{{ route('admin.people.approvals') }}">
                         <input type="hidden" name="tab" value="{{ $tab }}">
-                        <label for="approval_employee">Employee</label>
-                        <select id="approval_employee" name="employee" onchange="this.form.submit()">
-                            <option value="">All employees</option>
-                            @foreach($employees as $employee)
-                                <option value="{{ $employee->id }}" @selected($selectedEmployee === (string) $employee->id)>{{ $workspace->displayName($employee) }}</option>
-                            @endforeach
-                        </select>
+                        @if($tab === 'timesheet')
+                            <input type="hidden" name="view" value="{{ $employeeWise ? 'employees' : $viewEmployee }}">
+                        @endif
+                        @if($tab === 'timesheet' && ($employeeWise || $viewEmployee !== ''))
+                            <a class="btn-pw people-ts-back" href="{{ route('admin.people.approvals', array_filter(['tab' => 'timesheet', 'period' => $timesheetPeriod === 'last' ? 'last' : null])) }}">
+                                <span class="material-icons" aria-hidden="true">arrow_back</span>
+                                Back to approval
+                            </a>
+                        @elseif($tab === 'timesheet')
+                            <a class="btn-pw people-ts-view-all" href="{{ route('admin.people.approvals', array_filter(['tab' => 'timesheet', 'view' => 'employees', 'period' => $timesheetPeriod === 'last' ? 'last' : null])) }}">View all employee wise</a>
+                        @endif
+                        <div class="people-ts-period-field">
+                            <label for="approval_period">Time period</label>
+                            <select id="approval_period" name="period" onchange="this.form.submit()">
+                                @foreach($periodRanges as $key => $start)
+                                    <option value="{{ $key }}" @selected($timesheetPeriod === $key)>{{ $start->format('jS F Y') }} – {{ $start->copy()->endOfMonth()->format('jS F Y') }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="approval_employee">Employee</label>
+                            <select id="approval_employee" name="employee" onchange="var view=this.form.querySelector('[name=view]'); if(view){ view.value=this.value; } this.form.submit();">
+                                @if($tab !== 'timesheet')
+                                    <option value="">All employees</option>
+                                @elseif($viewEmployee === '')
+                                    <option value="">Select employee</option>
+                                @endif
+                                @foreach($employees as $employee)
+                                    <option value="{{ $employee->id }}" @selected($tab === 'timesheet' ? $viewEmployee === (string) $employee->id : $selectedEmployee === (string) $employee->id)>{{ $workspace->displayName($employee) }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </form>
                 </div>
-                <nav class="people-ws-tabs people-ws-tabs--counts" aria-label="Approval requests">
-                    <a class="{{ $tab === 'leaves' ? 'is-on' : '' }}" href="{{ route('admin.people.approvals', array_merge(['tab' => 'leaves'], $approvalQuery)) }}">
-                        Leaves
-                        @if($pendingLeave)
-                            <span class="people-ws-tab-count">{{ $pendingLeave > 99 ? '99+' : $pendingLeave }}</span>
-                        @endif
-                    </a>
-                    <a class="{{ $tab === 'timesheet' ? 'is-on' : '' }}" href="{{ route('admin.people.approvals', array_merge(['tab' => 'timesheet'], $approvalQuery)) }}">
-                        Timesheet
-                        @if($pendingTimesheets)
-                            <span class="people-ws-tab-count">{{ $pendingTimesheets > 99 ? '99+' : $pendingTimesheets }}</span>
-                        @endif
-                    </a>
-                </nav>
 
                 @if($tab === 'leaves')
                     <article class="people-ws-card people-ws-scroll">
@@ -121,7 +152,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="8" class="people-ws-note">{{ $selectedEmployee !== '' ? 'No leave requests for this person.' : 'No leave requests from your team.' }}</td></tr>
+                                <tr><td colspan="8" class="people-ws-note">No leave requests in this month.</td></tr>
                             @endforelse
                             </tbody>
                         </table>
@@ -138,6 +169,7 @@
                                     <input type="hidden" name="decision" value="approve">
                                     <input type="hidden" name="leave_id" id="approve-leave-id" value="">
                                     <input type="hidden" name="employee" id="approve-leave-employee" value="">
+                                    <input type="hidden" name="period" value="{{ $timesheetPeriod }}">
                                     <div class="modal-header">
                                         <h2 class="modal-title" id="approveLeaveModalLabel">Approve leave</h2>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -162,6 +194,7 @@
                                     <input type="hidden" name="decision" value="sent_back">
                                     <input type="hidden" name="leave_id" id="reject-leave-id" value="{{ $failedLeave->id ?? '' }}">
                                     <input type="hidden" name="employee" id="reject-leave-employee" value="{{ $selectedEmployee }}">
+                                    <input type="hidden" name="period" value="{{ $timesheetPeriod }}">
                                     <div class="modal-header">
                                         <h2 class="modal-title" id="rejectLeaveModalLabel">Reject leave</h2>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -226,142 +259,211 @@
 
                 @if($tab === 'timesheet')
                     @php
-                        $reviewQuery = function (string $userId, ?string $period = null) use ($selectedEmployee) {
-                            $query = ['tab' => 'timesheet', 'view' => $userId, 'period' => $period ?? 'current'];
-                            if ($selectedEmployee !== '') {
-                                $query['employee'] = $selectedEmployee;
-                            }
-
-                            return $query;
-                        };
+                        $failedSheet = old('timesheet_id') ? $submittedTimesheets->firstWhere('id', old('timesheet_id')) : null;
                     @endphp
-                    @if($timesheetReview)
-                        <div class="people-ts-toolbar">
-                            <div>
-                                <a class="btn-pw" href="{{ route('admin.people.approvals', array_merge(['tab' => 'timesheet'], $approvalQuery)) }}">Back to approvals</a>
-                            </div>
-                            <nav class="people-ts-period" aria-label="Timesheet month">
-                                <a class="{{ $timesheetPeriod === 'current' ? 'is-on' : '' }}" href="{{ route('admin.people.approvals', $reviewQuery($viewEmployee, 'current')) }}">Current month</a>
-                                <a class="{{ $timesheetPeriod === 'last' ? 'is-on' : '' }}" href="{{ route('admin.people.approvals', $reviewQuery($viewEmployee, 'last')) }}">Last month</a>
-                            </nav>
-                        </div>
-                        <article class="people-ws-card">
-                            <h2>{{ $timesheetReview['name'] }} · sent for approval</h2>
-                            <p class="people-ws-note">{{ $timesheetReview['monthLabel'] }}. Every week sent for approval. Days from the other month are left out.</p>
-                            @forelse($timesheetReview['weeks'] as $week)
-                                <section class="people-ts-week">
-                                    <div class="people-ts-week-head">
-                                        <div>
-                                            <h3>{{ $week['label'] }}</h3>
-                                            <p>{{ number_format($week['hours'], 1) }} hours in {{ $timesheetReview['monthLabel'] }}</p>
-                                        </div>
-                                        <div class="people-ws-actions">
-                                            @include('adminmodule::admin.people._badge', ['status' => $week['sheet']->status])
-                                            @if($week['sheet']->status === 'pending')
-                                                <form method="post" action="{{ route('admin.people.team.timesheet.decide', $week['sheet']) }}">
-                                                    @csrf
-                                                    <input type="hidden" name="return_to" value="approvals-timesheet">
-                                                    <input type="hidden" name="view" value="{{ $viewEmployee }}">
-                                                    <input type="hidden" name="period" value="{{ $timesheetPeriod }}">
-                                                    @if($selectedEmployee !== '')
-                                                        <input type="hidden" name="employee" value="{{ $selectedEmployee }}">
-                                                    @endif
-                                                    <button class="btn-pw good" name="decision" value="approve">Accept</button>
-                                                    <button class="btn-pw danger" name="decision" value="sent_back">Deny</button>
-                                                </form>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    @foreach($week['days'] as $day)
-                                        <div class="people-ts-day">
-                                            <div class="people-ts-day-head">
-                                                <strong>{{ $day['label'] }}</strong>
-                                                <span>{{ $day['status'] }}@if($day['hours'] > 0) · {{ number_format($day['hours'], 1) }} h @endif</span>
-                                            </div>
-                                            @if($day['rows'] === [])
-                                                <p class="people-ws-note">No tasks on this day.</p>
-                                            @else
-                                                <table>
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Task</th>
-                                                            <th>Note</th>
-                                                            <th>Time</th>
-                                                            <th>Hours</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                    @foreach($day['rows'] as $row)
-                                                        <tr>
-                                                            <td>{{ $row['task'] }}</td>
-                                                            <td>{{ $row['note'] !== '' ? $row['note'] : '—' }}</td>
-                                                            <td>{{ $row['time'] !== '' ? $row['time'] : '—' }}</td>
-                                                            <td>{{ number_format($row['hours'], 1) }}</td>
-                                                        </tr>
-                                                    @endforeach
-                                                    </tbody>
-                                                </table>
-                                            @endif
-                                        </div>
-                                    @endforeach
-                                </section>
+                    @php
+                        $hoursText = fn (float $hours) => \Modules\AdminModule\Services\PeopleWorkspace::hoursText($hours);
+                        if (! $failedSheet && old('timesheet_id')) {
+                            $reviewSources = $employeeWise ? $employeeReviews : ($timesheetReview ? [$timesheetReview] : []);
+                            foreach ($reviewSources as $reviewSource) {
+                                foreach ($reviewSource['days'] as $sumDay) {
+                                    if ($sumDay['sheet'] && (string) $sumDay['sheet']->id === (string) old('timesheet_id')) {
+                                        $failedSheet = $sumDay['sheet'];
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                    @endphp
+                    @if($employeeWise)
+                        <div class="people-ts-people">
+                            @forelse($employeeReviews as $timesheetReview)
+                                <h2 class="people-ts-person-name">{{ $timesheetReview['name'] }}</h2>
+                                @include('adminmodule::admin.people._timesheet_month', ['timesheetReview' => $timesheetReview, 'employeeId' => $timesheetReview['id'], 'hoursText' => $hoursText])
                             @empty
-                                <p class="people-ws-note">No timesheets sent for approval in {{ $timesheetReview['monthLabel'] }}.</p>
+                                <article class="people-ws-card"><p class="people-ws-note">No employees to show.</p></article>
                             @endforelse
-                        </article>
+                        </div>
+                    @elseif($timesheetReview)
+                        @include('adminmodule::admin.people._timesheet_month', ['timesheetReview' => $timesheetReview, 'employeeId' => $selectedEmployee, 'hoursText' => $hoursText])
                     @else
-                        @if($selectedEmployee !== '')
-                            <div class="people-ts-toolbar">
-                                <p class="people-ws-note">Open every timesheet this person sent for approval.</p>
-                                <a class="btn-pw primary" href="{{ route('admin.people.approvals', $reviewQuery($selectedEmployee)) }}">View all</a>
-                            </div>
-                        @endif
-                        <article class="people-ws-card people-ws-scroll">
+                        <article class="people-ws-card people-ws-scroll people-ts-queue">
                             <table>
                                 <thead>
                                     <tr>
                                         <th>Person</th>
-                                        <th>Week</th>
-                                        <th>Hours</th>
-                                        <th>Note</th>
+                                        <th>Filled on</th>
+                                        <th>Filled for</th>
+                                        <th>Work detail</th>
                                         <th>Status</th>
-                                        <th></th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                @forelse($timesheets as $sheet)
+                                @forelse($submittedTimesheetRows as $row)
+                                    @php
+                                        $sheet = $row['sheet'];
+                                        $filledFor = $row['filled_for']->format('l, j F Y');
+                                    @endphp
                                     <tr>
-                                        <td>{{ $sheet->user ? $workspace->displayName($sheet->user) : '—' }}</td>
-                                        <td>Week of {{ $sheet->week_starts_on->format('j M Y') }}</td>
-                                        <td>{{ number_format($sheet->totalHours(), 1) }}</td>
-                                        <td title="{{ $sheet->note }}">{{ $sheet->note ?: '—' }}</td>
-                                        <td>@include('adminmodule::admin.people._badge', ['status' => $sheet->status])</td>
+                                        <td>{{ $row['person'] }}</td>
+                                        <td>{{ $row['filled_on'] ? $row['filled_on']->format('l, j F Y') : '—' }}</td>
+                                        <td>{{ $filledFor }}</td>
                                         <td>
+                                            @if($row['details'] === [])
+                                                —
+                                            @else
+                                                <div class="people-ts-chips">
+                                                    @foreach($row['details'] as $detail)
+                                                        <span class="people-ts-chip" title="{{ $detail }}">{{ $detail }}</span>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td>@include('adminmodule::admin.people._badge', ['status' => $row['state']])</td>
+                                        <td class="actions">
                                             <div class="people-ws-actions">
-                                                @if($sheet->user)
-                                                    <a class="btn-pw" href="{{ route('admin.people.approvals', $reviewQuery((string) $sheet->user_id)) }}">View all</a>
-                                                @endif
-                                                @if($sheet->status === 'pending')
-                                                    <form method="post" action="{{ route('admin.people.team.timesheet.decide', $sheet) }}">
-                                                        @csrf
-                                                        <input type="hidden" name="return_to" value="approvals-timesheet">
-                                                        @if($selectedEmployee !== '')
-                                                            <input type="hidden" name="employee" value="{{ $selectedEmployee }}">
-                                                        @endif
-                                                        <button class="btn-pw good" name="decision" value="approve">Accept</button>
-                                                        <button class="btn-pw danger" name="decision" value="sent_back">Deny</button>
-                                                    </form>
-                                                @endif
+                                                <a class="btn-pw" href="{{ route('admin.people.approvals', ['tab' => 'timesheet', 'employee' => $row['user_id'], 'view' => $row['user_id'], 'period' => $timesheetPeriod]) }}">View all</a>
+                                                <button
+                                                    class="btn-pw good"
+                                                    type="button"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#approveTimesheetModal"
+                                                    data-action="{{ route('admin.people.team.timesheet.decide', $sheet) }}"
+                                                    data-employee="{{ $row['user_id'] }}"
+                                                    data-timesheet="{{ $sheet->id }}"
+                                                    data-summary="Approve {{ $row['person'] }}’s timesheet for {{ $filledFor }}?"
+                                                >Approve</button>
+                                                <button
+                                                    class="btn-pw danger"
+                                                    type="button"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#rejectTimesheetModal"
+                                                    data-action="{{ route('admin.people.team.timesheet.decide', $sheet) }}"
+                                                    data-employee="{{ $row['user_id'] }}"
+                                                    data-timesheet="{{ $sheet->id }}"
+                                                    data-summary="Reject {{ $row['person'] }}’s timesheet for {{ $filledFor }}?"
+                                                >Reject</button>
                                             </div>
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="people-ws-note">{{ $selectedEmployee !== '' ? 'No timesheets for this person.' : 'No timesheets from your team.' }}</td></tr>
+                                    <tr><td colspan="6" class="people-ws-note">No timesheets submitted for approval in this month.</td></tr>
                                 @endforelse
                                 </tbody>
                             </table>
                         </article>
                     @endif
+                        <div class="modal fade" id="approveTimesheetModal" tabindex="-1" aria-labelledby="approveTimesheetModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content people-ws-dept-modal">
+                                    <form id="approve-timesheet-form" method="post" action="">
+                                        @csrf
+                                        <input type="hidden" name="return_to" value="approvals-timesheet">
+                                        <input type="hidden" name="decision" value="approve">
+                                        <input type="hidden" name="timesheet_id" id="approve-timesheet-id" value="">
+                                        <input type="hidden" name="employee" id="approve-timesheet-employee" value="">
+                                        <input type="hidden" name="period" value="{{ $timesheetPeriod }}">
+                                        @if($employeeWise || $viewEmployee !== '')
+                                            <input type="hidden" name="view" value="{{ $employeeWise ? 'employees' : $viewEmployee }}">
+                                        @endif
+                                        <div class="modal-header">
+                                            <h2 class="modal-title" id="approveTimesheetModalLabel">Approve timesheet</h2>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p class="people-ws-note" id="approve-timesheet-summary">Approve this timesheet?</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button class="btn-pw" type="button" data-bs-dismiss="modal">Cancel</button>
+                                            <button class="btn-pw good" type="submit">Approve</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal fade" id="rejectTimesheetModal" tabindex="-1" aria-labelledby="rejectTimesheetModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content people-ws-dept-modal">
+                                    <form id="reject-timesheet-form" method="post" action="{{ $failedSheet ? route('admin.people.team.timesheet.decide', $failedSheet) : '' }}">
+                                        @csrf
+                                        <input type="hidden" name="return_to" value="approvals-timesheet">
+                                        <input type="hidden" name="decision" value="sent_back">
+                                        <input type="hidden" name="timesheet_id" id="reject-timesheet-id" value="{{ $failedSheet->id ?? '' }}">
+                                        <input type="hidden" name="employee" id="reject-timesheet-employee" value="{{ $selectedEmployee }}">
+                                        <input type="hidden" name="period" value="{{ $timesheetPeriod }}">
+                                        @if($employeeWise || $viewEmployee !== '')
+                                            <input type="hidden" name="view" value="{{ $employeeWise ? 'employees' : $viewEmployee }}">
+                                        @endif
+                                        <div class="modal-header">
+                                            <h2 class="modal-title" id="rejectTimesheetModalLabel">Reject timesheet</h2>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p class="people-ws-note" id="reject-timesheet-summary">Reject this timesheet?</p>
+                                            @if($errors->has('decision_note'))
+                                                <p class="people-ws-note">{{ $errors->first('decision_note') }}</p>
+                                            @endif
+                                            <div class="field">
+                                                <label for="reject-timesheet-note">Reason</label>
+                                                <textarea id="reject-timesheet-note" name="decision_note" maxlength="500" required placeholder="Why this timesheet is rejected">{{ old('decision_note') }}</textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button class="btn-pw" type="button" data-bs-dismiss="modal">Cancel</button>
+                                            <button class="btn-pw danger" type="submit">Reject</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        @push('script')
+                            <script>
+                                document.querySelectorAll('[data-show-chips]').forEach(function (button) {
+                                    button.addEventListener('click', function () {
+                                        var chips = button.parentElement;
+                                        if (!chips) return;
+                                        chips.querySelectorAll('[data-extra-chip]').forEach(function (chip) {
+                                            chip.hidden = false;
+                                        });
+                                        button.remove();
+                                    });
+                                });
+
+                                function bindTimesheetModal(modalId, formId, summaryId, employeeId, sheetFieldId) {
+                                    var modal = document.getElementById(modalId);
+                                    if (!modal) return;
+                                    modal.addEventListener('show.bs.modal', function (event) {
+                                        var button = event.relatedTarget;
+                                        var form = document.getElementById(formId);
+                                        var summary = document.getElementById(summaryId);
+                                        var employee = document.getElementById(employeeId);
+                                        var sheet = document.getElementById(sheetFieldId);
+                                        if (!button || !form) return;
+                                        form.action = button.getAttribute('data-action') || '';
+                                        if (summary) summary.textContent = button.getAttribute('data-summary') || summary.textContent;
+                                        if (employee) employee.value = button.getAttribute('data-employee') || '';
+                                        if (sheet) sheet.value = button.getAttribute('data-timesheet') || '';
+                                    });
+                                }
+
+                                bindTimesheetModal('approveTimesheetModal', 'approve-timesheet-form', 'approve-timesheet-summary', 'approve-timesheet-employee', 'approve-timesheet-id');
+                                bindTimesheetModal('rejectTimesheetModal', 'reject-timesheet-form', 'reject-timesheet-summary', 'reject-timesheet-employee', 'reject-timesheet-id');
+
+                                var rejectTimesheetModal = document.getElementById('rejectTimesheetModal');
+                                var rejectTimesheetNote = document.getElementById('reject-timesheet-note');
+                                if (rejectTimesheetModal && rejectTimesheetNote) {
+                                    rejectTimesheetModal.addEventListener('hidden.bs.modal', function () {
+                                        rejectTimesheetNote.value = '';
+                                    });
+                                    @if($errors->has('decision_note'))
+                                    if (window.bootstrap) {
+                                        window.bootstrap.Modal.getOrCreateInstance(rejectTimesheetModal).show();
+                                    }
+                                    @endif
+                                }
+                            </script>
+                        @endpush
                 @endif
             </div>
         </div>

@@ -121,10 +121,11 @@ class PeopleWorkspaceController extends Controller
             'manager_id' => $request->input('manager_id') ?: null,
             'joined_on' => $request->input('joined_on') ?: null,
         ]);
+        $currentLocation = (string) PeopleProfile::query()->where('user_id', $user->id)->value('work_location');
         $data = $request->validate([
             'job_title' => ['required', 'string', 'max:120'],
             'department' => ['nullable', 'string', 'max:120'],
-            'work_location' => ['nullable', 'string', 'max:120'],
+            'work_location' => ['nullable', Rule::in(PeopleProfile::allowedWorkLocations($currentLocation))],
             'employment_type' => ['required', Rule::in(['full_time', 'contract'])],
             'joined_on' => ['nullable', 'date'],
             'manager_id' => ['nullable', 'uuid', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('user_type', ADMIN_USER_TYPES))],
@@ -575,10 +576,21 @@ class PeopleWorkspaceController extends Controller
             $tab = 'leaves';
         }
 
-        $employees = $this->workspace->teamMembers($actor);
+        $employees = $this->approvalPeople($actor);
         $memberIds = $employees->pluck('id');
+        $timesheetPeriod = $request->query('period') === 'last' ? 'last' : 'current';
+        $periodMonth = $timesheetPeriod === 'last'
+            ? now()->subMonthNoOverflow()->startOfMonth()
+            : now()->startOfMonth();
+        $periodEnd = $periodMonth->copy()->endOfMonth()->startOfDay();
         $requestedEmployee = (string) $request->query('employee', '');
         $selectedEmployee = $memberIds->contains($requestedEmployee) ? $requestedEmployee : '';
+        $requestedView = (string) $request->query('view', '');
+        $employeeWise = $tab === 'timesheet' && $requestedView === 'employees';
+        $viewEmployee = $tab === 'timesheet' && $memberIds->contains($requestedView) ? $requestedView : '';
+        if ($viewEmployee !== '') {
+            $selectedEmployee = $viewEmployee;
+        }
         $visibleIds = $selectedEmployee !== '' ? collect([$selectedEmployee]) : $memberIds;
         $leaveRequests = PeopleLeaveRequest::query()
             ->with('user')
@@ -589,6 +601,11 @@ class PeopleWorkspaceController extends Controller
                 $pending = ($left->status === 'pending' ? 0 : 1) <=> ($right->status === 'pending' ? 0 : 1);
 
                 return $pending !== 0 ? $pending : $right->created_at <=> $left->created_at;
+            })
+            ->values()
+            ->filter(function (PeopleLeaveRequest $leave) use ($periodMonth, $periodEnd) {
+                return $leave->starts_on->copy()->startOfDay()->lte($periodEnd)
+                    && $leave->ends_on->copy()->startOfDay()->gte($periodMonth);
             })
             ->values();
         $timesheets = PeopleTimesheet::query()
@@ -602,13 +619,41 @@ class PeopleWorkspaceController extends Controller
                 return $pending !== 0 ? $pending : $right->week_starts_on <=> $left->week_starts_on;
             })
             ->values();
+        $submittedTimesheets = PeopleTimesheet::query()
+            ->with('user')
+            ->whereIn('user_id', $memberIds)
+            ->whereIn('status', ['pending', 'draft', 'sent_back'])
+            ->whereDate('week_starts_on', '<=', $periodEnd->toDateString())
+            ->whereDate('week_starts_on', '>=', $periodMonth->copy()->subDays(6)->toDateString())
+            ->orderByDesc('week_starts_on')
+            ->get()
+            ->filter(function (PeopleTimesheet $sheet) use ($periodMonth, $periodEnd) {
+                $start = $sheet->week_starts_on->copy()->startOfDay();
+                if ($start->gt($periodEnd) || $start->copy()->addDays(6)->lt($periodMonth)) {
+                    return false;
+                }
+                $entries = is_array($sheet->entries) ? $sheet->entries : [];
+                foreach ($entries as $date => $entry) {
+                    if (! is_array($entry) || ($entry['status'] ?? null) !== 'submitted') {
+                        continue;
+                    }
+                    $day = Carbon::parse($date)->startOfDay();
+                    if ($day->gte($periodMonth) && $day->lte($periodEnd)) {
+                        return true;
+                    }
+                }
 
-        $requestedView = (string) $request->query('view', '');
-        $viewEmployee = $tab === 'timesheet' && $memberIds->contains($requestedView) ? $requestedView : '';
-        $timesheetPeriod = $request->query('period') === 'last' ? 'last' : 'current';
+                return false;
+            })
+            ->values();
+        $submittedTimesheetRows = $this->submittedTimesheetRows($submittedTimesheets, $periodMonth, $periodEnd);
+
         $timesheetReview = $viewEmployee !== ''
             ? $this->timesheetApprovalReview($employees->firstWhere('id', $viewEmployee), $timesheetPeriod)
             : null;
+        $employeeReviews = $employeeWise
+            ? $employees->map(fn (User $person) => $this->timesheetApprovalReview($person, $timesheetPeriod))->values()
+            : collect();
 
         return view('adminmodule::admin.people.approvals', [
             'workspace' => $this->workspace,
@@ -623,10 +668,14 @@ class PeopleWorkspaceController extends Controller
             'employees' => $employees,
             'selectedEmployee' => $selectedEmployee,
             'pendingLeave' => $leaveRequests->where('status', 'pending')->count(),
-            'pendingTimesheets' => $timesheets->where('status', 'pending')->count(),
-            'viewEmployee' => $viewEmployee,
+            'pendingTimesheets' => $submittedTimesheetRows->count(),
             'timesheetPeriod' => $timesheetPeriod,
             'timesheetReview' => $timesheetReview,
+            'viewEmployee' => $viewEmployee,
+            'employeeWise' => $employeeWise,
+            'employeeReviews' => $employeeReviews,
+            'submittedTimesheets' => $submittedTimesheets,
+            'submittedTimesheetRows' => $submittedTimesheetRows,
         ]);
     }
 
@@ -672,12 +721,21 @@ class PeopleWorkspaceController extends Controller
         $data = $request->validate([
             'decision' => ['required', Rule::in(['approve', 'sent_back'])],
             'return_to' => ['nullable', 'string', 'max:40'],
+            'decision_note' => [
+                Rule::requiredIf(fn () => $request->input('decision') === 'sent_back' && str_starts_with((string) $request->input('return_to'), 'approvals')),
+                'nullable',
+                'string',
+                'max:500',
+            ],
+            'timesheet_id' => ['nullable', 'uuid'],
+        ], [
+            'decision_note.required' => 'Write a reason for rejecting this timesheet.',
         ]);
         $timesheet->load('user');
 
         try {
             $this->payroll->assertAttendanceOpen($timesheet->week_starts_on);
-            $this->workspace->decideTimesheet($actor, $timesheet, $data['decision']);
+            $this->workspace->decideTimesheet($actor, $timesheet, $data['decision'], $data['decision_note'] ?? null);
         } catch (\InvalidArgumentException $exception) {
             Toastr::error($exception->getMessage());
 
@@ -693,7 +751,7 @@ class PeopleWorkspaceController extends Controller
         });
 
         return match ((string) ($data['return_to'] ?? '')) {
-            'hr-attendance' => redirect()->route('admin.accounts.attendance'),
+            'hr-attendance' => redirect()->route('admin.hr.attendance'),
             'hr-home' => redirect()->route('admin.dashboard.people'),
             'approvals-timesheet' => redirect()->route('admin.people.approvals', $this->approvalQuery('timesheet', (string) $request->input('employee', ''))),
             default => redirect()->route('admin.people.team', ['section' => 'timesheets']),
@@ -755,7 +813,7 @@ class PeopleWorkspaceController extends Controller
         $data = $request->validate([
             'user_id' => ['required', 'uuid', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('user_type', ADMIN_USER_TYPES))],
             'job_title' => ['required', 'string', 'max:120'],
-            'work_location' => ['nullable', 'string', 'max:120'],
+            'work_location' => ['nullable', Rule::in(array_keys(PeopleProfile::WORK_LOCATIONS))],
             'address' => ['nullable', 'string', 'max:500'],
             'joined_on' => ['nullable', 'date'],
             'manager_id' => ['nullable', 'uuid', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('user_type', ADMIN_USER_TYPES))],
@@ -1533,9 +1591,60 @@ class PeopleWorkspaceController extends Controller
     }
 
     /**
-     * Sent-for-approval timesheets for one person, limited to the current or previous month.
+     * One approval row for each submitted day in the selected month.
      *
-     * @return array{name: string, monthLabel: string, weeks: list<array<string, mixed>>}
+     * @param  \Illuminate\Support\Collection<int, PeopleTimesheet>  $sheets
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function submittedTimesheetRows($sheets, Carbon $periodMonth, Carbon $periodEnd)
+    {
+        $rows = collect();
+        foreach ($sheets as $sheet) {
+            $entries = is_array($sheet->entries) ? $sheet->entries : [];
+            foreach ($entries as $date => $entry) {
+                if (! is_array($entry) || ($entry['status'] ?? null) !== 'submitted') {
+                    continue;
+                }
+                $day = Carbon::parse($date)->startOfDay();
+                if ($day->lt($periodMonth) || $day->gt($periodEnd)) {
+                    continue;
+                }
+                $details = [];
+                foreach ($entry['rows'] ?? [] as $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+                    $name = trim((string) ($row['task'] ?? ''));
+                    if ($name !== '') {
+                        $details[] = $name.' ('.PeopleWorkspace::hoursText((float) ($row['hours'] ?? 0)).')';
+                    }
+                }
+                $rows->push([
+                    'sheet' => $sheet,
+                    'user_id' => (string) $sheet->user_id,
+                    'person' => $sheet->user ? $this->workspace->displayName($sheet->user) : '—',
+                    'filled_on' => $sheet->updated_at,
+                    'filled_for' => $day,
+                    'details' => $details,
+                    'state' => match ((string) $sheet->status) {
+                        'approved' => 'approved',
+                        'pending' => 'pending',
+                        'sent_back' => 'sent_back',
+                        default => 'submitted',
+                    },
+                ]);
+            }
+        }
+
+        return $rows
+            ->sortByDesc(fn (array $row) => $row['filled_for']->timestamp)
+            ->values();
+    }
+
+    /**
+     * Every day of the current or previous month for one person.
+     *
+     * @return array{name: string, range: string, days: list<array<string, mixed>>}
      */
     private function timesheetApprovalReview(?User $person, string $period): array
     {
@@ -1543,92 +1652,120 @@ class PeopleWorkspaceController extends Controller
             ? now()->subMonthNoOverflow()->startOfMonth()
             : now()->startOfMonth();
         $monthEnd = $month->copy()->endOfMonth()->startOfDay();
-        $weeks = [];
-
+        $today = now()->startOfDay();
+        $extraIds = [];
+        $extraNames = [];
+        foreach ($this->workspace->configuredTimesheetTasks() as $extra) {
+            $extraIds[(string) $extra['id']] = true;
+            $extraNames[mb_strtolower((string) $extra['task'])] = true;
+        }
+        $saved = [];
+        $holidays = [];
         if ($person) {
+            $holidayRows = PeopleHoliday::query()
+                ->whereDate('holiday_on', '>=', $month->toDateString())
+                ->whereDate('holiday_on', '<=', $monthEnd->toDateString())
+                ->pluck('holiday_on');
+            foreach ($holidayRows as $holidayOn) {
+                $holidays[Carbon::parse($holidayOn)->toDateString()] = true;
+            }
             $sheets = PeopleTimesheet::query()
                 ->where('user_id', $person->id)
-                ->whereIn('status', ['pending', 'approved', 'sent_back'])
                 ->whereDate('week_starts_on', '>=', $month->copy()->subDays(6)->toDateString())
                 ->whereDate('week_starts_on', '<=', $monthEnd->toDateString())
-                ->orderByDesc('week_starts_on')
+                ->orderBy('week_starts_on')
                 ->get();
-
             foreach ($sheets as $sheet) {
-                $start = $sheet->week_starts_on->copy()->startOfDay();
                 $entries = is_array($sheet->entries) ? $sheet->entries : [];
-                $days = [];
-                $monthHours = 0.0;
-                for ($offset = 0; $offset < 7; $offset++) {
-                    $day = $start->copy()->addDays($offset);
-                    if ($day->lt($month) || $day->gt($monthEnd)) {
+                foreach ($entries as $date => $entry) {
+                    if (! is_array($entry)) {
                         continue;
                     }
-                    $entry = $entries[$day->toDateString()] ?? null;
-                    $entry = is_array($entry) ? $entry : [];
-                    $rows = [];
-                    $dayHours = 0.0;
-                    foreach ($entry['rows'] ?? [] as $row) {
-                        if (! is_array($row)) {
-                            continue;
-                        }
-                        $hours = round((float) ($row['hours'] ?? 0), 2);
-                        $dayHours += $hours;
-                        $from = $this->clockLabel((string) ($row['from_time'] ?? ''));
-                        $to = $this->clockLabel((string) ($row['to_time'] ?? ''));
-                        $rows[] = [
-                            'task' => trim((string) ($row['task'] ?? '')) !== '' ? trim((string) $row['task']) : '—',
-                            'note' => trim((string) ($row['description'] ?? '')),
-                            'time' => $from !== '' && $to !== '' ? $from.' – '.$to : '',
-                            'hours' => $hours,
-                        ];
-                    }
-                    $dayHours = round($dayHours, 2);
-                    $monthHours += $dayHours;
-                    $entryStatus = (string) ($entry['status'] ?? '');
-                    $days[] = [
-                        'label' => $day->format('D, j M'),
-                        'status' => match ($entryStatus) {
-                            'submitted' => 'Submitted',
-                            'week_off' => 'Week off',
-                            default => 'Not filled',
-                        },
-                        'hours' => $dayHours,
-                        'rows' => $rows,
-                    ];
+                    $saved[(string) $date] = ['entry' => $entry, 'sheet' => $sheet];
                 }
-                if ($days === []) {
-                    continue;
-                }
-                $weeks[] = [
-                    'sheet' => $sheet,
-                    'label' => 'Week of '.$start->format('j M Y'),
-                    'hours' => round($monthHours, 1),
-                    'days' => $days,
-                ];
             }
         }
 
+        $days = [];
+        for ($cursor = $month->copy(); $cursor->lte($monthEnd); $cursor->addDay()) {
+            $key = $cursor->toDateString();
+            $record = $saved[$key] ?? null;
+            $entry = is_array($record['entry'] ?? null) ? $record['entry'] : null;
+            $sheet = $record['sheet'] ?? null;
+            $entryStatus = is_array($entry) ? (string) ($entry['status'] ?? '') : '';
+            $chips = [];
+            $task = 0.0;
+            $additional = 0.0;
+            $leave = 0.0;
+            if ($entryStatus === 'submitted') {
+                foreach ($entry['rows'] ?? [] as $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+                    $name = trim((string) ($row['task'] ?? ''));
+                    $ticket = (string) ($row['ticket_id'] ?? '');
+                    $hours = round((float) ($row['hours'] ?? 0), 2);
+                    $isLeave = in_array($ticket, ['leave', 'partial-leave'], true);
+                    $isExtra = isset($extraIds[$ticket]) || ($ticket === '' && $name !== '' && isset($extraNames[mb_strtolower($name)]));
+                    $chip = ($name !== '' ? $name : ($isLeave ? 'Leave' : 'Task')).' ('.PeopleWorkspace::hoursText($hours).')';
+                    if ($isLeave) {
+                        $leave += $hours;
+                        $chips[] = $chip;
+                    } elseif ($isExtra) {
+                        $additional += $hours;
+                        $chips[] = $chip;
+                    } else {
+                        $task += $hours;
+                        $chips[] = $chip;
+                    }
+                }
+            }
+            $state = $this->approvalDayState($cursor, $today, $entryStatus, $sheet ? (string) $sheet->status : '', isset($holidays[$key]), $person);
+            $days[] = [
+                'date' => $key,
+                'label' => $cursor->format('l, j F Y'),
+                'chips' => $chips,
+                'task' => round($task, 2),
+                'additional' => round($additional, 2),
+                'leave' => round($leave, 2),
+                'total' => round($task + $additional + $leave, 2),
+                'state' => $state,
+                'sheet' => $sheet,
+            ];
+        }
+
         return [
+            'id' => $person ? (string) $person->id : '',
             'name' => $person ? $this->workspace->displayName($person) : 'This person',
-            'monthLabel' => $month->format('F Y'),
-            'weeks' => $weeks,
+            'range' => $month->format('jS F Y').' – '.$monthEnd->format('jS F Y'),
+            'days' => $days,
         ];
     }
 
-    private function clockLabel(string $value): string
+    private function approvalDayState(Carbon $day, Carbon $today, string $entryStatus, string $sheetStatus, bool $holiday, ?User $person): string
     {
-        $value = substr($value, 0, 5);
-        if (! preg_match('/^(\d{2}):(\d{2})$/', $value, $match)) {
-            return '';
+        if ($entryStatus === 'submitted') {
+            return match ($sheetStatus) {
+                'approved' => 'approved',
+                'pending' => 'pending',
+                'sent_back' => 'sent_back',
+                default => 'submitted',
+            };
         }
-        $hour = (int) $match[1];
-        $hour12 = $hour % 12;
-        if ($hour12 === 0) {
-            $hour12 = 12;
+        if ($entryStatus === 'week_off' || ($person && $this->workspace->isWeekOff($day, $person))) {
+            return 'week_off';
+        }
+        if ($holiday) {
+            return 'holiday';
+        }
+        if ($this->workspace->isBeforeTimesheetStart($day)) {
+            return 'before';
+        }
+        if ($day->gt($today)) {
+            return 'upcoming';
         }
 
-        return $hour12.':'.$match[2].' '.($hour >= 12 ? 'PM' : 'AM');
+        return 'unsubmitted';
     }
 
     /**
@@ -1637,21 +1774,36 @@ class PeopleWorkspaceController extends Controller
     private function approvalQuery(string $tab, string $employeeId): array
     {
         $params = ['tab' => $tab];
-        $allowed = $this->workspace->approvalUserIds($this->actor());
+        $allowed = $this->approvalPeople($this->actor())->pluck('id');
+        if ($employeeId === '') {
+            $employeeId = (string) request()->input('view', '');
+        }
         if ($employeeId !== '' && $allowed->contains($employeeId)) {
             $params['employee'] = $employeeId;
         }
-        if ($tab === 'timesheet') {
-            $view = (string) request()->input('view', '');
-            if ($view !== '' && $allowed->contains($view)) {
-                $params['view'] = $view;
-            }
-            if (request()->input('period') === 'last') {
-                $params['period'] = 'last';
-            }
+        $view = (string) request()->input('view', '');
+        if ($tab === 'timesheet' && $view === 'employees') {
+            $params['view'] = 'employees';
+        } elseif ($tab === 'timesheet' && $view !== '' && $allowed->contains($view)) {
+            $params['view'] = $view;
+            $params['employee'] = $view;
+        }
+        if (request()->input('period') === 'last') {
+            $params['period'] = 'last';
         }
 
         return $params;
+    }
+
+    private function approvalPeople(User $actor)
+    {
+        if ($this->workspace->isHr($actor)) {
+            return $this->workspace->staffUsers()
+                ->reject(fn (User $user) => (string) $user->id === (string) $actor->id)
+                ->values();
+        }
+
+        return $this->workspace->teamMembers($actor);
     }
 
     private function afterDecision(string $returnTo, string $employeeId = ''): RedirectResponse

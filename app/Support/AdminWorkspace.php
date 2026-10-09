@@ -198,7 +198,6 @@ class AdminWorkspace
     {
         return $request->is(
             'admin/dashboard/finance',
-            'admin/accounts/attendance*',
             'admin/accounts/payroll*',
             'admin/accounts/salary*',
             'admin/transaction*',
@@ -236,7 +235,7 @@ class AdminWorkspace
         }
 
         if (Gate::allows('people_hr')) {
-            return route('admin.accounts.attendance');
+            return route('admin.accounts.salary');
         }
 
         return route('admin.dashboard.finance');

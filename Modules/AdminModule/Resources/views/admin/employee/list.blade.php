@@ -104,6 +104,7 @@
                                         <th>Photo</th>
                                         <th>Name</th>
                                         <th>Employee type</th>
+                                        <th>Billing</th>
                                         <th>Email</th>
                                         <th>Phone</th>
                                         <th>Roles</th>
@@ -125,6 +126,7 @@
                                                 <a href="{{ route('admin.employee.profile', $employee->id) }}">{{ $employee->first_name }} {{ $employee->last_name }}</a>
                                             </td>
                                             <td>{{ ($employee->peopleProfile->employment_stage ?: 'permanent') === 'probation' ? 'Probation' : 'Permanent' }}</td>
+                                            <td>{{ \Modules\AdminModule\Entities\PeopleProfile::billingTypeLabel($employee->peopleProfile->billing_type ?: 'billable') }}</td>
                                             <td>{{ $employee->email }}</td>
                                             <td>{{ $employee->phone ?: '—' }}</td>
                                             <td>{{ $employee->roles->pluck('role_name')->join(', ') ?: '—' }}</td>
@@ -178,7 +180,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="10"><p
+                                            <td colspan="11"><p
                                                     class="text-center">{{translate('no_data_available')}}</p></td>
                                         </tr>
                                     @endforelse

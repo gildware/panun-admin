@@ -43,7 +43,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
     Route::get('dashboard/finance', [AdminController::class, 'financeDashboard'])->name('dashboard.finance');
-    Route::get('accounts/attendance', [PeopleHrController::class, 'index'])->name('accounts.attendance');
+    Route::get('accounts/attendance', function () {
+        return redirect()->route('admin.hr.attendance', request()->query());
+    })->name('accounts.attendance');
     Route::get('accounts/salary', [PeopleHrController::class, 'index'])->name('accounts.salary');
     Route::get('accounts/payroll', [AccountsPayrollController::class, 'index'])->name('accounts.payroll');
     Route::get('dashboard/people', [WorkspaceDashboardController::class, 'people'])->name('dashboard.people');
@@ -181,12 +183,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('leave/grant', [PeopleHrController::class, 'grantLeave'])->name('leave.grant');
         Route::post('salary', [PeopleHrController::class, 'saveSalary'])->name('salary');
         Route::post('adjustment', [PeopleHrController::class, 'saveAdjustment'])->name('adjustment');
+        Route::get('attendance', [PeopleHrController::class, 'index'])->name('attendance');
         Route::post('attendance/lock', [PeopleHrController::class, 'lockAttendance'])->name('attendance.lock');
+        Route::post('attendance/marks', [PeopleHrController::class, 'saveAttendanceMarks'])->name('attendance.marks');
         Route::post('payroll/build', [PeopleHrController::class, 'buildPayroll'])->name('payroll.build');
         Route::post('payroll/{payslip}/hold', [PeopleHrController::class, 'holdPayslip'])->name('payroll.hold');
         Route::post('payroll/publish', [PeopleHrController::class, 'publishPayroll'])->name('payroll.publish');
         Route::post('payroll/lock', [PeopleHrController::class, 'lockPayroll'])->name('payroll.lock');
-        Route::get('payroll/bank', [PeopleHrController::class, 'bankFile'])->name('bank');
+        Route::get('payroll/net', [PeopleHrController::class, 'netPayFile'])->name('payroll.net');
         Route::post('configuration', [PeopleHrController::class, 'saveTimesheetConfiguration'])->name('configuration');
         Route::post('configuration/tasks', [PeopleHrController::class, 'storeTimesheetTask'])->name('configuration.tasks.store');
         Route::post('configuration/tasks/{timesheetTask}', [PeopleHrController::class, 'updateTimesheetTask'])->name('configuration.tasks.update');

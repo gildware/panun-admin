@@ -3,6 +3,16 @@
         $hrSection = (string) request()->route('section', '');
     @endphp
     <div class="top-nav-item">
+        <a href="{{ route('admin.hr.attendance') }}"
+           class="top-nav-trigger {{ request()->routeIs('admin.hr.attendance') ? 'active-menu' : '' }}"
+           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+            @include('adminmodule::layouts.partials.top-nav._employee-nav-icon', ['icon' => 'fact_check'])
+            @include('adminmodule::layouts.partials.top-nav._employee-nav-label', [
+                'label' => 'Attendance',
+            ])
+        </a>
+    </div>
+    <div class="top-nav-item">
         <a href="{{ route('admin.people.holidays') }}"
            class="top-nav-trigger {{ request()->routeIs('admin.people.holidays') ? 'active-menu' : '' }}"
            @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>

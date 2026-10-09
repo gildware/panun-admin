@@ -481,6 +481,9 @@ class AdminNavRegistry
         }
 
         if (Gate::allows('people_hr')) {
+            $items[] = self::entry('people', 'People', null, 'Attendance', route('admin.hr.attendance'), [
+                'admin/hr/attendance*',
+            ], ['admin.hr.attendance']);
             $items[] = self::entry('people', 'People', null, 'Holidays', route('admin.people.holidays'), [
                 'admin/people/holidays*',
             ], ['admin.people.holidays']);
@@ -611,9 +614,6 @@ class AdminNavRegistry
         $items = [];
 
         if (Gate::allows('people_hr')) {
-            $items[] = self::entry('accounts_pay', 'Accounts', null, 'Attendance', route('admin.accounts.attendance'), [
-                'admin/accounts/attendance*',
-            ], ['admin.accounts.attendance']);
             $items[] = self::entry('accounts_pay', 'Accounts', null, 'Salary', route('admin.accounts.salary'), [
                 'admin/accounts/salary*',
             ], ['admin.accounts.salary']);

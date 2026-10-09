@@ -102,11 +102,9 @@ class PeopleHrController extends Controller
                 ? PeopleLeaveRequest::query()->with('user')->whereIn('user_id', $staffIds)->latest()->limit(80)->get()
                 : collect(),
             'documents' => collect(),
-            'timesheets' => $section === 'attendance'
-                ? PeopleTimesheet::query()->with('user')->whereIn('user_id', $staffIds)->latest('week_starts_on')->limit(60)->get()
-                : ($section === 'home'
-                    ? PeopleTimesheet::query()->with('user')->whereIn('user_id', $staffIds)->where('status', 'pending')->get()
-                    : collect()),
+            'timesheets' => $section === 'home'
+                ? PeopleTimesheet::query()->with('user')->whereIn('user_id', $staffIds)->where('status', 'pending')->get()
+                : collect(),
             'structures' => $section === 'salary'
                 ? PeopleSalaryStructure::query()->whereIn('user_id', $staffIds)->orderByDesc('effective_from')->get()->groupBy('user_id')
                 : collect(),
@@ -117,6 +115,9 @@ class PeopleHrController extends Controller
                 ? PeoplePayslip::query()->with('user')->where('period', $period)->orderBy('user_id')->get()
                 : collect(),
             'run' => in_array($section, ['home', 'payroll', 'attendance'], true) ? $this->payroll->runFor($period) : null,
+            'attendance' => $section === 'attendance'
+                ? $this->workspace->attendanceMonth($staff, $profiles, $period)
+                : null,
             'person' => $section === 'person' ? $this->person($request, $staff) : null,
             'departments' => PeopleDepartment::query()->orderBy('name')->get(),
             'departmentCounts' => PeopleProfile::query()
@@ -191,7 +192,9 @@ class PeopleHrController extends Controller
             'user_id' => ['required', 'uuid'],
             'job_title' => ['required', 'string', 'max:120'],
             'department' => ['nullable', 'string', 'max:120'],
-            'work_location' => ['nullable', 'string', 'max:120'],
+            'work_location' => ['nullable', Rule::in(PeopleProfile::allowedWorkLocations(
+                (string) PeopleProfile::query()->where('user_id', $request->input('user_id'))->value('work_location')
+            ))],
             'employment_type' => ['required', Rule::in(['full_time', 'contract'])],
             'employment_status' => ['required', Rule::in(['active', 'notice', 'exited'])],
             'joined_on' => ['nullable', 'date'],
@@ -743,18 +746,18 @@ class PeopleHrController extends Controller
         $this->requireHr();
         $data = $request->validate([
             'period' => ['required', 'date_format:Y-m'],
-            'count_missing_weeks' => ['nullable', 'boolean'],
+            'count_missing_days' => ['nullable', 'boolean'],
         ]);
 
         try {
-            $this->payroll->buildMonth($data['period'], $request->boolean('count_missing_weeks'));
+            $this->payroll->buildMonth($data['period'], $request->boolean('count_missing_days'));
         } catch (\InvalidArgumentException $exception) {
             Toastr::error($exception->getMessage());
 
             return back();
         }
 
-        Toastr::success('Draft payroll built for '.$data['period'].'.');
+        Toastr::success('Pay calculated for '.$data['period'].'.');
 
         return redirect()->route('admin.accounts.payroll', ['period' => $data['period']]);
     }
@@ -763,13 +766,13 @@ class PeopleHrController extends Controller
     {
         $this->requireHr();
         if ($payslip->status !== 'draft' || $this->payroll->isLocked($payslip->period)) {
-            Toastr::error('Only a draft month can be held.');
+            Toastr::error('You can only leave someone out before payslips are sent.');
 
             return back();
         }
 
         $payslip->forceFill(['held' => ! $payslip->held])->save();
-        Toastr::success($payslip->held ? 'Held out of this month.' : 'Put back into this month.');
+        Toastr::success($payslip->held ? 'Left out of this month’s pay.' : 'Put back into this month’s pay.');
 
         return redirect()->route('admin.accounts.payroll', ['period' => $payslip->period]);
     }
@@ -818,7 +821,30 @@ class PeopleHrController extends Controller
         $run->forceFill(['attendance_locked' => true])->save();
         Toastr::success('Attendance for that month is locked.');
 
-        return redirect()->route('admin.accounts.attendance', ['period' => $data['period']]);
+        return redirect()->route('admin.hr.attendance', ['period' => $data['period']]);
+    }
+
+    public function saveAttendanceMarks(Request $request): RedirectResponse
+    {
+        $actor = $this->requireHr();
+        $data = $request->validate([
+            'period' => ['required', 'date_format:Y-m'],
+            'user_id' => ['required', 'uuid'],
+            'marks' => ['nullable', 'array'],
+            'marks.*' => ['nullable', Rule::in(['present', 'absent', 'half'])],
+        ]);
+
+        try {
+            $this->workspace->saveAttendanceMarks($actor, $data['user_id'], $data['period'], $data['marks'] ?? []);
+        } catch (\InvalidArgumentException $exception) {
+            Toastr::error($exception->getMessage());
+
+            return redirect()->route('admin.hr.attendance', ['period' => $data['period'], 'edit' => $data['user_id']]);
+        }
+
+        Toastr::success('Attendance saved.');
+
+        return redirect()->route('admin.hr.attendance', ['period' => $data['period']]);
     }
 
     public function lockPayroll(Request $request): RedirectResponse
@@ -842,33 +868,40 @@ class PeopleHrController extends Controller
         return redirect()->route('admin.accounts.payroll', ['period' => $data['period']]);
     }
 
-    public function bankFile(Request $request): StreamedResponse
+    public function netPayFile(Request $request): StreamedResponse
     {
         $this->requireHr();
         $period = $this->period($request);
         $slips = PeoplePayslip::query()
             ->with('user')
             ->where('period', $period)
-            ->where('status', 'published')
             ->where('held', false)
-            ->orderBy('user_id')
-            ->get();
+            ->get()
+            ->filter(fn (PeoplePayslip $slip) => empty($slip->breakdown['missing_structure']))
+            ->sortBy(fn (PeoplePayslip $slip) => $slip->user ? $this->workspace->displayName($slip->user) : '')
+            ->values();
 
-        return response()->streamDownload(function () use ($slips, $period) {
+        return response()->streamDownload(function () use ($slips) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Name', 'Account', 'IFSC', 'Net', 'Period']);
+            fputcsv($out, ['Person', 'Loss of pay (days)', 'According to salary', 'Deductions', 'Net payable']);
+            $salary = 0.0;
+            $deductions = 0.0;
+            $net = 0.0;
             foreach ($slips as $slip) {
-                $profile = PeopleProfile::query()->where('user_id', $slip->user_id)->first();
+                $salary += (float) $slip->gross;
+                $deductions += (float) $slip->deductions;
+                $net += (float) $slip->net;
                 fputcsv($out, [
                     $slip->user ? $this->workspace->displayName($slip->user) : '',
-                    $profile->bank_account ?? '',
-                    $profile->bank_ifsc ?? '',
+                    rtrim(rtrim(number_format((float) $slip->lop_days, 1, '.', ''), '0'), '.'),
+                    number_format((float) $slip->gross, 2, '.', ''),
+                    number_format((float) $slip->deductions, 2, '.', ''),
                     number_format((float) $slip->net, 2, '.', ''),
-                    $period,
                 ]);
             }
+            fputcsv($out, ['Will be paid', '', number_format($salary, 2, '.', ''), number_format($deductions, 2, '.', ''), number_format($net, 2, '.', '')]);
             fclose($out);
-        }, 'salary-'.$period.'.csv', ['Content-Type' => 'text/csv']);
+        }, 'net-pay-'.$period.'.csv', ['Content-Type' => 'text/csv']);
     }
 
     public function storeDepartment(Request $request): RedirectResponse
@@ -1157,7 +1190,7 @@ class PeopleHrController extends Controller
     private function section(Request $request): string
     {
         $section = match (true) {
-            $request->routeIs('admin.accounts.attendance') => 'attendance',
+            $request->routeIs('admin.hr.attendance') => 'attendance',
             $request->routeIs('admin.accounts.payroll') => 'payroll',
             $request->routeIs('admin.accounts.salary') => 'salary',
             default => (string) ($request->route('section') ?: $request->query('section', 'home')),
@@ -1176,7 +1209,6 @@ class PeopleHrController extends Controller
         $query = $request->except('section');
 
         return match ($section) {
-            'attendance' => redirect()->route('admin.accounts.attendance', $query),
             'payroll' => redirect()->route('admin.accounts.payroll', $query),
             'salary' => redirect()->route('admin.accounts.salary', $query),
             'home' => redirect()->route('admin.dashboard.people'),
