@@ -42,6 +42,9 @@ class PeopleWorkspaceController extends Controller
         $user->loadMissing('roles');
         $profile = PeopleProfile::query()->with('manager')->where('user_id', $user->id)->first()
             ?? $this->workspace->ensureStaffFile($user)->load('manager');
+        if ($section === 'timesheet' && ! $profile->requiresTimesheet()) {
+            return redirect()->route('admin.people.index', ['section' => 'profile']);
+        }
         $balance = $this->workspace->balance($user);
         $week = $this->workspace->timesheetForWeek($user, $this->workspace->currentWeekStart());
 
@@ -271,6 +274,11 @@ class PeopleWorkspaceController extends Controller
     public function storeTimesheet(Request $request): RedirectResponse
     {
         $user = $this->actor();
+        if (! $this->workspace->requiresTimesheet($user)) {
+            Toastr::error('This employee does not fill a timesheet.');
+
+            return redirect()->route('admin.people.index', ['section' => 'profile']);
+        }
         $sheet = $this->workspace->timesheetForWeek($user, $this->workspace->currentWeekStart());
         try {
             $this->payroll->assertAttendanceOpen($sheet->week_starts_on);
@@ -312,6 +320,11 @@ class PeopleWorkspaceController extends Controller
     public function storeTimesheetDay(Request $request): RedirectResponse
     {
         $user = $this->actor();
+        if (! $this->workspace->requiresTimesheet($user)) {
+            Toastr::error('This employee does not fill a timesheet.');
+
+            return redirect()->route('admin.people.index', ['section' => 'profile']);
+        }
         $data = $request->validate([
             'work_date' => ['required', 'date', 'before_or_equal:today'],
             'month' => ['nullable', 'date_format:Y-m'],
@@ -577,6 +590,19 @@ class PeopleWorkspaceController extends Controller
         }
 
         $employees = $this->approvalPeople($actor);
+        if ($tab === 'timesheet') {
+            $timesheetProfiles = PeopleProfile::query()
+                ->whereIn('user_id', $employees->pluck('id'))
+                ->get()
+                ->keyBy('user_id');
+            $employees = $employees
+                ->filter(function (User $person) use ($timesheetProfiles) {
+                    $profile = $timesheetProfiles->get($person->id);
+
+                    return $profile ? $profile->requiresTimesheet() : true;
+                })
+                ->values();
+        }
         $memberIds = $employees->pluck('id');
         $timesheetPeriod = $request->query('period') === 'last' ? 'last' : 'current';
         $periodMonth = $timesheetPeriod === 'last'

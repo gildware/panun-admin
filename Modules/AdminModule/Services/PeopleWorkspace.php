@@ -278,6 +278,19 @@ class PeopleWorkspace
     /**
      * First day a timesheet is required. Null means every past working day counts.
      */
+    public function requiresTimesheet(?User $user): bool
+    {
+        if (! $user) {
+            return true;
+        }
+
+        $profile = $user->relationLoaded('peopleProfile')
+            ? $user->peopleProfile
+            : PeopleProfile::query()->where('user_id', $user->id)->first();
+
+        return $profile?->requiresTimesheet() ?? true;
+    }
+
     public function timesheetStartsOn(): ?Carbon
     {
         $settings = $this->timesheetSettings();
@@ -1458,6 +1471,9 @@ class PeopleWorkspace
                         } elseif ($day->gt($today)) {
                             $cell['kind'] = 'future';
                             $cell['title'] = $when;
+                        } elseif (! $this->requiresTimesheet($person)) {
+                            $cell['kind'] = 'none';
+                            $cell['title'] = $when;
                         } else {
                             $cell['kind'] = 'absent';
                             $cell['title'] = $when.' · No attendance';
@@ -1625,6 +1641,7 @@ class PeopleWorkspace
             $userEntries = $entriesByUser[(string) $user->id] ?? [];
             $userLeave = $leaveByUser[(string) $user->id] ?? [];
             $userHands = $handsByUser[(string) $user->id] ?? [];
+            $skipsTimesheet = ! $this->requiresTimesheet($user);
             $cells = [];
             $counts = ['present' => 0, 'absent' => 0, 'leave' => 0, 'half' => 0];
             foreach ($days as $day) {
@@ -1642,6 +1659,7 @@ class PeopleWorkspace
                     $userEntries[$day['date']] ?? null,
                     $userLeave[$day['date']] ?? null,
                     $userHands[$day['date']] ?? null,
+                    $skipsTimesheet,
                 );
                 $cells[] = $cell;
                 if (isset($counts[$cell['kind']])) {
@@ -1681,6 +1699,7 @@ class PeopleWorkspace
         ?array $entry,
         ?array $leave,
         ?string $hand,
+        bool $skipsTimesheet = false,
     ): array {
         $key = $day->toDateString();
         $when = $day->format('D j M Y');
@@ -1754,6 +1773,9 @@ class PeopleWorkspace
         }
         if ($day->isSameDay($today)) {
             return $cell('today', '', $when.' · Today', $open);
+        }
+        if ($skipsTimesheet) {
+            return $cell('none', '', $when.' · No timesheet. Mark this day by hand.', $open);
         }
 
         return $cell('absent', 'A', $when.' · Absent', $open);

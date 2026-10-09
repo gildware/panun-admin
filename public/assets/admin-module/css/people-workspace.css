@@ -846,7 +846,7 @@ a.people-ws-row:hover { background: #f8fafc; }
 .people-time-actions [data-time-done]:disabled { opacity: .4; cursor: default; }
 #applyLeaveModal #leave-hours-field[hidden] { display: none; }
 #applyLeaveModal #leave-hours-note { display: block; margin: 8px 0 0; }
-#holidayModal.show, #departmentModal.show, #leaveTypeModal.show, #leavePolicyModal.show, #leaveAdjustModal.show, #applyLeaveModal.show, #revokeLeaveModal.show, #approveLeaveModal.show, #rejectLeaveModal.show, #documentUploadModal.show, #documentPreviewModal.show, #documentRemoveModal.show, #passwordChangeModal.show, #weekOffModal.show { z-index: 20060; }
+#holidayModal.show, #departmentModal.show, #leaveTypeModal.show, #leavePolicyModal.show, #leaveAdjustModal.show, #applyLeaveModal.show, #revokeLeaveModal.show, #approveLeaveModal.show, #rejectLeaveModal.show, #documentUploadModal.show, #documentPreviewModal.show, #documentRemoveModal.show, #passwordChangeModal.show, #weekOffModal.show, #payBonusModal.show { z-index: 20060; }
 body:has(#holidayModal.show) .modal-backdrop.show,
 body:has(#departmentModal.show) .modal-backdrop.show,
 body:has(#leaveTypeModal.show) .modal-backdrop.show,
@@ -860,7 +860,8 @@ body:has(#documentUploadModal.show) .modal-backdrop.show,
 body:has(#documentPreviewModal.show) .modal-backdrop.show,
 body:has(#documentRemoveModal.show) .modal-backdrop.show,
 body:has(#passwordChangeModal.show) .modal-backdrop.show,
-body:has(#weekOffModal.show) .modal-backdrop.show { z-index: 20055; }
+body:has(#weekOffModal.show) .modal-backdrop.show,
+body:has(#payBonusModal.show) .modal-backdrop.show { z-index: 20055; }
 .people-doc-toolbar { display: flex; justify-content: flex-end; margin-top: 12px; }
 .people-doc-upload { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .people-doc-upload > label { align-self: stretch; text-align: left; }
@@ -2808,14 +2809,86 @@ body.nav-top .main-area:has(.ts-app) {
 .people-pay-figures strong { font-size: 16px; font-variant-numeric: tabular-nums; color: var(--pw-ink); }
 .people-pay-figures .is-net strong { color: var(--pw-good); }
 .people-pay-figures em { margin-left: 6px; font-style: normal; color: var(--pw-muted); font-size: 12px; }
+.people-pay-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--top-chrome-main-padding, 8rem) - 2.75rem);
+  min-height: 420px;
+}
+.people-pay-page .people-pay-top { flex: none; margin-bottom: 0; }
+.people-pay-sheet {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 12px;
+  padding: 0;
+  overflow: auto;
+}
+.people-pay-table { border-collapse: separate; border-spacing: 0; }
+.people-pay-table th,
+.people-pay-table td { white-space: nowrap; }
+.people-pay-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  box-shadow: inset 0 -1px 0 var(--pw-line);
+}
 .people-pay-table th.is-money,
-.people-pay-table td.is-money { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.people-pay-table td.is-money { text-align: right; font-variant-numeric: tabular-nums; }
 .people-pay-table td.is-net { font-weight: 700; }
 .people-pay-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   font-weight: 700;
-  border-top: 1px solid var(--pw-line);
   background: #fafbfc;
+  box-shadow: inset 0 1px 0 var(--pw-line);
 }
 .people-pay-table tr.is-out td { color: var(--pw-muted); }
 .people-pay-table tr.is-none td { color: var(--pw-muted); }
-.people-pay-table .people-ws-actions { justify-content: flex-end; }
+.people-pay-table .people-ws-actions { justify-content: flex-end; flex-wrap: nowrap; }
+.people-pay-person, .people-pay-inline { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.people-pay-inline { justify-content: flex-end; }
+.people-pay-note { color: var(--pw-muted); font-size: 12px; font-weight: 500; }
+.people-ws .people-pay-inline .btn-pw { padding: 4px 8px; }
+#payBonusModal .modal-dialog {
+  display: flex;
+  align-items: center;
+  min-height: calc(100% - 2rem);
+  max-width: 440px;
+  margin: 1rem auto;
+  pointer-events: none;
+}
+#payBonusModal .modal-content {
+  width: 100%;
+  pointer-events: auto;
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(20, 24, 50, .16);
+}
+#payBonusModal form { display: flex; flex-direction: column; }
+#payBonusModal .field { margin-bottom: 12px; }
+#payBonusModal .people-ws-note { display: block; margin: 0 0 12px; color: #64748b; }
+#payBonusModal .field label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: #44403c; }
+#payBonusModal input {
+  width: 100%;
+  border: 1px solid #d7dbe3;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fff;
+  color: #1a1c38;
+}
+#payBonusModal .modal-footer { justify-content: flex-end; gap: 8px; }
+#payBonusModal .btn-pw { border: 1px solid #e7e5e4; background: #fff; border-radius: 8px; padding: 8px 12px; }
+#payBonusModal .btn-pw.primary { background: var(--pw-brand, #25274d); border-color: var(--pw-brand, #25274d); color: #fff; }
+.people-pay-modal-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 8px;
+}
+.people-pay-modal-line form { display: flex; }

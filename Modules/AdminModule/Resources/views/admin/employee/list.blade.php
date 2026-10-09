@@ -105,6 +105,7 @@
                                         <th>Name</th>
                                         <th>Employee type</th>
                                         <th>Billing</th>
+                                        <th>Timesheet</th>
                                         <th>Email</th>
                                         <th>Phone</th>
                                         <th>Roles</th>
@@ -127,6 +128,7 @@
                                             </td>
                                             <td>{{ ($employee->peopleProfile->employment_stage ?: 'permanent') === 'probation' ? 'Probation' : 'Permanent' }}</td>
                                             <td>{{ \Modules\AdminModule\Entities\PeopleProfile::billingTypeLabel($employee->peopleProfile->billing_type ?: 'billable') }}</td>
+                                            <td>{{ $employee->peopleProfile->requiresTimesheet() ? 'Required' : 'Can skip' }}</td>
                                             <td>{{ $employee->email }}</td>
                                             <td>{{ $employee->phone ?: '—' }}</td>
                                             <td>{{ $employee->roles->pluck('role_name')->join(', ') ?: '—' }}</td>
@@ -180,7 +182,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="11"><p
+                                            <td colspan="12"><p
                                                     class="text-center">{{translate('no_data_available')}}</p></td>
                                         </tr>
                                     @endforelse

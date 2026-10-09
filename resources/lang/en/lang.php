@@ -11285,4 +11285,5 @@ _Message' => 'Customer notification for provider bid offer
   'Training_dashboard' => 'Training dashboard',
   'View_leave' => 'View leave',
   'Leave_request' => 'Leave request',
+  'View_timesheet' => 'View timesheet',
 );

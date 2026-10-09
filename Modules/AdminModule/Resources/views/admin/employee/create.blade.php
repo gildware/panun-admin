@@ -50,6 +50,13 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label" for="requires_timesheet">Timesheet</label>
+                                <select id="requires_timesheet" class="form-control" name="requires_timesheet" required>
+                                    <option value="1" @selected((string) old('requires_timesheet', '1') === '1')>Required</option>
+                                    <option value="0" @selected((string) old('requires_timesheet', '1') === '0')>Can skip</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label" for="work_location">Work location</label>
                                 <select id="work_location" class="form-control" name="work_location">
                                     <option value="">Not set</option>

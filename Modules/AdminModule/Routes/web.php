@@ -188,6 +188,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('attendance/marks', [PeopleHrController::class, 'saveAttendanceMarks'])->name('attendance.marks');
         Route::post('payroll/build', [PeopleHrController::class, 'buildPayroll'])->name('payroll.build');
         Route::post('payroll/{payslip}/hold', [PeopleHrController::class, 'holdPayslip'])->name('payroll.hold');
+        Route::post('payroll/{payslip}/bonus', [PeopleHrController::class, 'addBonus'])->name('payroll.bonus');
+        Route::post('payroll/bonus/{adjustment}/remove', [PeopleHrController::class, 'removeBonus'])->name('payroll.bonus.remove');
         Route::post('payroll/publish', [PeopleHrController::class, 'publishPayroll'])->name('payroll.publish');
         Route::post('payroll/lock', [PeopleHrController::class, 'lockPayroll'])->name('payroll.lock');
         Route::get('payroll/net', [PeopleHrController::class, 'netPayFile'])->name('payroll.net');

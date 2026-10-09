@@ -27,12 +27,12 @@
             $savedStatus = $profile->employment_status ?: 'active';
             $statusValue = old('employment_status', $savedStatus);
             $managerName = $profile->manager ? $workspace->displayName($profile->manager) : null;
-            $mineTabs = [
-                'profile' => 'Profile',
-                'timesheet' => 'Timesheet',
-                'home' => 'Leaves',
-                'payslips' => 'Payslips',
-            ];
+            $mineTabs = ['profile' => 'Profile'];
+            if ($profile->requiresTimesheet()) {
+                $mineTabs['timesheet'] = 'Timesheet';
+            }
+            $mineTabs['home'] = 'Leaves';
+            $mineTabs['payslips'] = 'Payslips';
             $profileDocuments = $documents->filter(fn ($document) => filled($document->file_path));
         @endphp
         <div class="people-file people-file--stack">
@@ -165,6 +165,10 @@
                             <div class="ep-fact">
                                 <dt>Billing</dt>
                                 <dd>{{ \Modules\AdminModule\Entities\PeopleProfile::billingTypeLabel($profile->billing_type ?: 'billable') }}</dd>
+                            </div>
+                            <div class="ep-fact">
+                                <dt>Timesheet</dt>
+                                <dd>{{ $profile->requiresTimesheet() ? 'Required' : 'Can skip' }}</dd>
                             </div>
                             <div class="ep-fact">
                                 <dt>Department</dt>

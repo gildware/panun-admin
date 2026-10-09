@@ -34,9 +34,11 @@
         @if(($lines['deductions'] ?? []) === [])
             <tr><td>Deductions</td><td style="text-align:right">₹{{ number_format((float) $payslip->deductions, 2) }}</td></tr>
         @endif
-        @if((float) ($lines['adjustment'] ?? 0) != 0)
-            <tr><td>Adjustment</td><td style="text-align:right">₹{{ number_format((float) $lines['adjustment'], 2) }}</td></tr>
-        @endif
+        @foreach(\Modules\AdminModule\Services\PeoplePayroll::bonusLines($lines) as $bonus)
+            @if((float) ($bonus['amount'] ?? 0) != 0)
+                <tr><td>{{ $bonus['label'] }}</td><td style="text-align:right">₹{{ number_format((float) $bonus['amount'], 2) }}</td></tr>
+            @endif
+        @endforeach
         <tr><td class="net">Net pay</td><td class="net" style="text-align:right">₹{{ number_format((float) $payslip->net, 2) }}</td></tr>
         @if((float) ($lines['employer_pf'] ?? 0) > 0)
             <tr><td>Employer provident fund (not deducted)</td><td style="text-align:right">₹{{ number_format((float) $lines['employer_pf'], 2) }}</td></tr>

@@ -138,12 +138,14 @@ class EmployeeController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'work_schedule' => ['required', Rule::in(['full_time', 'part_time'])],
             'billing_type' => ['required', Rule::in(array_keys(PeopleProfile::BILLING_TYPES))],
+            'requires_timesheet' => ['required', 'boolean'],
             'work_location' => ['nullable', Rule::in(array_keys(PeopleProfile::WORK_LOCATIONS))],
             'role_ids' => ['required', 'array', 'min:1'],
             'role_ids.*' => ['uuid', Rule::exists('roles', 'id')],
         ]);
 
         $employeeId = null;
+        $data['requires_timesheet'] = $request->boolean('requires_timesheet');
 
         DB::transaction(function () use ($data, &$employeeId) {
             $employee = new User();
@@ -165,6 +167,7 @@ class EmployeeController extends Controller
             $profile = app(PeopleWorkspace::class)->ensureStaffFile($employee);
             $profile->work_schedule = $data['work_schedule'];
             $profile->billing_type = $data['billing_type'];
+            $profile->requires_timesheet = (bool) $data['requires_timesheet'];
             $profile->work_location = $data['work_location'] ?? '';
             $profile->save();
         });
@@ -299,6 +302,7 @@ class EmployeeController extends Controller
                 'department' => ['nullable', 'string', 'max:120'],
                 'work_location' => ['nullable', Rule::in(PeopleProfile::allowedWorkLocations($profile->work_location))],
                 'billing_type' => ['required', Rule::in(array_keys(PeopleProfile::BILLING_TYPES))],
+                'requires_timesheet' => ['required', 'boolean'],
                 'manager_id' => ['nullable', 'uuid'],
                 'joined_on' => ['nullable', 'date'],
                 'employment_stage' => ['required', Rule::in(['probation', 'permanent'])],
@@ -331,6 +335,7 @@ class EmployeeController extends Controller
                 $profile->department = $data['department'] ?? '';
                 $profile->work_location = $data['work_location'] ?? '';
                 $profile->billing_type = $data['billing_type'];
+                $profile->requires_timesheet = $request->boolean('requires_timesheet');
                 $profile->manager_id = $data['manager_id'] ?: null;
                 $profile->joined_on = $data['joined_on'] ?? null;
                 $profile->employment_stage = $data['employment_stage'];

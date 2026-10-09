@@ -40,6 +40,30 @@ class Zone extends Model
         $query->where('is_active', '=', $status);
     }
 
+    /**
+     * Listing columns. The polygon is omitted so ORDER BY does not filesort multi‑megabyte rows
+     * (MySQL error 1038: out of sort memory).
+     *
+     * @return list<string>
+     */
+    public static function adminListColumns(): array
+    {
+        return [
+            'id',
+            'name',
+            'description',
+            'parent_id',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
+    public function scopeForAdminList(Builder $query): Builder
+    {
+        return $query->select(static::adminListColumns());
+    }
+
     public function providers()
     {
         return $this->hasMany(Provider::class);

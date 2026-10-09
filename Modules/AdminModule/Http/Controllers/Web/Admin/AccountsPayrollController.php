@@ -33,6 +33,7 @@ class AccountsPayrollController extends Controller
         }
 
         $slips = PeoplePayslip::query()
+            ->forPayroll()
             ->with('user:id,first_name,last_name')
             ->where('period', $period)
             ->where('status', 'published')

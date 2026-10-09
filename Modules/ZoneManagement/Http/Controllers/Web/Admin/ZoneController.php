@@ -129,10 +129,11 @@ class ZoneController extends Controller
         $search = trim((string) $request->input('search', ''));
 
         return $this->zone
+            ->forAdminList()
             ->withCount(['providers', 'categories'])
             ->with(array_merge(
                 [
-                    'parentZone' => fn ($q) => $q->withoutGlobalScope('translate'),
+                    'parentZone' => fn ($q) => $q->withoutGlobalScope('translate')->forAdminList(),
                 ],
                 $this->zoneNestedChildZonesWith(12),
             ))
@@ -164,7 +165,8 @@ class ZoneController extends Controller
         return [
             'childZones' => function ($query) use ($depth) {
                 $query->withoutGlobalScope('translate')
-                    ->with(['parentZone' => fn ($p) => $p->withoutGlobalScope('translate')])
+                    ->forAdminList()
+                    ->with(['parentZone' => fn ($p) => $p->withoutGlobalScope('translate')->forAdminList()])
                     ->withCount(['providers', 'categories', 'childZones']);
                 if ($depth > 1) {
                     $query->with($this->zoneNestedChildZonesWith($depth - 1));

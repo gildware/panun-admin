@@ -37,6 +37,16 @@ class PeopleProfile extends Model
         return self::BILLING_TYPES[trim((string) $value)] ?? '';
     }
 
+    public function requiresTimesheet(): bool
+    {
+        $attributes = $this->getAttributes();
+        if (! array_key_exists('requires_timesheet', $attributes) || $attributes['requires_timesheet'] === null) {
+            return true;
+        }
+
+        return (bool) $attributes['requires_timesheet'];
+    }
+
     /**
      * @return array<int, string>
      */
@@ -57,6 +67,7 @@ class PeopleProfile extends Model
         'job_title',
         'work_location',
         'billing_type',
+        'requires_timesheet',
         'address',
         'manager_id',
         'joined_on',
@@ -82,6 +93,7 @@ class PeopleProfile extends Model
     ];
 
     protected $casts = [
+        'requires_timesheet' => 'boolean',
         'min_hours_override' => 'float',
         'week_off_override' => 'array',
         'joined_on' => 'date',

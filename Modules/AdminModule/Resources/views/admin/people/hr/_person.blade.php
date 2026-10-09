@@ -13,7 +13,7 @@
     $bankErrors = old('section') === 'bank' && $errors->hasAny(['bank_name', 'bank_account', 'bank_ifsc', 'pan', 'aadhaar', 'uan']);
     $basicErrors = old('section') !== 'password' && $errors->hasAny(['first_name', 'last_name', 'email', 'phone', 'employment_status', 'date_of_birth', 'emergency_contact', 'address']);
     $passwordErrors = old('section') === 'password' && $errors->has('password');
-    $operationErrors = $errors->hasAny(['department', 'work_location', 'billing_type', 'manager_id', 'joined_on', 'role_ids', 'employment_stage', 'work_schedule', 'min_hours_override', 'week_off_override']) || $errors->has('role_ids.*') || $errors->has('week_off_override.*');
+    $operationErrors = $errors->hasAny(['department', 'work_location', 'billing_type', 'requires_timesheet', 'manager_id', 'joined_on', 'role_ids', 'employment_stage', 'work_schedule', 'min_hours_override', 'week_off_override']) || $errors->has('role_ids.*') || $errors->has('week_off_override.*');
 @endphp
 @if(! $user || ! $profile)
     <div class="people-ws-head"><div><h1>People file</h1><p>Choose a person from the People tab.</p></div></div>
@@ -212,6 +212,10 @@
                         <dd>{{ \Modules\AdminModule\Entities\PeopleProfile::billingTypeLabel($profile->billing_type ?: 'billable') }}</dd>
                     </div>
                     <div class="ep-fact">
+                        <dt>Timesheet</dt>
+                        <dd>{{ $profile->requiresTimesheet() ? 'Required' : 'Can skip' }}</dd>
+                    </div>
+                    <div class="ep-fact">
                         <dt>Minimum hours</dt>
                         <dd>
                             {{ \Modules\AdminModule\Services\PeopleWorkspace::hoursText($workspace->requiredDayHours($user)) }} a day
@@ -314,6 +318,14 @@
                                 @endforeach
                             </select>
                             @error('billing_type')<p class="ep-error">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="field">
+                            <label for="requires_timesheet">Timesheet</label>
+                            <select id="requires_timesheet" name="requires_timesheet" required>
+                                <option value="1" @selected((string) old('requires_timesheet', $profile->requiresTimesheet() ? '1' : '0') === '1')>Required</option>
+                                <option value="0" @selected((string) old('requires_timesheet', $profile->requiresTimesheet() ? '1' : '0') === '0')>Can skip</option>
+                            </select>
+                            @error('requires_timesheet')<p class="ep-error">{{ $message }}</p>@enderror
                         </div>
                         <div class="field span-2">
                             <label class="ep-check" for="override_min_hours">

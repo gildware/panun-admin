@@ -112,7 +112,7 @@ class PeopleHrController extends Controller
                 ? PeoplePayAdjustment::query()->where('period', $period)->with('user')->latest()->get()
                 : collect(),
             'payslips' => in_array($section, ['home', 'payroll'], true)
-                ? PeoplePayslip::query()->with('user')->where('period', $period)->orderBy('user_id')->get()
+                ? PeoplePayslip::query()->forPayroll()->with('user')->where('period', $period)->orderBy('user_id')->get()
                 : collect(),
             'run' => in_array($section, ['home', 'payroll', 'attendance'], true) ? $this->payroll->runFor($period) : null,
             'attendance' => $section === 'attendance'
@@ -736,7 +736,17 @@ class PeopleHrController extends Controller
         }
 
         PeoplePayAdjustment::query()->create($data);
-        Toastr::success('One-off item saved. Rebuild the month to apply it.');
+        $slip = PeoplePayslip::query()
+            ->where('user_id', $data['user_id'])
+            ->where('period', $data['period'])
+            ->where('status', 'draft')
+            ->first();
+        if ($slip && empty($slip->breakdown['missing_structure'])) {
+            $this->payroll->syncBonuses($slip);
+            Toastr::success('Added to this month’s payslip.');
+        } else {
+            Toastr::success('Saved. It will be on the payslip when you calculate pay.');
+        }
 
         return $this->hrRedirect($request, 'salary', 'salary', $data['user_id'], ['period' => $data['period']]);
     }
@@ -777,6 +787,59 @@ class PeopleHrController extends Controller
         return redirect()->route('admin.accounts.payroll', ['period' => $payslip->period]);
     }
 
+    public function addBonus(Request $request, PeoplePayslip $payslip): RedirectResponse
+    {
+        $this->requireHr();
+        $validator = validator($request->all(), [
+            'label' => ['required', 'string', 'max:120'],
+            'amount' => ['required', 'numeric', 'not_in:0'],
+        ]);
+        if ($validator->fails()) {
+            return redirect()
+                ->route('admin.accounts.payroll', ['period' => $payslip->period, 'bonus' => $payslip->id])
+                ->withErrors($validator)
+                ->withInput();
+        }
+        $data = $validator->validated();
+        if ($payslip->status !== 'draft' || $this->payroll->isLocked($payslip->period) || ! empty($payslip->breakdown['missing_structure'])) {
+            Toastr::error('You can add to a payslip only before it is sent.');
+
+            return back();
+        }
+
+        PeoplePayAdjustment::query()->create([
+            'user_id' => $payslip->user_id,
+            'period' => $payslip->period,
+            'label' => trim($data['label']),
+            'amount' => round((float) $data['amount'], 2),
+        ]);
+        $this->payroll->syncBonuses($payslip);
+        Toastr::success('Added to this payslip.');
+
+        return redirect()->route('admin.accounts.payroll', ['period' => $payslip->period]);
+    }
+
+    public function removeBonus(PeoplePayAdjustment $adjustment): RedirectResponse
+    {
+        $this->requireHr();
+        $payslip = PeoplePayslip::query()
+            ->where('user_id', $adjustment->user_id)
+            ->where('period', $adjustment->period)
+            ->first();
+        if (! $payslip || $payslip->status !== 'draft' || $this->payroll->isLocked($adjustment->period)) {
+            Toastr::error('You can change a payslip only before it is sent.');
+
+            return back();
+        }
+
+        $period = $adjustment->period;
+        $adjustment->delete();
+        $this->payroll->syncBonuses($payslip);
+        Toastr::success('Removed from this payslip.');
+
+        return redirect()->route('admin.accounts.payroll', ['period' => $period]);
+    }
+
     public function publishPayroll(Request $request): RedirectResponse
     {
         $this->requireHr();
@@ -790,6 +853,7 @@ class PeopleHrController extends Controller
         }
 
         $count = PeoplePayslip::query()
+            ->forPayroll()
             ->where('period', $data['period'])
             ->where('status', 'draft')
             ->where('held', false)
@@ -873,6 +937,7 @@ class PeopleHrController extends Controller
         $this->requireHr();
         $period = $this->period($request);
         $slips = PeoplePayslip::query()
+            ->forPayroll()
             ->with('user')
             ->where('period', $period)
             ->where('held', false)
@@ -881,25 +946,33 @@ class PeopleHrController extends Controller
             ->sortBy(fn (PeoplePayslip $slip) => $slip->user ? $this->workspace->displayName($slip->user) : '')
             ->values();
 
-        return response()->streamDownload(function () use ($slips) {
+        $bases = $this->payroll->baseSalaries($slips, $period);
+
+        return response()->streamDownload(function () use ($slips, $bases) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Person', 'Loss of pay (days)', 'According to salary', 'Deductions', 'Net payable']);
+            fputcsv($out, ['Person', 'Base salary', 'Loss of pay (days)', 'Loss of pay', 'Bonuses', 'Net payable']);
             $salary = 0.0;
-            $deductions = 0.0;
+            $lop = 0.0;
+            $bonuses = 0.0;
             $net = 0.0;
             foreach ($slips as $slip) {
-                $salary += (float) $slip->gross;
-                $deductions += (float) $slip->deductions;
+                $base = (float) ($bases[$slip->id] ?? 0);
+                $lopAmount = PeoplePayroll::lopAmount($slip->breakdown);
+                $bonusAmount = PeoplePayroll::bonusTotal($slip->breakdown);
+                $salary += $base;
+                $lop += $lopAmount;
+                $bonuses += $bonusAmount;
                 $net += (float) $slip->net;
                 fputcsv($out, [
                     $slip->user ? $this->workspace->displayName($slip->user) : '',
+                    number_format($base, 2, '.', ''),
                     rtrim(rtrim(number_format((float) $slip->lop_days, 1, '.', ''), '0'), '.'),
-                    number_format((float) $slip->gross, 2, '.', ''),
-                    number_format((float) $slip->deductions, 2, '.', ''),
+                    number_format($lopAmount, 2, '.', ''),
+                    number_format($bonusAmount, 2, '.', ''),
                     number_format((float) $slip->net, 2, '.', ''),
                 ]);
             }
-            fputcsv($out, ['Will be paid', '', number_format($salary, 2, '.', ''), number_format($deductions, 2, '.', ''), number_format($net, 2, '.', '')]);
+            fputcsv($out, ['Will be paid', number_format($salary, 2, '.', ''), '', number_format($lop, 2, '.', ''), number_format($bonuses, 2, '.', ''), number_format($net, 2, '.', '')]);
             fclose($out);
         }, 'net-pay-'.$period.'.csv', ['Content-Type' => 'text/csv']);
     }
