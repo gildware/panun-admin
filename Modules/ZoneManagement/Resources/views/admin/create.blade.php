@@ -15,24 +15,16 @@
 @endpush
 
 @section('content')
+    @php
+        $addParentId = $addParentId ?? '';
+        $showZoneForm = $errors->any() || $addParentId !== '' || request()->boolean('open');
+    @endphp
     <div class="main-content zone-setup-page">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
-                        <h2 class="page-title">{{translate('zone_setup')}}</h2>
-                    </div>
-
                     @can('zone_add')
-                        <div class="d-flex justify-content-end mb-3">
-                            <button type="button" class="btn btn--primary @if($errors->any()) d-none @endif" id="add-zone-form-btn">
-                                {{translate('add_new')}} {{translate('zone')}}
-                            </button>
-                        </div>
-                    @endcan
-
-                    @can('zone_add')
-                        <div class="card zone-setup-instructions zone-setup-fill mb-30 @if(!$errors->any()) d-none @endif" id="zone-form-wrapper">
+                        <div class="card zone-setup-instructions zone-setup-fill mb-30 @unless($showZoneForm) d-none @endunless" id="zone-form-wrapper">
                             <div class="card-body p-30">
                                 <form id="zone-form" action="{{route('admin.zone.store')}}"
                                       enctype="multipart/form-data"
@@ -41,8 +33,8 @@
                                     <div class="zone-setup-toolbar">
                                         <p class="zone-setup-hint mb-0">{{translate('create_zone_by_click_on_map_and_connect_the_dots_together')}}</p>
                                         <div class="zone-form-actions">
-                                            <button class="btn btn--secondary" type="reset"
-                                                    id="reset_btn">{{translate('reset')}}</button>
+                                            <button class="btn btn--secondary" type="button"
+                                                    id="cancel-zone-form-btn">{{translate('cancel')}}</button>
                                             <button class="btn btn--primary"
                                                     type="submit">{{translate('submit')}}</button>
                                         </div>
@@ -52,15 +44,16 @@
                                             <div class="zone-form-stack">
                                             @php
                                                 $language = \Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name', 'system_language')->first();
+                                                $zoneLanguageTabs = $language ? collect($language->live_values ?? []) : collect();
                                             @endphp
-                                            @if($language)
+                                            @if($zoneLanguageTabs->count() > 1)
                                                 <ul class="nav nav--tabs border-color-primary">
                                                     <li class="nav-item">
                                                         <a class="nav-link lang_link active"
                                                            href="#"
                                                            id="default-link">{{translate('default')}}</a>
                                                     </li>
-                                                    @foreach ($language?->live_values as $lang)
+                                                    @foreach ($zoneLanguageTabs as $lang)
                                                         <li class="nav-item">
                                                             <a class="nav-link lang_link"
                                                                href="#"
@@ -69,7 +62,7 @@
                                                     @endforeach
                                                 </ul>
                                             @endif
-                                            @if($language)
+                                            @if($zoneLanguageTabs->count() > 1)
                                                 <div class="form-floating form-floating__icon lang-form"
                                                      id="default-form">
                                                     <input type="text" name="name[]" class="form-control"
@@ -79,7 +72,7 @@
                                                     <span class="material-icons">note_alt</span>
                                                 </div>
                                                 <input type="hidden" name="lang[]" value="default">
-                                                @foreach ($language?->live_values as $lang)
+                                                @foreach ($zoneLanguageTabs as $lang)
                                                     <div
                                                         class="form-floating form-floating__icon d-none lang-form"
                                                         id="{{$lang['code']}}-form">
@@ -104,6 +97,16 @@
                                                     </div>
                                                 </div>
                                                 <input type="hidden" name="lang[]" value="default">
+                                                @foreach ($zoneLanguageTabs as $lang)
+                                                    <div class="form-floating form-floating__icon mt-3">
+                                                        <input type="text" name="name[]" class="form-control"
+                                                               placeholder="{{ translate('zone_name') }}"
+                                                               value="{{ old('name.'.$loop->iteration) }}">
+                                                        <label>{{ translate('zone_name') }} ({{ strtoupper($lang['code']) }})</label>
+                                                        <span class="material-icons">note_alt</span>
+                                                    </div>
+                                                    <input type="hidden" name="lang[]" value="{{ $lang['code'] }}">
+                                                @endforeach
                                             @endif
 
                                             @if(isset($parentZoneTreeOptions))
@@ -112,7 +115,7 @@
                                                     <select name="parent_id" id="zone-parent-select" class="form-select theme-input-style w-100">
                                                         <option value="">{{ translate('No_parent_root_zone') }}</option>
                                                         @foreach($parentZoneTreeOptions as $row)
-                                                            <option value="{{ $row['id'] }}" @selected(old('parent_id') == $row['id'])>{{ $row['label'] }}</option>
+                                                            <option value="{{ $row['id'] }}" @selected(old('parent_id', $addParentId) == $row['id'])>{{ $row['label'] }}</option>
                                                         @endforeach
                                                     </select>
                                                 </div>
@@ -123,9 +126,10 @@
                                                 <textarea name="description"
                                                           id="zone-description"
                                                           class="form-control theme-input-style"
-                                                          rows="3"
+                                                          rows="8"
                                                           placeholder="{{ translate('Zone_description_placeholder') }}">{{ old('description') }}</textarea>
                                             </div>
+                                            @include('zonemanagement::admin.partials._zone-gazette-panel')
 
                                             <div class="form-group mb-3 coordinates">
                                                 <label class="input-label"
@@ -145,6 +149,7 @@
                                                        placeholder="{{translate('search_here')}}"/>
                                                 <div class="map_canvas" id="map-canvas"></div>
                                             </div>
+                                            <p id="zone-outside-parent" class="zone-outside-parent d-none" role="status">{{ translate('Child_zone_must_be_inside_parent_boundary') }}</p>
                                         </div>
                                     </div>
                                 </form>
@@ -152,29 +157,31 @@
                         </div>
                     @endcan
 
-                    <div class="d-flex justify-content-end border-bottom mx-lg-4 mb-10">
-                        <div class="d-flex gap-2 fw-medium">
-                            <span class="opacity-75">{{translate('Total_Zones')}}:</span>
-                            <span class="title-color" id="totalListCount">{{ $zones->total() }}</span>
-                        </div>
-                    </div>
-
-                    <div class="card mb-30">
+                    <div class="card mb-30 zone-list-card">
                         <div class="card-body">
-                            <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                <form action="{{url()->current()}}" class="search-form search-form_style-two"  method="GET">
+                            <div class="data-table-top zone-list-toolbar d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                                <form action="{{url()->current()}}" class="search-form search-form_style-two zone-list-search mb-0" method="GET">
                                     <div class="input-group search-form__input_group">
                                             <span class="search-form__icon">
                                                 <span class="material-icons">search</span>
                                             </span>
                                         <input type="search" class="theme-input-style search-form__input zone-search-input"
                                                value="{{$search}}" name="search"
-                                               placeholder="{{translate('search_here')}}">
+                                               placeholder="{{translate('search_here')}}"
+                                               autocomplete="off">
                                     </div>
-                                    <button type="submit" class="btn btn--primary">{{translate('search')}}</button>
                                 </form>
 
-                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <button type="button" class="btn btn--secondary text-nowrap zone-map-view-btn" id="zone-map-view-btn" aria-pressed="false" aria-controls="zone-coverage-panel">
+                                        <span class="material-icons" aria-hidden="true">map</span>
+                                        <span class="zone-map-view-btn__label">{{ translate('Map_view') }}</span>
+                                    </button>
+                                    @can('zone_add')
+                                        <button type="button" class="btn btn--primary @if($showZoneForm) d-none @endif" id="add-zone-form-btn">
+                                            {{translate('add_new')}} {{translate('zone')}}
+                                        </button>
+                                    @endcan
                                     @can('zone_export')
                                         <div class="dropdown">
                                             <button type="button"
@@ -184,7 +191,7 @@
                                                     class="material-icons">file_download</span> {{translate('download')}}
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-                                                <li><a class="dropdown-item"
+                                                <li><a class="dropdown-item" id="zone-download-excel"
                                                        href="{{route('admin.zone.download')}}?search={{$search}}">{{translate('excel')}}</a>
                                                 </li>
                                             </ul>
@@ -196,6 +203,7 @@
                             <div id="ListTableContainer">
                                 @include('zonemanagement::admin.partials._table')
                             </div>
+                            @include('zonemanagement::admin.partials._zone-coverage-map')
                         </div>
                     </div>
                 </div>
@@ -211,183 +219,6 @@
     <script src="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/dataTables/dataTables.select.min.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/select2/select2.min.js')}}"></script>
-    <script>
-    (function ($) {
-        'use strict';
-        if (!$) {
-            return;
-        }
-
-        function zoneListCssEscape(value) {
-            if (value == null) {
-                return '';
-            }
-            return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        }
-
-        function zoneListRowId($row) {
-            return $row.attr('data-zone-id') || '';
-        }
-
-        function zoneListRowHasChildren($row) {
-            const raw = $row.attr('data-has-children');
-            return raw === '1' || raw === 'true';
-        }
-
-        function zoneListToggleButtonSetCollapsed($btn) {
-            if (!$btn || !$btn.length) {
-                return;
-            }
-            $btn.attr('aria-expanded', 'false');
-            $btn.removeClass('zone-toggle-children--hide').addClass('zone-toggle-children--view');
-            $btn.find('.zone-toggle-children__icon').text('expand_more');
-            $btn.find('.zone-toggle-children__label').text($btn.attr('data-label-show') || '');
-        }
-
-        function zoneListToggleButtonSetExpanded($btn) {
-            if (!$btn || !$btn.length) {
-                return;
-            }
-            $btn.attr('aria-expanded', 'true');
-            $btn.removeClass('zone-toggle-children--view').addClass('zone-toggle-children--hide');
-            $btn.find('.zone-toggle-children__icon').text('expand_less');
-            $btn.find('.zone-toggle-children__label').text($btn.attr('data-label-hide') || '');
-        }
-
-        function zoneListNestContiguousRuns(parentZoneId) {
-            const $rows = $('tr.zone-list-tree-row[data-child-of="' + zoneListCssEscape(parentZoneId) + '"]').filter(':not(.d-none)');
-            const runs = [];
-            let run = [];
-            $rows.each(function () {
-                const el = this;
-                if (run.length === 0) {
-                    run.push(el);
-                    return;
-                }
-                const last = run[run.length - 1];
-                if (last.nextElementSibling === el) {
-                    run.push(el);
-                } else {
-                    runs.push(run);
-                    run = [el];
-                }
-            });
-            if (run.length) {
-                runs.push(run);
-            }
-            return runs;
-        }
-
-        function zoneListRefreshBranchHighlight() {
-            $('tr.zone-list-tree-row').removeClass(
-                'zone-branch-subtree zone-branch-nest zone-branch-nest--l1 zone-branch-nest--l2 zone-branch-nest--l3 zone-branch-nest--l4 zone-branch-nest-first zone-branch-nest-last'
-            );
-            const $openTop = $('tr.zone-list-top-level.zone-list-expandable.zone-children-open').first();
-            if (!$openTop.length) {
-                return;
-            }
-            const rootId = $openTop.attr('data-branch-root');
-            if (!rootId) {
-                return;
-            }
-            const $subtree = $('tr.zone-list-tree-row[data-branch-root="' + zoneListCssEscape(rootId) + '"]').filter(function () {
-                if ($(this).hasClass('d-none')) {
-                    return false;
-                }
-                const co = $(this).attr('data-child-of');
-                return co !== undefined && co !== '';
-            });
-            $subtree.addClass('zone-branch-subtree');
-
-            $('tr.zone-list-expandable.zone-children-open').each(function () {
-                const $p = $(this);
-                const pid = zoneListRowId($p);
-                if (!pid) {
-                    return;
-                }
-                const pDepth = parseInt($p.attr('data-depth'), 10);
-                const depth = Number.isNaN(pDepth) ? 0 : pDepth;
-                const lvl = Math.min(depth + 1, 4);
-                const runs = zoneListNestContiguousRuns(pid);
-                runs.forEach(function (elements) {
-                    const $r = $(elements);
-                    $r.addClass('zone-branch-nest zone-branch-nest--l' + lvl);
-                    $r.first().addClass('zone-branch-nest-first');
-                    $r.last().addClass('zone-branch-nest-last');
-                });
-            });
-        }
-
-        function zoneListCloseBranch($row) {
-            const id = zoneListRowId($row);
-            $row.removeClass('zone-children-open');
-            zoneListToggleButtonSetCollapsed($row.find('.zone-toggle-children'));
-            $('tr.zone-list-tree-row[data-child-of="' + zoneListCssEscape(id) + '"]').each(function () {
-                const $child = $(this);
-                if ($child.hasClass('zone-list-expandable') && $child.hasClass('zone-children-open')) {
-                    zoneListCloseBranch($child);
-                }
-                $child.addClass('d-none');
-            });
-            zoneListRefreshBranchHighlight();
-        }
-
-        function zoneListOpenBranch($row) {
-            const parentId = $row.attr('data-child-of');
-            const hasParent = parentId !== undefined && parentId !== '';
-
-            if (!hasParent) {
-                $('tr.zone-list-top-level.zone-list-expandable.zone-children-open').not($row).each(function () {
-                    zoneListCloseBranch($(this));
-                });
-            } else {
-                $('tr.zone-list-expandable.zone-children-open[data-child-of="' + zoneListCssEscape(parentId) + '"]').not($row).each(function () {
-                    zoneListCloseBranch($(this));
-                });
-            }
-
-            const id = zoneListRowId($row);
-            $row.addClass('zone-children-open');
-            $('tr.zone-list-tree-row[data-child-of="' + zoneListCssEscape(id) + '"]').removeClass('d-none');
-            zoneListToggleButtonSetExpanded($row.find('.zone-toggle-children'));
-            zoneListRefreshBranchHighlight();
-        }
-
-        function zoneListToggleBranch($row) {
-            if (!$row || !$row.length || !zoneListRowHasChildren($row)) {
-                return;
-            }
-            if ($row.hasClass('zone-children-open')) {
-                zoneListCloseBranch($row);
-            } else {
-                zoneListOpenBranch($row);
-            }
-        }
-
-        $(document)
-            .off('click', '.zone-toggle-children')
-            .off('click.zoneListTree', '.zone-toggle-children')
-            .on('click.zoneListTree', '.zone-toggle-children', function (e) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                zoneListToggleBranch($(this).closest('tr.zone-list-tree-row'));
-            });
-
-        $(document)
-            .off('click', '.zone-list-expandable')
-            .off('click', 'tr.zone-list-expandable')
-            .off('click.zoneListTreeRow', 'tr.zone-list-expandable')
-            .on('click.zoneListTreeRow', 'tr.zone-list-expandable', function (e) {
-                if ($(e.target).closest('a, button, label, input, .switcher').length) {
-                    return;
-                }
-                zoneListToggleBranch($(this));
-            });
-
-        window.zoneListRefreshBranchHighlight = zoneListRefreshBranchHighlight;
-        zoneListRefreshBranchHighlight();
-    })(window.jQuery);
-    </script>
 
     @php
         $api_key = optional(business_config('google_map', 'third_party'))->live_values ?? [];
@@ -401,7 +232,7 @@
             }
         };
     </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client'] ?? ''}}&libraries=drawing,places,geometry&v=3.64&callback=initZoneGoogleMap"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client'] ?? ''}}&libraries=drawing,places,geometry&v=3.64&callback=initZoneGoogleMap"></script>
 
     <script>
     (function () {
@@ -541,15 +372,19 @@
                     } else {
                         parentBoundaryPolygon = new google.maps.Polygon({
                             paths: data.paths,
-                            strokeColor: '#2e7d32',
-                            strokeOpacity: 0.95,
+                            strokeColor: '#1565c0',
+                            strokeOpacity: 0.45,
                             strokeWeight: 2,
-                            fillColor: '#43a047',
-                            fillOpacity: 0.14,
+                            fillColor: '#1565c0',
+                            fillOpacity: 0.05,
                             clickable: false,
                             zIndex: 1,
                         });
                         parentBoundaryPolygon.setMap(map);
+                        fitMapToBoundaryPaths(data.paths);
+                        if (lastPolygon) {
+                            setZoneOutsideParentState(lastPolygon);
+                        }
                     }
                     if (data.siblings && Array.isArray(data.siblings)) {
                         data.siblings.forEach(function (sib) {
@@ -592,6 +427,27 @@
             return true;
         }
 
+        function setZoneOutsideParentState(polygon) {
+            const banner = document.getElementById('zone-outside-parent');
+            const outside = !!(polygon && parentBoundaryPolygon && !validateChildInsideParentIfNeeded(polygon));
+            if (banner) {
+                banner.classList.toggle('d-none', !outside);
+            }
+            if (polygon && typeof polygon.setOptions === 'function') {
+                polygon.setOptions(outside ? {
+                    strokeColor: '#c62828',
+                    fillColor: '#e53935',
+                    fillOpacity: 0.28,
+                    strokeWeight: 2,
+                } : {
+                    strokeColor: ZONE_GREEN_STYLE.strokeColor,
+                    fillColor: ZONE_GREEN_STYLE.fillColor,
+                    fillOpacity: ZONE_GREEN_STYLE.fillOpacity,
+                    strokeWeight: ZONE_GREEN_STYLE.strokeWeight,
+                });
+            }
+        }
+
         function attachChildPolygonPathListeners(polygon) {
             if (!polygon || polygon.__pkZonePathHooked) {
                 return;
@@ -601,9 +457,7 @@
             const sync = function () {
                 $('#coordinates').val(path.getArray());
                 auto_grow();
-                if (!validateChildInsideParentIfNeeded(polygon)) {
-                    toastr.warning(MSG_CHILD_OUTSIDE_PARENT);
-                }
+                setZoneOutsideParentState(polygon);
             };
             google.maps.event.addListener(path, 'set_at', sync);
             google.maps.event.addListener(path, 'insert_at', sync);
@@ -650,7 +504,7 @@
             }));
             const poly = new google.maps.Polygon(Object.assign({}, ZONE_GREEN_STYLE, {
                 paths: latLngPath,
-                editable: false,
+                editable: true,
             }));
             if (!validateChildInsideParentIfNeeded(poly)) {
                 toastr.error(MSG_CHILD_OUTSIDE_PARENT);
@@ -984,11 +838,8 @@
             if (!wrapper || wrapper.classList.contains('d-none') || !footer) {
                 return;
             }
-            const top = wrapper.getBoundingClientRect().top;
-            const foot = footer.getBoundingClientRect().top;
-            const h = Math.max(360, Math.floor(foot - top - 8));
-            wrapper.style.minHeight = h + 'px';
-            wrapper.style.height = h + 'px';
+            wrapper.style.minHeight = '';
+            wrapper.style.height = '';
         }
         window.addEventListener('resize', function () {
             fitZoneSetupToFooter();
@@ -1018,19 +869,19 @@
         }
 
         function sizeZoneMapCanvas() {
-            fitZoneSetupToFooter();
             const wrap = document.querySelector('.zone-map-col .map-warper');
             const canvas = document.getElementById('map-canvas');
             if (!wrap || !canvas) {
                 return false;
             }
             const input = wrap.querySelector('#pac-input');
-            const inputH = input ? (input.offsetHeight + 16) : 48;
-            const wrapH = wrap.getBoundingClientRect().height || wrap.clientHeight;
-            const height = Math.max(280, Math.floor(wrapH - inputH));
+            const inputH = input ? (input.offsetHeight + 16) : 8;
+            const height = Math.max(420, Math.min(640, Math.floor(window.innerHeight * 0.62)));
             canvas.style.width = '100%';
             canvas.style.height = height + 'px';
             canvas.style.minHeight = height + 'px';
+            wrap.style.height = (height + inputH) + 'px';
+            wrap.style.minHeight = (height + inputH) + 'px';
             return canvas.offsetWidth >= 120 && canvas.offsetHeight >= 120;
         }
 
@@ -1138,27 +989,6 @@
         setTimeout(ensureZoneMap, 80);
         setTimeout(ensureZoneMap, 250);
         window.addEventListener('load', ensureZoneMap);
-
-
-        $('#reset_btn').click(function (e) {
-            e.preventDefault();
-
-            $('input[name="name[]"]').val('');
-
-            $('#coordinates').val('');
-            if (lastPolygon) {
-                lastPolygon.setMap(null);
-                lastPolygon = null;
-            }
-
-            // Re-center the map to default location
-            if (map) {
-                map.setCenter({ lat: 23.757989, lng: 90.360587 });
-                map.setZoom(10);
-            }
-
-            $('#pac-input').val('');
-        });
 
 
         function performValidation(event) {
@@ -1311,7 +1141,16 @@
                         updateBrowserUrl(search, page);
                     }
 
-                    $('#totalListCount').html(response.totalCount)
+                    const download = document.getElementById('zone-download-excel');
+                    if (download) {
+                        const url = new URL(download.getAttribute('href'), window.location.origin);
+                        if (search) {
+                            url.searchParams.set('search', search);
+                        } else {
+                            url.searchParams.delete('search');
+                        }
+                        download.setAttribute('href', url.pathname + url.search);
+                    }
                     $('#ListTableContainer').empty().html(response.view);
                     if (typeof window.zoneListRefreshBranchHighlight === 'function') {
                         window.zoneListRefreshBranchHighlight();
@@ -1335,10 +1174,46 @@
             window.history.replaceState({}, '', newUrl);
         }
 
+        let zoneSearchTimer = null;
+        $(document).on('input search', '.zone-search-input', function () {
+            clearTimeout(zoneSearchTimer);
+            zoneSearchTimer = setTimeout(function () {
+                $('#offset').val(1);
+                reloadTable(1);
+            }, 300);
+        });
+        $(document).on('submit', '.zone-list-search', function (event) {
+            event.preventDefault();
+            clearTimeout(zoneSearchTimer);
+            $('#offset').val(1);
+            reloadTable(1);
+        });
+
         // Toggle zone form visibility (default: list only)
         function bindAddZoneFormToggle() {
             const btn = document.getElementById('add-zone-form-btn');
             const wrapper = document.getElementById('zone-form-wrapper');
+            const cancel = document.getElementById('cancel-zone-form-btn');
+
+            if (wrapper && !wrapper.classList.contains('d-none') && typeof window.initZoneParentSelect2Once === 'function') {
+                window.initZoneParentSelect2Once();
+            }
+
+            if (cancel && wrapper && cancel.dataset.zoneFormBound !== '1') {
+                cancel.dataset.zoneFormBound = '1';
+                cancel.addEventListener('click', function () {
+                    wrapper.classList.add('d-none');
+                    if (btn) {
+                        btn.classList.remove('d-none');
+                    }
+                    const url = new URL(window.location.href);
+                    if (url.searchParams.has('open') || url.searchParams.has('add_parent')) {
+                        url.searchParams.delete('open');
+                        url.searchParams.delete('add_parent');
+                        window.history.replaceState({}, '', url.pathname + url.search);
+                    }
+                });
+            }
 
             if (!btn || !wrapper || btn.dataset.zoneFormBound === '1') {
                 return;
@@ -1354,6 +1229,7 @@
                 zoneMapWait = 0;
                 fitZoneSetupToFooter();
                 ensureZoneMap();
+                wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 setTimeout(function () {
                     fitZoneSetupToFooter();
                     ensureZoneMap();

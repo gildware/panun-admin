@@ -1,43 +1,29 @@
-@php
-    $defaultOpenRootZoneId = null;
-    foreach ($zones as $z) {
-        if (($z->parent_id ?? null) !== null && ($z->parent_id ?? '') !== '') {
-            continue;
-        }
-        if (($z->childZones ?? collect())->isNotEmpty()) {
-            $defaultOpenRootZoneId = $z->id;
-            break;
-        }
-    }
-@endphp
 <div class="table-responsive">
     <table id="example" class="table align-middle zone-list-table">
         <thead>
         <tr>
-            <th>{{translate('SL')}}</th>
-            <th>{{translate('zone_name')}}</th>
-            <th>{{translate('Zone_description')}}</th>
-            <th>{{translate('Parent_zone')}}</th>
-            <th>Children</th>
-            <th>{{translate('providers')}}</th>
-            <th>{{translate('Category')}}</th>
+            <th class="zone-col-name">{{translate('zone_name')}}</th>
+            <th class="zone-col-fit">{{translate('Parent_zone')}}</th>
+            <th class="zone-col-areas">{{translate('Area_Encompassed_Mohalla')}}</th>
+            <th class="zone-col-fit">Children</th>
+            <th class="zone-col-fit">{{translate('providers')}}</th>
+            <th class="zone-col-fit">{{translate('Category')}}</th>
             @can('zone_manage_status')
-                <th>{{translate('status')}}</th>
+                <th class="zone-col-fit">{{translate('status')}}</th>
             @endcan
-            <th>{{translate('action')}}</th>
+            <th class="zone-col-fit">{{translate('action')}}</th>
         </tr>
         </thead>
         <tbody>
-        @foreach($zones as $key => $zone)
+        @forelse($zones as $zone)
             @include('zonemanagement::admin.partials._zone-table-tree-rows', [
                 'zone' => $zone,
-                'depth' => 0,
-                'parentZoneId' => null,
-                'slIndex' => $key + $zones->firstItem(),
-                'defaultOpenRootZoneId' => $defaultOpenRootZoneId,
-                'branchRootId' => $zone->id,
             ])
-        @endforeach
+        @empty
+            <tr>
+                <td colspan="8" class="text-center text-muted">{{ translate('no_data_found') }}</td>
+            </tr>
+        @endforelse
         </tbody>
     </table>
 </div>

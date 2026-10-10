@@ -3,11 +3,14 @@
 namespace Modules\LeadManagement\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\ZoneManagement\Entities\Zone;
 
 class CustomerLeadArea extends Model
 {
     protected $fillable = [
         'name',
+        'zone_id',
         'is_active',
     ];
 
@@ -15,28 +18,42 @@ class CustomerLeadArea extends Model
         'is_active' => 'boolean',
     ];
 
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class, 'zone_id');
+    }
+
     /**
-     * Find an existing active area by name (case-insensitive) or create a new one.
+     * Find an area by name inside a zone, or create it under that zone.
+     * Without a zone, only unscoped areas are matched.
      */
-    public static function resolveByName(string $name): ?self
+    public static function resolveByName(string $name, ?string $zoneId = null): ?self
     {
         $name = trim($name);
+        $zoneId = $zoneId !== null && $zoneId !== '' ? $zoneId : null;
         if ($name === '') {
             return null;
         }
 
-        $existing = static::query()->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first();
+        $existing = static::query()
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+            ->when($zoneId, fn ($query) => $query->where('zone_id', $zoneId), fn ($query) => $query->whereNull('zone_id'))
+            ->first();
         if ($existing) {
             return $existing;
         }
 
-        return static::create(['name' => $name, 'is_active' => true]);
+        return static::create([
+            'name' => mb_substr($name, 0, 255),
+            'zone_id' => $zoneId,
+            'is_active' => true,
+        ]);
     }
 
     /**
      * Resolve an Area input (an existing id or a new free-typed name from Select2 tags) into an area id.
      */
-    public static function resolveId(mixed $raw): ?int
+    public static function resolveId(mixed $raw, ?string $zoneId = null): ?int
     {
         $raw = trim((string) ($raw ?? ''));
         if ($raw === '') {
@@ -49,7 +66,7 @@ class CustomerLeadArea extends Model
             }
         }
 
-        return static::resolveByName($raw)?->id;
+        return static::resolveByName($raw, $zoneId)?->id;
     }
 
     /**

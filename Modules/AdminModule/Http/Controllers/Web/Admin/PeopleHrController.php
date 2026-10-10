@@ -916,21 +916,26 @@ class PeopleHrController extends Controller
         $data = $request->validate([
             'period' => ['required', 'date_format:Y-m'],
             'user_id' => ['required', 'uuid'],
+            'person' => ['nullable', 'uuid'],
             'marks' => ['nullable', 'array'],
             'marks.*' => ['nullable', Rule::in(['present', 'absent', 'half'])],
         ]);
+        $back = ['period' => $data['period']];
+        if (($data['person'] ?? '') === $data['user_id']) {
+            $back['person'] = $data['user_id'];
+        }
 
         try {
             $this->workspace->saveAttendanceMarks($actor, $data['user_id'], $data['period'], $data['marks'] ?? []);
         } catch (\InvalidArgumentException $exception) {
             Toastr::error($exception->getMessage());
 
-            return redirect()->route('admin.hr.attendance', ['period' => $data['period'], 'edit' => $data['user_id']]);
+            return redirect()->route('admin.hr.attendance', $back + ['edit' => $data['user_id']]);
         }
 
         Toastr::success('Attendance saved.');
 
-        return redirect()->route('admin.hr.attendance', ['period' => $data['period']]);
+        return redirect()->route('admin.hr.attendance', $back);
     }
 
     public function lockPayroll(Request $request): RedirectResponse

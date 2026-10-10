@@ -813,12 +813,53 @@
                 initZoneTreeSelect2($('#service-zone-select'));
             }
             var $bookingAreaSelect = $('#booking-area-select');
+            var zoneAreasUrl = @json(route('admin.zone.areas'));
+            function refillBookingAreaSelect(areas) {
+                if (!$bookingAreaSelect.length) {
+                    return;
+                }
+                var current = $bookingAreaSelect.val();
+                var placeholder = $bookingAreaSelect.data('placeholder') || '';
+                if ($bookingAreaSelect.data('select2')) {
+                    $bookingAreaSelect.select2('destroy');
+                }
+                $bookingAreaSelect.empty().append(new Option(placeholder, '', false, false));
+                var found = false;
+                (areas || []).forEach(function (area) {
+                    var selected = String(area.id) === String(current);
+                    if (selected) {
+                        found = true;
+                    }
+                    $bookingAreaSelect.append(new Option(area.name, area.id, selected, selected));
+                });
+                if (current && !found) {
+                    $bookingAreaSelect.append(new Option(current, current, true, true));
+                }
+                $bookingAreaSelect.select2({
+                    width: '100%',
+                    tags: true,
+                    placeholder: placeholder,
+                    allowClear: true
+                });
+            }
             if ($bookingAreaSelect.length) {
                 $bookingAreaSelect.select2({
                     width: '100%',
                     tags: true,
                     placeholder: $bookingAreaSelect.data('placeholder') || '',
                     allowClear: true
+                });
+            }
+            function loadBookingAreasForZone(zoneId) {
+                if (!$bookingAreaSelect.length) {
+                    return;
+                }
+                if (!zoneId) {
+                    refillBookingAreaSelect([]);
+                    return;
+                }
+                $.get(zoneAreasUrl, {zone_id: zoneId}, function (res) {
+                    refillBookingAreaSelect((res && res.areas) || []);
                 });
             }
 
@@ -2261,6 +2302,7 @@
             $zoneSelect.on('change', function () {
                 const zoneId = $(this).val();
                 clearBookingCreateServiceModalErrors();
+                loadBookingAreasForZone(zoneId);
                 if (!zoneId) {
                     ajaxBookingZoneGen++;
                     ajaxBookingProvidersByCategoryGen++;

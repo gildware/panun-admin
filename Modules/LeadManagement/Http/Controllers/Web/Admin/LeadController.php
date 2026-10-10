@@ -1392,7 +1392,7 @@ class LeadController extends Controller
                 'area_id' => 'nullable|string|max:255',
             ]);
 
-            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null, $data['zone_id'] ?? null);
             $data['estimated_service_value'] = isset($data['estimated_service_value']) && is_numeric($data['estimated_service_value'])
                 ? round((float) $data['estimated_service_value'], 2)
                 : null;
@@ -1510,8 +1510,8 @@ class LeadController extends Controller
                 'provider_service_details' => 'nullable|string|max:1000',
                 'area_id' => 'nullable|string|max:255',
             ]);
-            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
             $zoneIds = array_values(array_unique(array_filter((array) ($data['zone_ids'] ?? []))));
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null, $zoneIds[0] ?? null);
             $data['zone_ids'] = $zoneIds;
             $data['zone_id'] = $zoneIds[0] ?? null;
 
@@ -2195,20 +2195,9 @@ class LeadController extends Controller
     /**
      * Resolve an Area input (an existing id or a new free-typed name from Select2 tags) into an area id.
      */
-    protected function resolveAreaId($raw): ?int
+    protected function resolveAreaId($raw, ?string $zoneId = null): ?int
     {
-        $raw = trim((string) ($raw ?? ''));
-        if ($raw === '') {
-            return null;
-        }
-        if (ctype_digit($raw)) {
-            $existingId = CustomerLeadArea::whereKey($raw)->value('id');
-            if ($existingId !== null) {
-                return (int) $existingId;
-            }
-        }
-
-        return CustomerLeadArea::resolveByName($raw)?->id;
+        return CustomerLeadArea::resolveId($raw, $zoneId);
     }
 
     protected function redirectToLeadShow(Request $request, int $leadId)

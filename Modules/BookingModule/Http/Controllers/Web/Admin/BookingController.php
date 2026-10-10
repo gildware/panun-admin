@@ -856,20 +856,9 @@ class BookingController extends Controller
     /**
      * Resolve an Area input (an existing id or a new free-typed name from Select2 tags) into an area id.
      */
-    protected function resolveBookingAreaId($raw): ?int
+    protected function resolveBookingAreaId($raw, ?string $zoneId = null): ?int
     {
-        $raw = trim((string) ($raw ?? ''));
-        if ($raw === '') {
-            return null;
-        }
-        if (ctype_digit($raw)) {
-            $existingId = CustomerLeadArea::whereKey($raw)->value('id');
-            if ($existingId !== null) {
-                return (int) $existingId;
-            }
-        }
-
-        return CustomerLeadArea::resolveByName($raw)?->id;
+        return CustomerLeadArea::resolveId($raw, $zoneId);
     }
 
     /**
@@ -885,7 +874,22 @@ class BookingController extends Controller
     {
         $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name', 'parent_id', 'description')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
-        $customerLeadAreas = CustomerLeadArea::where('is_active', true)->orderBy('name')->get();
+        $selectedZoneId = trim((string) $request->input('zone_id', ''));
+        $selectedAreaId = $request->input('area_id');
+        $customerLeadAreas = CustomerLeadArea::query()
+            ->where('is_active', true)
+            ->where(function ($query) use ($selectedZoneId, $selectedAreaId) {
+                if ($selectedZoneId !== '') {
+                    $query->where('zone_id', $selectedZoneId);
+                } else {
+                    $query->whereRaw('0 = 1');
+                }
+                if (is_numeric($selectedAreaId)) {
+                    $query->orWhere('id', (int) $selectedAreaId);
+                }
+            })
+            ->orderBy('name')
+            ->get();
         // Categories/providers/servicemen load via AJAX on the create form — do not preload all rows.
         $customers = User::query()->inCustomerDirectory()
             ->orderByDesc('created_at')
@@ -1977,7 +1981,7 @@ class BookingController extends Controller
             $booking->customer_id = $data['customer_id'];
             $booking->provider_id = $data['provider_id'];
             $booking->zone_id = $data['zone_id'];
-            $booking->area_id = $this->resolveBookingAreaId($data['area_id'] ?? null);
+            $booking->area_id = $this->resolveBookingAreaId($data['area_id'] ?? null, $data['zone_id'] ?? null);
             $booking->category_id = $data['category_id'];
             $booking->sub_category_id = $data['sub_category_id'];
             $booking->booking_status = 'accepted';

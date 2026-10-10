@@ -405,7 +405,12 @@
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
-                                                @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'lead-area-select', 'areaSelected' => $customerEditData['area_id'] ?? ''])
+                                                @include('leadmanagement::admin.leads.partials._area-select', [
+                                                    'areaSelectId' => 'lead-area-select',
+                                                    'areaSelected' => $customerEditData['area_id'] ?? '',
+                                                    'areaZoneId' => $customerEditData['zone_id'] ?? '',
+                                                    'areaZoneScoped' => true,
+                                                ])
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Category') }}</label>
@@ -552,7 +557,12 @@
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
-                                                @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'provider-area-select', 'areaSelected' => $providerEditData['area_id'] ?? ''])
+                                                @include('leadmanagement::admin.leads.partials._area-select', [
+                                                    'areaSelectId' => 'provider-area-select',
+                                                    'areaSelected' => $providerEditData['area_id'] ?? '',
+                                                    'areaZoneIds' => $providerZoneIdsForEdit,
+                                                    'areaZoneScoped' => true,
+                                                ])
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Service_Category') }}</label>
@@ -1447,6 +1457,49 @@
                 if (typeof initZoneTreeSelect2 === 'function') {
                     initZoneTreeSelect2($('#lead-zone-select'), $customerModal.length ? { dropdownParent: $customerModal } : {});
                 }
+                window.loadZoneAreasForSelect = function ($select, zoneIds) {
+                    if (!$select || !$select.length) {
+                        return;
+                    }
+                    var current = $select.val();
+                    var placeholder = $select.data('placeholder') || '';
+                    var ids = (zoneIds || []).filter(Boolean);
+                    $.get(@json(route('admin.zone.areas')), {zone_ids: ids}, function (res) {
+                        var areas = (res && res.areas) || [];
+                        if ($select.data('select2')) {
+                            $select.select2('destroy');
+                        }
+                        var selectedValues = Array.isArray(current) ? current.map(String) : (current ? [String(current)] : []);
+                        $select.find('option').not('[value=""]').remove();
+                        if (!$select.find('option[value=""]').length && !$select.prop('multiple')) {
+                            $select.append(new Option(placeholder, '', false, false));
+                        }
+                        var found = {};
+                        areas.forEach(function (area) {
+                            var selected = selectedValues.indexOf(String(area.id)) !== -1;
+                            if (selected) {
+                                found[String(area.id)] = true;
+                            }
+                            $select.append(new Option(area.name, area.id, selected, selected));
+                        });
+                        selectedValues.forEach(function (value) {
+                            if (value && !found[value]) {
+                                $select.append(new Option(value, value, true, true));
+                            }
+                        });
+                        var opts = {
+                            width: '100%',
+                            tags: true,
+                            placeholder: placeholder,
+                            allowClear: true
+                        };
+                        var $modal = $select.closest('.modal');
+                        if ($modal.length) {
+                            opts.dropdownParent = $modal;
+                        }
+                        $select.select2(opts);
+                    });
+                };
                 $('.lead-area-select').each(function () {
                     var $el = $(this);
                     var opts = {
@@ -2600,6 +2653,9 @@
 
             $('#leadCustomerModal').on('change', '[name="zone_id"]', function () {
                 if (window._customerModalPrefilling) return;
+                if (typeof window.loadZoneAreasForSelect === 'function') {
+                    window.loadZoneAreasForSelect($('#lead-area-select'), [$(this).val()]);
+                }
                 loadCategories();
             });
             $('#leadCustomerModal').on('change', '[name="service_category"]', function () {
@@ -3175,6 +3231,9 @@
 
             providerZoneSelect.on('change', function () {
                 loadProviderCategories();
+                if (typeof window.loadZoneAreasForSelect === 'function') {
+                    window.loadZoneAreasForSelect($('#provider-area-select'), providerSelectedZoneIds());
+                }
             });
             providerCategorySelect.on('change', function () {
                 loadProviderSubcategories();
