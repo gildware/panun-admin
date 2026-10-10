@@ -28,6 +28,13 @@ class ZoneManagementServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Modules\ZoneManagement\Console\ExportZoneReplacementCommand::class,
+                \Modules\ZoneManagement\Console\ReplaceZonesCommand::class,
+            ]);
+        }
     }
 
     /**
