@@ -209,6 +209,11 @@ class Booking extends Model
         return $this->belongsTo(\Modules\LeadManagement\Entities\CustomerLeadArea::class, 'area_id');
     }
 
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\LeadManagement\Entities\Lead::class, 'lead_id');
+    }
+
     public function serviceman(): BelongsTo
     {
         return $this->belongsTo(Serviceman::class, 'serviceman_id');

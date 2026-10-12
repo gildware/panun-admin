@@ -14,6 +14,8 @@
         '/admin/dashboard/business-system',
     ];
     var FULL_PAGE_PATH_PREFIXES = [
+        '/admin/booking/download',
+        '/admin/booking/export',
         '/admin/booking/details',
         '/admin/booking/repeat-details',
         '/admin/booking/repeat-single-details',

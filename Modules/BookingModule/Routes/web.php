@@ -89,6 +89,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('additional-charges/{id}', [BookingController::class, 'updateBookingAdditionalCharges'])->name('additional-charges.update');
         Route::delete('extra-service/{id}/{extraId}', [BookingController::class, 'destroyExtraService'])->name('extra-service.destroy');
         Route::post('service-address-update/{id}', [BookingController::class, 'serviceAddressUpdate'])->name('service_address_update');
+        Route::get('export', [BookingController::class, 'export'])->name('export');
         Route::any('download', [BookingController::class, 'download'])->name('download');
         Route::any('invoice/{id}', [BookingController::class, 'invoice'])->name('invoice');
         Route::any('single-repeat-invoice/{id}', [BookingController::class, 'fullBookingSingleInvoice'])->name('single_invoice');
