@@ -54,6 +54,7 @@ use Modules\BookingModule\Services\ProviderBookingCancellationAdminService;
 use Modules\BookingModule\Services\ProviderBookingWithdrawalService;
 use Modules\BookingModule\Services\BookingReopenService;
 use Modules\BookingModule\Services\AdminBookingListQueryService;
+use Modules\BookingModule\Services\BookingListExcelExport;
 use Modules\BookingModule\Services\AdminRepeatBookingScheduleService;
 use Modules\BookingModule\Services\AdminRepeatBookingWriter;
 use Modules\BookingModule\Services\AdminRepeatSeriesLifecycleService;
@@ -6658,68 +6659,108 @@ class BookingController extends Controller
         return back();
     }
 
+    public function export(Request $request): Renderable
+    {
+        $this->authorize('booking_view');
+        $export = app(BookingListExcelExport::class);
+        $request->validate([
+            'booking_status' => 'nullable|in:' . implode(',', $export->allowedStatuses()),
+        ]);
+
+        $assigneeIds = $this->normalizeAdminAssigneeFilterIds((array) $request->input('assignee_ids', []));
+        $filtered = $export->applyFilters($this->booking->newQuery(), $request, $assigneeIds);
+        $total = (clone $filtered)->count();
+        $previewBookings = (clone $filtered)->with($export->relations())->limit(8)->get();
+        $previewRows = $export->rows($previewBookings, $export->allKeys());
+        $bookingStatus = $request->input('booking_status') ?: 'all';
+        $backUrl = $this->bookingExportBackUrl($request, $bookingStatus);
+
+        return view('bookingmodule::admin.booking.export', [
+            'groups' => $export->groups(),
+            'columns' => $export->flatColumns(),
+            'previewRows' => $previewRows,
+            'total' => $total,
+            'hiddenFilters' => $this->bookingExportHiddenFilters($request, $assigneeIds),
+            'backUrl' => $backUrl,
+            'bookingStatus' => $bookingStatus,
+        ]);
+    }
+
     /**
      * @param Request $request
-     * @return string|StreamedResponse
+     * @return StreamedResponse|RedirectResponse
      * @throws AuthorizationException
      * @throws \OpenSpout\Common\Exception\IOException
      * @throws \OpenSpout\Common\Exception\InvalidArgumentException
      * @throws \OpenSpout\Common\Exception\UnsupportedTypeException
      * @throws \OpenSpout\Writer\Exception\WriterNotOpenedException
      */
-    public function download(Request $request): string|StreamedResponse
+    public function download(Request $request): StreamedResponse|RedirectResponse
     {
         $this->authorize('booking_view');
-        $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), ['all', 'reopened']);
+        $export = app(BookingListExcelExport::class);
         $request->validate([
-            'booking_status' => 'nullable|in:' . implode(',', $allowedBookingStatuses),
+            'booking_status' => 'nullable|in:' . implode(',', $export->allowedStatuses()),
         ]);
 
-        $bookingStatus = $request->input('booking_status') ?: 'all';
+        $fromPicker = $request->boolean('column_selection');
+        $keys = $export->keysInOrder((array) $request->input('columns', []), ! $fromPicker);
+        if ($keys === []) {
+            Toastr::error('Select at least one column.');
+
+            return back();
+        }
+
         $assigneeIds = $this->normalizeAdminAssigneeFilterIds((array) $request->input('assignee_ids', []));
+        $bookingStatus = $request->input('booking_status') ?: 'all';
+        $items = $export->applyFilters($this->booking->newQuery(), $request, $assigneeIds)
+            ->with($export->relations())
+            ->get();
+        $rows = $export->rows($items, $keys);
 
-        $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
-        $repeatOnly = (int) $request->input('is_repeated', 0) === 1;
-        $items = $this->booking
-            ->with(['customer'])
-            ->where('is_repeated', $repeatOnly ? 1 : 0)
-            ->adminListSearch($request['search'])
-            ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
-                if ($bookingStatus === 'reopened') {
-                    $query->reopenedChain();
-                } else {
-                    $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
-                        $query->adminPendingBookings($maxBookingAmount);
-                    })->when($bookingStatus == 'accepted', function ($query) use ($maxBookingAmount) {
-                        $query->adminAcceptedBookings($maxBookingAmount);
-                    })->ofBookingStatus($bookingStatus);
-                }
-            })
-            ->when($request['provider_assigned'] == 'assigned', function ($query) {
-                $query->where(function ($subQuery) {
-                    $subQuery->whereNotNull('provider_id')
-                        ->orWhereHas('repeat', function ($q) {
-                            $q->whereNotNull('provider_id');
-                        });
-                });
-            })
-            ->when($request['provider_assigned'] == 'unassigned', function ($query) {
-                $query->where(function ($subQuery) {
-                    $subQuery->whereNull('provider_id')
-                        ->orWhereDoesntHave('repeat', function ($q) {
-                            $q->whereNotNull('provider_id');
-                        });
-                });
-            })
-            ->filterByZoneIds($request['zone_ids'])
-            ->filterBySubcategoryIds($request['sub_category_ids'])
-            ->filterByCategoryIds($request['category_ids'])
-            ->filterByDateRange($request['start_date'], $request['end_date'])
-            ->filterByScheduleDateRange($request['schedule_start_date'], $request['schedule_end_date'])
-            ->filterByAssigneeIds($assigneeIds)
-            ->latest()->get();
+        return (new FastExcel(collect($rows)))->download('bookings-' . $bookingStatus . '-' . date('Y-m-d') . '.xlsx');
+    }
 
-        return (new FastExcel($items))->download(time() . '-file.xlsx');
+    /**
+     * @param  list<string>  $assigneeIds
+     * @return array<string, mixed>
+     */
+    private function bookingExportHiddenFilters(Request $request, array $assigneeIds): array
+    {
+        return [
+            'booking_status' => $request->input('booking_status') ?: 'all',
+            'booking_type' => $request->input('booking_type', ''),
+            'service_type' => $request->input('service_type', 'all'),
+            'provider_assigned' => $request->input('provider_assigned', ''),
+            'is_repeated' => (int) $request->input('is_repeated', 0),
+            'search' => $request->input('search', ''),
+            'start_date' => $request->input('start_date', ''),
+            'end_date' => $request->input('end_date', ''),
+            'schedule_start_date' => $request->input('schedule_start_date', ''),
+            'schedule_end_date' => $request->input('schedule_end_date', ''),
+            'zone_ids' => array_values(array_filter((array) $request->input('zone_ids', []))),
+            'category_ids' => array_values(array_filter((array) $request->input('category_ids', []))),
+            'sub_category_ids' => array_values(array_filter((array) $request->input('sub_category_ids', []))),
+            'assignee_ids' => $assigneeIds,
+        ];
+    }
+
+    private function bookingExportBackUrl(Request $request, string $bookingStatus): string
+    {
+        $params = $request->except(['columns', 'column_selection', 'page']);
+        $params['booking_status'] = $bookingStatus;
+
+        if ($bookingStatus === 'cancelled_by_provider') {
+            return route('admin.booking.list.cancelled_by_provider', $params);
+        }
+        if ($bookingStatus === 'cancelled_by_customer') {
+            return route('admin.booking.list.cancelled_by_customer', $params);
+        }
+        if ((int) $request->input('is_repeated', 0) === 1) {
+            return route('admin.booking.repeat_list', $params);
+        }
+
+        return route('admin.booking.list', $params);
     }
 
 

@@ -249,7 +249,8 @@
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
                                         <li><a class="dropdown-item"
-                                                href="{{ route('admin.booking.download', $queryParams) }}">{{ translate('excel') }}</a>
+                                                href="{{ route('admin.booking.export', $queryParams) }}"
+                                                data-turbo="false">{{ translate('excel') }}</a>
                                         </li>
                                     </ul>
                                 </div>
