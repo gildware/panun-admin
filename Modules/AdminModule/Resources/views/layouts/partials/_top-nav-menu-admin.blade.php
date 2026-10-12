@@ -21,6 +21,7 @@
 
 @if(admin_workspace() === 'training')
     @include('adminmodule::layouts.partials.top-nav.group-training-dashboard')
+    @include('adminmodule::layouts.partials.top-nav.group-training-programs')
     @include('adminmodule::layouts.partials.top-nav.group-employee-process-guides')
     @include('adminmodule::layouts.partials.top-nav.group-admin-business-system')
 @endif

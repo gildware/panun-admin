@@ -114,7 +114,7 @@ class AdminWorkspace
             return self::HR;
         }
 
-        if ($request->is('admin/process-guides*', 'admin/dashboard/business-system*', 'admin/dashboard/training')) {
+        if ($request->is('admin/training*', 'admin/process-guides*', 'admin/dashboard/business-system*', 'admin/dashboard/training')) {
             return self::TRAINING;
         }
 

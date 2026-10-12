@@ -173,6 +173,7 @@
             $typeCardTitles = [
                 \Modules\LeadManagement\Entities\Lead::TYPE_INVALID => translate('Invalid_Lead_Information'),
                 \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER => translate('Future_Customer_Information'),
+                \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_PROVIDER => translate('Future_Provider_Information'),
                 \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER => translate('Provider_Lead_Information'),
             ];
             $typeCardTitle = $typeCardTitles[$lead->lead_type] ?? translate('Lead_Type_Information');

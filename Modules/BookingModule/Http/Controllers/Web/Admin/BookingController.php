@@ -3378,6 +3378,47 @@ class BookingController extends Controller
         return $this->storeTakenBookingFollowup($request, $booking, $requiresNext);
     }
 
+    public function markCustomerNonResponsive(Request $request, $id): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        if (! $booking->requiresMandatoryNextFollowup()) {
+            abort(400, 'Only open bookings can be marked non-responsive');
+        }
+
+        $data = $request->validate([
+            'customer_non_responsive_remarks' => 'nullable|string|max:1000',
+        ]);
+
+        app(BookingFollowupService::class)->markCustomerNonResponsive(
+            $booking,
+            trim((string) ($data['customer_non_responsive_remarks'] ?? '')),
+            auth()->id() ? (string) auth()->id() : null
+        );
+
+        Toastr::success(translate('Booking_customer_marked_non_responsive'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
+    public function reopenCustomerNonResponsive(Request $request, $id): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        if (! $booking->isCustomerNonResponsive() || ! $booking->requiresMandatoryNextFollowup()) {
+            abort(400, 'This booking customer follow-up is not closed as non-responsive');
+        }
+
+        app(BookingFollowupService::class)->reopenCustomerNonResponsive(
+            $booking,
+            auth()->id() ? (string) auth()->id() : null
+        );
+
+        Toastr::success(translate('Booking_customer_reopened'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
     protected function storeTakenBookingFollowup(
         Request $request,
         Booking $booking,

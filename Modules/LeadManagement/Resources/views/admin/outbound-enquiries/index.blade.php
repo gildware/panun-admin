@@ -92,7 +92,7 @@
                                             $employeeName = $employee ? (trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? '')) ?: $employee->email) : '—';
                                             $statusName = $enquiry->statusConfig?->name ?? $enquiry->status ?? '—';
                                         @endphp
-                                        <tr>
+                                        <tr @canany(['lead_outbound_enquiry_add', 'lead_outbound_enquiry_update']) class="js-record-preview-row" data-preview-url="{{ route('admin.lead.outbound-enquiry.edit', $enquiry) }}" @endcanany>
                                             <td>{{ $enquiries->firstItem() + $key }}</td>
                                             <td class="oe-customer-cell">
                                                 <div>{{ $enquiry->customer_name }}</div>
@@ -105,7 +105,7 @@
                                             <td>{{ $statusName }}</td>
                                             <td>
                                                 @if($enquiry->relatedLead)
-                                                    <a href="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}" class="link-primary">
+                                                    <a href="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}" class="link-primary js-record-preview" data-turbo="false">
                                                         #{{ $enquiry->relatedLead->id }}
                                                     </a>
                                                 @else
@@ -144,7 +144,7 @@
                                             <td>{{ \Illuminate\Support\Str::limit($enquiry->remarks ?? '—', 40) }}</td>
                                             <td>
                                                 @canany(['lead_outbound_enquiry_add', 'lead_outbound_enquiry_update'])
-                                                    <a href="{{ route('admin.lead.outbound-enquiry.edit', $enquiry) }}" class="btn btn--primary btn-sm">
+                                                    <a href="{{ route('admin.lead.outbound-enquiry.edit', $enquiry) }}" class="btn btn--primary btn-sm js-record-preview" data-turbo="false">
                                                         {{ translate('Edit') }}
                                                     </a>
                                                 @endcanany
@@ -178,6 +178,7 @@
         </div>
     </div>
     @include('bookingmodule::admin.booking.partials._booking-followup-styles')
+    @include('adminmodule::layouts.partials._record-preview-modal', ['previewTitle' => translate('Outbound_Enquiry')])
 @endsection
 
 @include('leadmanagement::admin.outbound-enquiries.partials._recording_script')

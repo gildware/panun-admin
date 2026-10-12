@@ -97,6 +97,10 @@ class AppCustomRequestController extends Controller
 
         AdminMenuCounts::forget();
 
+        if ($request->boolean('in_modal')) {
+            return redirect()->route('admin.booking.app-custom-requests.show', [$customRequest->id, 'in_modal' => 1]);
+        }
+
         return back();
     }
 

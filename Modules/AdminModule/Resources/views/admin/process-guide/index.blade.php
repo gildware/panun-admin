@@ -5686,13 +5686,6 @@
                     @endforeach
                 </nav>
 
-                @can('lead_view')
-                    <a href="{{ route('admin.workflow.stuck') }}" class="btn btn-sm btn--secondary ms-auto flex-shrink-0">
-                        <span class="material-icons align-middle" style="font-size:16px;">pending_actions</span>
-                        {{ translate('Workflow_Stuck_Items') }}
-                    </a>
-                @endcan
-
                 <div
                     class="pg-guide-search"
                     id="pg-guide-search"

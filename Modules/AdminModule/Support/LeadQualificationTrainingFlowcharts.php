@@ -24,7 +24,7 @@ class LeadQualificationTrainingFlowcharts
                     ['label' => 'Invalid — wrong service or area Panun Kaergar does not cover', 'tone' => 'danger', 'to' => 'Write reason in panel → polite WhatsApp → close as Invalid ✓'],
                 ]],
                 ['kind' => 'action', 'label' => 'After every call: write notes → update panel (type + remarks) → WhatsApp customer → set Followup On if needed'],
-                ['kind' => 'end', 'label' => 'Every lead ends in ONE status: booking confirmed, provider registered, future customer, invalid, or cancelled', 'tone' => 'success'],
+                ['kind' => 'end', 'label' => 'Every lead ends in ONE recorded outcome: booked, provider registered, future customer, invalid, cancelled after they answered, or Non Responsive when nobody answered', 'tone' => 'success'],
             ],
             'lead-arrival' => [
                 ['kind' => 'start', 'label' => 'Start shift — run checklist: ringing phone → WA unread → today\'s follow-ups → Web Bookings / Provider Requests / App Custom Requests → social apps → Human support'],
@@ -109,14 +109,10 @@ class LeadQualificationTrainingFlowcharts
                 ['kind' => 'decision', 'label' => 'Picked up on any attempt?'],
                 ['kind' => 'fork', 'branches' => [
                     ['label' => 'Yes — any attempt', 'tone' => 'success', 'to' => 'Qualify → reclassify → handling slide'],
-                    ['label' => 'No — all 3 failed', 'tone' => 'danger', 'to' => 'Next: vague vs documented need (Path C)'],
+                    ['label' => 'No — all 3 failed', 'tone' => 'danger', 'to' => 'Mark as Non Responsive — type stays Unknown'],
                 ]],
-                ['kind' => 'decision', 'label' => 'Enquiry vague only, or DM/form showed customer job details?'],
-                ['kind' => 'fork', 'branches' => [
-                    ['label' => 'Vague ("hi", missed call only)', 'tone' => 'danger', 'to' => 'Mark as Invalid → Did not Know About Enquiry'],
-                    ['label' => 'DM/form had service + location (Path C)', 'tone' => 'warn', 'to' => 'Mark as Customer → Change Status Cancel → No Response From Customer'],
-                ]],
-                ['kind' => 'end', 'label' => 'Lead closed OR reclassified if they answered', 'tone' => 'success'],
+                ['kind' => 'action', 'label' => 'Remarks list all 3 dates. If a DM named the job, paste that text too. Do not change the type.'],
+                ['kind' => 'end', 'label' => 'Closed as Non Responsive ✓ OR reclassified if they answered', 'tone' => 'success'],
             ],
             'customer-booking' => [
                 ['kind' => 'start', 'label' => 'Customer lead — user needs home service'],
@@ -141,10 +137,10 @@ class LeadQualificationTrainingFlowcharts
                 ['kind' => 'decision', 'label' => 'Picked up on any attempt?'],
                 ['kind' => 'fork', 'branches' => [
                     ['label' => 'Yes — any attempt', 'tone' => 'success', 'to' => 'Collect details → Path A or B'],
-                    ['label' => 'No — all 3 failed', 'tone' => 'danger', 'to' => 'Change Status → Cancel → No Response From Customer'],
+                    ['label' => 'No — all 3 failed', 'tone' => 'danger', 'to' => 'Mark as Non Responsive — type stays Customer'],
                 ]],
-                ['kind' => 'action', 'label' => 'After 3 no-pickups: all attempt dates in remarks + follow-up rows + close lead'],
-                ['kind' => 'end', 'label' => 'Cancelled — No Response From Customer ✓ OR booking path if they answered', 'tone' => 'success'],
+                ['kind' => 'action', 'label' => 'After 3 no-pickups: all attempt dates in remarks + follow-up rows + Mark as Non Responsive'],
+                ['kind' => 'end', 'label' => 'Closed as Non Responsive ✓ OR booking path if they answered', 'tone' => 'success'],
             ],
             'direct-booking' => [
                 ['kind' => 'action', 'label' => 'WhatsApp: service details, address, date/time — finding partner for that time'],
@@ -184,7 +180,7 @@ class LeadQualificationTrainingFlowcharts
                 ['kind' => 'decision', 'label' => 'Available for brief onboarding call now?'],
                 ['kind' => 'fork', 'branches' => [
                     ['label' => 'Yes', 'tone' => 'success', 'to' => 'Step 1 brief call now'],
-                    ['label' => 'Later', 'tone' => 'warn', 'to' => 'Schedule follow-up — call then (max 3)'],
+                    ['label' => 'Later / no answer', 'tone' => 'warn', 'to' => 'Follow up — max 3, then Mark as Non Responsive'],
                 ]],
                 ['kind' => 'action', 'label' => 'Step 1 — Brief call: explain Panun Kaergar model, commission, service type, area, and document deadline'],
                 ['kind' => 'action', 'label' => 'Step 2 — Send agreement + document list — ask submit-by date'],
@@ -288,7 +284,7 @@ class LeadQualificationTrainingFlowcharts
                 ['text' => 'If Future customer — explain Panun Kaergar services to them, warm WhatsApp, close as Future ✓', 'detail' => 'You inform the customer about Panun Kaergar — not “inform the office”. Tell them what we do, when to call, ask for referrals.'],
                 ['text' => 'If Invalid — write why in panel, polite WhatsApp, close as Invalid ✓', 'detail' => 'Example: car repair (we do home services only) or city we do not cover. Still be polite.'],
                 ['text' => 'After every call: notes → panel (type + remarks) → WhatsApp → Followup On if another touch needed', 'detail' => 'Do not type in panel during the call. Update immediately after you hang up, before the next lead.'],
-                ['text' => 'End with ONE clear status — booking, provider registered, future customer, invalid, or cancelled', 'detail' => 'Open leads with no follow-up date are failures. Every lead must land somewhere.'],
+                ['text' => 'End with ONE clear outcome — booked, provider registered, future customer, invalid, cancelled after they answered, or Non Responsive when nobody answered', 'detail' => 'Open leads with no follow-up date are failures. No answer is Non Responsive. The type stays the same. Cancel is only after they answered.'],
             ],
             'lead-arrival' => [
                 ['text' => 'Start every shift — run the checklist on “Where leads come from” slide', 'detail' => 'WhatsApp unread, follow-ups due, Web Bookings, App Custom Requests, Human support, then social apps.'],
@@ -339,9 +335,8 @@ class LeadQualificationTrainingFlowcharts
                 ['text' => 'Attempt 2 — on Followup On: call again → no pickup → WA + Attempt 2/3 + new Followup On', 'detail' => 'Add follow-up row each time.'],
                 ['text' => 'Attempt 3 — final call → no pickup → WA + Attempt 3/3 in remarks + follow-ups tab', 'detail' => 'Last attempt before close.'],
                 ['text' => 'Picked up on Attempt 2 or 3? → qualify on that call and reclassify', 'detail' => 'Same as Unknown call slide — one type, full remarks, WhatsApp after call.'],
-                ['text' => 'All 3 failed — was enquiry vague only, or did DM/form show customer job details?', 'detail' => 'Path C: Instagram DM with service + address but no pickup = documented need.'],
-                ['text' => 'Vague only ("hi", missed call) → Mark as Invalid → Did not Know About Enquiry', 'detail' => 'List every attempt date in remarks + 3 follow-up rows.'],
-                ['text' => 'DM/form had service details (Path C) → Mark as Customer → Change Status Cancel → No Response From Customer', 'detail' => 'Not Invalid — customer need was documented, contact failed. No provider group post.'],
+                ['text' => 'All 3 failed — Mark as Non Responsive. Type stays Unknown.', 'detail' => 'A DM that names the job does not change this. Paste that text into the remarks. Do not Mark as Invalid or Customer.'],
+                ['text' => 'List every attempt date in remarks + 3 follow-up rows', 'detail' => 'Reopen only if they call back, then qualify and change the type.'],
             ],
             'customer-booking' => [
                 ['text' => 'Customer lead open — confirm they need a home service (plumbing, electrical, cleaning, etc.)', 'detail' => 'If type is still Unknown, you should have classified on the qualify call first.'],
@@ -360,7 +355,7 @@ class LeadQualificationTrainingFlowcharts
                 ['text' => 'Attempt 3 — final call → if no pickup, WhatsApp + “Attempt 3/3”', 'detail' => 'Last chance before close.'],
                 ['text' => 'Picked up on any attempt? → collect full details → Path A or Path B', 'detail' => 'Treat it like a fresh customer call — complete panel + WhatsApp before group post.'],
                 ['text' => 'All 3 failed? → all attempt dates in remarks', 'detail' => 'Same documentation rule as Unknown no-pickup.'],
-                ['text' => 'Close — Change Status → Cancel → No Response From Customer', 'detail' => 'Do not leave the lead open with no follow-up date.'],
+                ['text' => 'Close — Mark as Non Responsive. Type stays Customer.', 'detail' => 'Do not Cancel a lead nobody answered. Do not leave it open with no follow-up date.'],
             ],
             'direct-booking' => [
                 ['text' => 'WhatsApp customer — service, address, date/time; finding partner for that slot', 'detail' => 'Mandatory after every call. Customer should never wonder if Panun Kaergar is working on their request.'],
@@ -385,9 +380,9 @@ class LeadQualificationTrainingFlowcharts
             ],
             'provider-onboarding' => [
                 ['text' => 'Provider lead — person wants to join Panun Kaergar as a home-service partner', 'detail' => 'Different from a customer who needs a plumber. They want to receive jobs from us.'],
-                ['text' => 'Can they take a brief onboarding call now?', 'detail' => 'If busy → schedule Followup On — max 3 attempts to reach them, same as customer no-pickup rule.'],
+                ['text' => 'Can they take a brief onboarding call now?', 'detail' => 'If busy or no answer → schedule Followup On. Max 3 attempts. After the third miss, Mark as Non Responsive. Type stays Provider.'],
                 ['text' => 'Yes → Step 1 brief call now', 'detail' => 'Explain Panun Kaergar, how partners get jobs, commission, which services and areas we need.'],
-                ['text' => 'No / later → schedule follow-up call on Followup On date (max 3 total attempts)', 'detail' => 'Document each attempt in remarks + WhatsApp after each touch.'],
+                ['text' => 'No / later → schedule follow-up call on Followup On date (max 3 total attempts)', 'detail' => 'Document each attempt in remarks + WhatsApp after each touch. After the third miss, Mark as Non Responsive. Type stays Provider.'],
                 ['text' => 'Step 1 — Brief call: Panun Kaergar model, commission, service type, area, document deadline', 'detail' => 'They must understand expectations before sending documents.'],
                 ['text' => 'Step 2 — WhatsApp agreement + list of required documents + submit-by date', 'detail' => 'Example docs: ID, skill proof, bank details — per onboarding checklist.'],
                 ['text' => 'Did they send documents by the deadline?', 'detail' => 'Check WhatsApp — if not, follow up (max 3 total follow-ups on docs).'],

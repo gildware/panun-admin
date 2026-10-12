@@ -1176,6 +1176,7 @@
 .booking-detail-v2 .status-pill--success { color: #0f5132; border-color: #198754; background: rgba(25,135,84,.12); }
 .booking-detail-v2 .status-pill--primary { color: var(--bk-accent-dark); border-color: var(--bk-accent); background: var(--bk-accent-soft); }
 .booking-detail-v2 .status-pill--danger { color: #842029; border-color: #dc3545; background: rgba(220,53,69,.12); }
+.booking-detail-v2 .status-pill--muted { color: #495057; border-color: #adb5bd; background: #f8f9fa; }
 .booking-detail-v2 .btn-demo-accent {
   display: inline-flex;
   align-items: center;

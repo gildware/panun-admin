@@ -3,7 +3,8 @@
     $isCustomerTab = isset($tab) && $tab === 'customer';
     $isInvalidTab = isset($tab) && $tab === 'invalid';
     $isFutureCustomerTab = isset($tab) && $tab === 'future_customer';
-    $isReasonTab = $isInvalidTab || $isFutureCustomerTab;
+    $isFutureProviderTab = isset($tab) && $tab === 'future_provider';
+    $isReasonTab = $isInvalidTab || $isFutureCustomerTab || $isFutureProviderTab;
     $providerLeadData = $providerLeadData ?? [];
     $customerLeadData = $customerLeadData ?? [];
     $reasonLeadData = $reasonLeadData ?? [];
@@ -12,6 +13,7 @@
         $isProviderTab => 14,
         $isCustomerTab => 16,
         $isFutureCustomerTab => 10,
+        $isFutureProviderTab => 9,
         $isInvalidTab => 9,
         default => 9,
     };
@@ -125,6 +127,7 @@
                                         \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER => 'bg-success',
                                         \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER => 'bg-primary',
                                         \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER => 'bg-info',
+                                        \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_PROVIDER => 'bg-secondary',
                                         default => 'bg-warning',
                                     };
                                 @endphp
@@ -183,9 +186,7 @@
                             <a href="{{ $leadDetailUrl }}"
                                class="btn btn-sm btn--primary btn-lead-view"
                                data-lead-url="{{ $leadDetailUrl }}"
-                               data-turbo="false"
-                               target="_blank"
-                               rel="noopener noreferrer">
+                               data-turbo="false">
                                 {{ translate('view') }}
                             </a>
                         </td>

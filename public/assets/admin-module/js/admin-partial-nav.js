@@ -856,15 +856,19 @@
             await waitForDocumentStyles(400);
             setFrameLoading(frame, false);
             revealAdminShell();
+
+            // Update the address before page scripts run. Those scripts read
+            // window.location on startup; if it still points at the previous
+            // screen they switch the new page back, and a refresh follows.
+            if (options.advance !== false) {
+                window.history.pushState({ adminPartialNav: true }, '', url);
+            }
+
             await activateScripts(frame);
             initPageWidgets(frame);
             markFullPageLinks();
             markPartialNavLinks(frame);
             scheduleEnsureZoneMap();
-
-            if (options.advance !== false) {
-                window.history.pushState({ adminPartialNav: true }, '', url);
-            }
 
             hideProgressSoon();
             window.scrollTo({ top: 0, behavior: 'smooth' });

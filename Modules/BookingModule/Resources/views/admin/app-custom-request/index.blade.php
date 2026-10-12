@@ -92,16 +92,16 @@
                                     </thead>
                                     <tbody>
                                     @forelse($requests as $key => $customRequest)
-                                        <tr>
+                                        <tr class="js-record-preview-row" data-preview-url="{{ route('admin.booking.app-custom-requests.show', $customRequest->id) }}">
                                             <td class="text-muted">{{ $requests->firstItem() + $key }}</td>
                                             <td class="text-nowrap">
-                                                <a href="{{ route('admin.booking.app-custom-requests.show', $customRequest->id) }}" class="link-primary">
+                                                <a href="{{ route('admin.booking.app-custom-requests.show', $customRequest->id) }}" class="link-primary js-record-preview" data-turbo="false">
                                                     {{ $customRequest->reference_id }}
                                                 </a>
                                             </td>
                                             <td class="text-nowrap">
                                                 @if($customRequest->lead)
-                                                    <a href="{{ route('admin.lead.show', $customRequest->lead->id) }}" class="link-primary fw-semibold">
+                                                    <a href="{{ route('admin.lead.show', $customRequest->lead->id) }}" class="link-primary fw-semibold js-record-preview" data-turbo="false">
                                                         #{{ $customRequest->lead->id }}
                                                     </a>
                                                 @else
@@ -126,11 +126,11 @@
                                             <td class="text-nowrap">{{ $customRequest->created_at?->format('d M Y h:i a') }}</td>
                                             <td>
                                                 <div class="acr-action-btns">
-                                                    <a href="{{ route('admin.booking.app-custom-requests.show', $customRequest->id) }}" class="btn btn--secondary">
+                                                    <a href="{{ route('admin.booking.app-custom-requests.show', $customRequest->id) }}" class="btn btn--secondary js-record-preview" data-turbo="false">
                                                         {{ translate('View') }}
                                                     </a>
                                                     @if($customRequest->lead)
-                                                        <a href="{{ route('admin.lead.show', $customRequest->lead->id) }}" class="btn btn--primary">
+                                                        <a href="{{ route('admin.lead.show', $customRequest->lead->id) }}" class="btn btn--primary js-record-preview" data-turbo="false">
                                                             {{ translate('View_Lead') }}
                                                         </a>
                                                     @endif
@@ -167,4 +167,5 @@
     </div>
 
     @include('bookingmodule::admin.app-custom-request.partials._delete-modal')
+    @include('adminmodule::layouts.partials._record-preview-modal', ['previewTitle' => translate('App_Custom_Request_Details')])
 @endsection

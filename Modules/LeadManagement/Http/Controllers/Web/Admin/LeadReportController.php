@@ -24,6 +24,7 @@ use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Services\CustomerLeadReportAnalyticsService;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\LeadManagement\Services\LeadCtwaDisplayService;
 use Modules\LeadManagement\Services\ProviderLeadReportAnalyticsService;
 use Modules\LeadManagement\Services\ReasonLeadReportAnalyticsService;
@@ -1120,74 +1121,11 @@ class LeadReportController extends Controller
             return ['open' => 0, 'closed' => 0];
         }
 
-        $leadIds = $leads->pluck('id')->all();
-        $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
-            ->whereIn('type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
-            ->orderByDesc('created_at')
-            ->get();
-
-        $latestByComposite = [];
-        foreach ($histories as $history) {
-            $key = $history->lead_id . '|' . $history->type;
-            if (!isset($latestByComposite[$key])) {
-                $latestByComposite[$key] = $history;
-            }
-        }
-
-        $customerStatusIds = [];
-        $providerStatusIds = [];
-        foreach ($latestByComposite as $key => $history) {
-            $data = is_array($history->data) ? $history->data : [];
-            if (str_ends_with((string) $key, '|' . Lead::TYPE_CUSTOMER) && !empty($data['customer_lead_status_id'])) {
-                $customerStatusIds[] = (int) $data['customer_lead_status_id'];
-            }
-            if (str_ends_with((string) $key, '|' . Lead::TYPE_PROVIDER) && !empty($data['provider_lead_status_id'])) {
-                $providerStatusIds[] = (int) $data['provider_lead_status_id'];
-            }
-        }
-
-        $customerStatuses = $customerStatusIds !== []
-            ? CustomerLeadStatus::whereIn('id', array_unique($customerStatusIds))->get()->keyBy('id')
-            : collect();
-        $providerStatuses = $providerStatusIds !== []
-            ? ProviderLeadStatus::whereIn('id', array_unique($providerStatusIds))->get()->keyBy('id')
-            : collect();
-
+        $meta = app(LeadOpenStatusService::class)->buildLeadStatusMeta($leads);
         $open = 0;
         $closed = 0;
-
         foreach ($leads as $lead) {
-            $isOpen = false;
-
-            if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
-                $isOpen = true;
-            } elseif (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
-                $isOpen = false;
-            } elseif ($lead->lead_type === Lead::TYPE_CUSTOMER) {
-                $history = $latestByComposite[$lead->id . '|' . Lead::TYPE_CUSTOMER] ?? null;
-                $data = ($history && is_array($history->data)) ? $history->data : [];
-                $statusId = $data['customer_lead_status_id'] ?? null;
-                if (!$statusId) {
-                    $isOpen = true;
-                } else {
-                    $status = $customerStatuses->get((int) $statusId);
-                    $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
-                    $isOpen = !in_array($baseType, ['completed', 'cancel'], true);
-                }
-            } elseif ($lead->lead_type === Lead::TYPE_PROVIDER) {
-                $history = $latestByComposite[$lead->id . '|' . Lead::TYPE_PROVIDER] ?? null;
-                $data = ($history && is_array($history->data)) ? $history->data : [];
-                $statusId = $data['provider_lead_status_id'] ?? null;
-                if (!$statusId) {
-                    $isOpen = true;
-                } else {
-                    $status = $providerStatuses->get((int) $statusId);
-                    $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
-                    $isOpen = !in_array($baseType, ['completed', 'cancel'], true);
-                }
-            }
-
-            if ($isOpen) {
+            if ($meta[(int) $lead->id]['is_open'] ?? false) {
                 $open++;
             } else {
                 $closed++;

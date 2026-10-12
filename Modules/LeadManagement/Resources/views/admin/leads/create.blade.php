@@ -130,20 +130,14 @@
 
                                     <div class="col-12">
                                         <div class="mb-30 d-none" id="lead-create-invalid-fields">
-                                            <div class="mb-30">
-                                                <label class="form-label">{{ translate('Reason') }}</label>
-                                                <select name="invalid_reason_id" class="form-select js-select" id="lead-create-invalid-reason">
-                                                    <option value="">{{ translate('Select_Reason') }}</option>
-                                                    @foreach($invalidReasons as $reason)
-                                                        <option value="{{ $reason->id }}" {{ (string) old('invalid_reason_id') === (string) $reason->id ? 'selected' : '' }}>
-                                                            {{ $reason->name }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                                @error('invalid_reason_id')
-                                                    <div class="text-danger small mt-1">{{ $message }}</div>
-                                                @enderror
-                                            </div>
+                                            @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                                'selectId' => 'lead-create-invalid-reason',
+                                                'selectClass' => 'form-select js-select',
+                                                'marginClass' => 'mb-30',
+                                                'reasons' => $invalidReasons,
+                                                'reasonField' => 'invalid_reason_id',
+                                                'optionField' => 'invalid_reason_option_id',
+                                            ])
                                             <div class="mb-0">
                                                 <label class="form-label">{{ translate('Remarks') }}</label>
                                                 <textarea name="invalid_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('invalid_remarks') }}</textarea>
@@ -153,21 +147,30 @@
                                             </div>
                                         </div>
 
-                                        <div class="mb-30 d-none" id="lead-create-future-fields">
-                                            <div class="mb-30">
-                                                <label class="form-label">{{ translate('Reason') }}</label>
-                                                <select name="future_customer_reason_id" class="form-select js-select" id="lead-create-future-reason">
-                                                    <option value="">{{ translate('Select_Reason') }}</option>
-                                                    @foreach($futureCustomerReasons as $reason)
-                                                        <option value="{{ $reason->id }}" {{ (string) old('future_customer_reason_id') === (string) $reason->id ? 'selected' : '' }}>
-                                                            {{ $reason->name }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                                @error('future_customer_reason_id')
+                                        <div class="mb-30 d-none" id="lead-create-future-provider-fields">
+                                            @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                                'selectId' => 'lead-create-future-provider-reason',
+                                                'selectClass' => 'form-select js-select',
+                                                'marginClass' => 'mb-30',
+                                                'reasons' => $futureProviderReasons,
+                                                'reasonField' => 'future_provider_reason_id',
+                                                'optionField' => 'future_provider_reason_option_id',
+                                            ])
+                                            <div class="mb-0">
+                                                <label class="form-label">{{ translate('Remarks') }}</label>
+                                                <textarea name="future_provider_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('future_provider_remarks') }}</textarea>
+                                                @error('future_provider_remarks')
                                                     <div class="text-danger small mt-1">{{ $message }}</div>
                                                 @enderror
                                             </div>
+                                        </div>
+
+                                        <div class="mb-30 d-none" id="lead-create-future-fields">
+                                            @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                                'selectId' => 'lead-create-future-reason',
+                                                'selectClass' => 'form-select js-select',
+                                                'marginClass' => 'mb-30',
+                                            ])
                                             <div class="mb-0">
                                                 <label class="form-label">{{ translate('Remarks') }}</label>
                                                 <textarea name="future_customer_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('future_customer_remarks') }}</textarea>
@@ -240,6 +243,7 @@
 
             const TYPE_INVALID = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
             const TYPE_FUTURE = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER }}';
+            const TYPE_FUTURE_PROVIDER = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_PROVIDER }}';
             const $typeSelect = $('#lead-create-type-select');
             const $followWrap = $('#lead-create-followup-wrap');
             const $followInput = $('#lead-create-next-followup-input');
@@ -249,26 +253,44 @@
             const $generalRemarks = $('#lead-create-remarks');
             const $invalidReason = $('#lead-create-invalid-reason');
             const $futureReason = $('#lead-create-future-reason');
+            const $futureProviderBlock = $('#lead-create-future-provider-fields');
+            const $futureProviderReason = $('#lead-create-future-provider-reason');
+
+            function syncCreateReasonFollowup($select, active) {
+                if (!$select.length) return;
+                $select.prop('required', active);
+                const optionSelect = document.getElementById($select.attr('data-option-select'));
+                if (!active) {
+                    if (optionSelect) {
+                        optionSelect.required = false;
+                        optionSelect.disabled = true;
+                    }
+                    return;
+                }
+                if (window.applyFutureCustomerReasonFollowup) {
+                    window.applyFutureCustomerReasonFollowup($select.get(0));
+                }
+            }
 
             function leadCreateApplyTypeUi() {
                 const t = $typeSelect.val();
                 const isInvalid = t === TYPE_INVALID;
                 const isFuture = t === TYPE_FUTURE;
+                const isFutureProvider = t === TYPE_FUTURE_PROVIDER;
+                const hidesFollowup = isInvalid || isFuture || isFutureProvider;
 
-                $followWrap.toggleClass('d-none', isInvalid || isFuture);
+                $followWrap.toggleClass('d-none', hidesFollowup);
                 $invalidBlock.toggleClass('d-none', !isInvalid);
                 $futureBlock.toggleClass('d-none', !isFuture);
-                $generalRemarksWrap.toggleClass('d-none', isInvalid || isFuture);
+                $futureProviderBlock.toggleClass('d-none', !isFutureProvider);
+                $generalRemarksWrap.toggleClass('d-none', hidesFollowup);
 
-                $followInput.prop('disabled', isInvalid || isFuture);
-                $generalRemarks.prop('disabled', isInvalid || isFuture);
+                $followInput.prop('disabled', hidesFollowup);
+                $generalRemarks.prop('disabled', hidesFollowup);
 
-                if ($invalidReason.length) {
-                    $invalidReason.prop('required', isInvalid);
-                }
-                if ($futureReason.length) {
-                    $futureReason.prop('required', isFuture);
-                }
+                syncCreateReasonFollowup($invalidReason, isInvalid);
+                syncCreateReasonFollowup($futureReason, isFuture);
+                syncCreateReasonFollowup($futureProviderReason, isFutureProvider);
 
             }
 
