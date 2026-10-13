@@ -53,7 +53,7 @@ class WorkflowStepDefinitions
             ],
             'lead.unknown.reclassify' => [
                 'label' => 'Update panel — type + remarks from call',
-                'detail' => 'Mark as Customer, Provider, Future, or Invalid and fill remarks from your call notes. Do this right after hang-up.',
+                'detail' => 'Mark as Customer, Provider, Future customer, Future provider, or Invalid and fill remarks from your call notes. Do this right after hang-up.',
                 'manual' => false,
                 'auto' => 'lead_not_unknown',
                 'gates' => [self::ACTION_LEAD_TYPE_CHANGE],

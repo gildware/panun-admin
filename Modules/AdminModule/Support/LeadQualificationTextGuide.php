@@ -71,7 +71,14 @@ class LeadQualificationTextGuide
                             [
                                 'label' => 'Provider lead',
                                 'steps' => [[
-                                    'title' => 'User wants to join as a service provider — proceed to Section 5 (provider onboarding).',
+                                    'title' => 'User wants to join as a service provider and can start now — proceed to Section 5 (provider onboarding).',
+                                ]],
+                            ],
+                            [
+                                'label' => 'Future provider lead',
+                                'steps' => [[
+                                    'title' => 'User wants to join as a service provider, but not yet.',
+                                    'body' => 'Pick the future provider reason, save the area and remarks, send a warm WhatsApp, and close. Do not send the agreement, and do not set a follow-up. The lead stays out of the queue.',
                                 ]],
                             ],
                             [
@@ -155,9 +162,15 @@ class LeadQualificationTextGuide
                                 ]],
                             ],
                             [
-                                'label' => 'User wants to join as service provider',
+                                'label' => 'User wants to join as service provider and can start now',
                                 'steps' => [[
                                     'title' => 'Mark as provider lead → Section 5.',
+                                ]],
+                            ],
+                            [
+                                'label' => 'User wants to join later, but is not ready',
+                                'steps' => [[
+                                    'title' => 'Mark as future provider lead — reason required, warm WhatsApp, no onboarding and no follow-up.',
                                 ]],
                             ],
                             [
@@ -360,12 +373,41 @@ class LeadQualificationTextGuide
                 ],
             ],
             [
+                'title' => '5B. Future provider lead — not ready yet',
+                'intro' => 'Use this when they want to join as a partner, but cannot start onboarding today. It is a valid close. It is not Provider, not Future customer, and not Invalid.',
+                'steps' => [
+                    [
+                        'title' => 'Confirm the trade, the area, and why they cannot start today.',
+                        'body' => 'Typical reasons: not ready to join yet, waiting for documents, outside current zones, will join next season, needs equipment first.',
+                    ],
+                    [
+                        'title' => 'Can they start the brief call and send documents today?',
+                        'branches' => [
+                            [
+                                'label' => 'Yes',
+                                'steps' => [[
+                                    'title' => 'Do not use Future provider. Mark as Provider and follow Section 5.',
+                                ]],
+                            ],
+                            [
+                                'label' => 'No',
+                                'steps' => [[
+                                    'title' => 'Mark as Future provider. Reason is required. Save area and remarks in the same update.',
+                                    'body' => 'Send a warm WhatsApp asking them to call 8899881555 when they are ready. Do not send the agreement. Do not add them to a provider group. Do not set Followup On. The lead closes and stays out of follow-ups.',
+                                ]],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            [
                 'title' => '6. Lead outcomes (reference)',
                 'intro' => 'Every path should end in one of these states with proper remarks and follow-up dates where applicable.',
                 'steps' => [
                     ['title' => 'Customer lead — active service enquiry or booking in progress.'],
                     ['title' => 'Provider lead — onboarding in progress or completed.'],
                     ['title' => 'Future customer lead — nurture for later; referral ask done.'],
+                    ['title' => 'Future provider lead — wants to join later; reason saved; closed and out of follow-ups. Onboarding not started.'],
                     ['title' => 'Invalid lead — they answered, and the request is a wrong service or outside our area.'],
                     ['title' => 'Unknown lead — open during the 3 attempts, or closed as Non Responsive with the type still Unknown.'],
                     ['title' => 'Non Responsive — Unknown, Customer, or Provider who did not answer after 3 attempts. Type stays the same. Reopen if they call back.'],

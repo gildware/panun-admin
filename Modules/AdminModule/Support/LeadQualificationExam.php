@@ -34,6 +34,7 @@ class LeadQualificationExam
             self::customer(),
             self::provider(),
             self::future(),
+            self::futureProvider(),
             self::invalid(),
             self::certification(),
         );
@@ -109,7 +110,7 @@ class LeadQualificationExam
                     self::q(
                         'A lead can show Open or Closed on the queue. Which description matches that state?',
                         [
-                            'Unknown, Customer, and Provider stay Open until Non Responsive, or until Customer/Provider is Completed or Cancelled. Invalid and Future are always Closed.',
+                            'Unknown, Customer, and Provider stay Open until Non Responsive, or until Customer/Provider is Completed or Cancelled. Invalid, Future customer, and Future provider are always Closed.',
                             'Every lead stays Open until you personally feel the work is finished.',
                             'Non Responsive changes the type to Invalid and keeps the lead Open.',
                             'Future customer stays Open until a booking is created.',
@@ -122,6 +123,12 @@ class LeadQualificationExam
                         'Comments. You can @mention staff and pin a handover note. Comments do not replace a follow-up row.',
                         'Initial remarks only. Remarks are the place for internal arguments and @mentions.',
                         'Initial remarks are the customer-facing summary. Comments are internal team notes.',
+                    ),
+                    self::q(
+                        'An electrician wants to join Panun Kaergar, but says the documents will only be ready next season. What type is this?',
+                        ['Provider — send the agreement today', 'Future customer — they may need a repair later', 'Future provider — close with the reason, no onboarding and no follow-up', 'Invalid — we cannot register them today'],
+                        2,
+                        'Future provider is a partner who is not ready yet. Provider onboarding starts only when they can start now. Future customer is someone who may need a home service later.',
                     ),
                     self::q(
                         'The panel will not let you change an Unknown lead to Customer until the required outbound call is done. What is that called?',
@@ -817,6 +824,17 @@ class LeadQualificationExam
                         'Future customer, with the reason from the dropdown.',
                         'Invalid, because there is no booking today.',
                         'No need today is a valid Future close. Invalid is a wrong service or outside the area.',
+                    ),
+                    self::q(
+                        'A plumber wants to join, but only after winter, and has no documents today. Which type matches?',
+                        [
+                            'Future provider, with the reason, then a warm WhatsApp. No agreement and no Followup On',
+                            'Provider, and chase the documents for three attempts',
+                            'Future customer, because there is no booking today',
+                            'Invalid, because onboarding cannot start today',
+                        ],
+                        0,
+                        'Not ready to join is Future provider. Ready to start documents and the group is Provider. A person who may need a service later is Future customer.',
                     ),
                 ],
                 'Lead types — remember and avoid' => [
@@ -2346,6 +2364,147 @@ class LeadQualificationExam
                         'No. Create the Customer lead for that person, and mention the referral in the remarks.',
                         'Yes. You can tell the next shift verbally.',
                         'A referral who needs service today is today\'s customer, not a story you remember.',
+                    ),
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, array<string, array<int, array{prompt: string, options: array<int, string>, correct: int, explanation: string}>>>
+     */
+    private static function futureProvider(): array
+    {
+        $s = 'Future provider — close until they are ready';
+
+        return [
+            $s => [
+                'When to use Future provider (not Provider, not Future customer)' => [
+                    self::q(
+                        'Four people called about joining or saving the number. Which person is a Future provider?',
+                        [
+                            'An electrician who wants to join next season, after the documents are ready',
+                            'A plumber who can talk now and can send ID and bank details today',
+                            'A homeowner saving the number for a renovation in three months',
+                            'Someone who wants car repair in Jammu',
+                        ],
+                        0,
+                        'Future provider wants to join, but cannot start today. Ready now is Provider. A future home service is Future customer. A wrong service is Invalid.',
+                    ),
+                    self::one(
+                        'They can cover Srinagar south, have their documents, and can take the brief call now. Do you mark Future provider?',
+                        'No. Mark as Provider and start onboarding. Future provider would hide a partner who is ready today.',
+                        'Yes. Every partner application starts as Future provider.',
+                        'Future provider is only the not-ready close. If they can start now, use the Provider slide.',
+                    ),
+                ],
+                'On the call — confirm, close, do not onboard' => [
+                    self::q(
+                        'They want to join as a plumber in Baramulla after winter, and they have no documents today. What do you do before you hang up?',
+                        [
+                            'Confirm trade, area, and why not now. Mark as Future provider with that reason. Send the warm WhatsApp. Do not send the agreement',
+                            'Send the agreement and set Followup On for the document deadline',
+                            'Mark as Future customer and ask for a referral',
+                            'Add them to the provider group so they see jobs now',
+                        ],
+                        0,
+                        'The dropdown reason has to match what they said. The lead closes. There is no Followup On and no document chase.',
+                    ),
+                    self::one(
+                        'The remarks already say "will join next season." Is the reason dropdown optional?',
+                        'No. Mark as Future provider requires the reason, plus area and remarks in the same save.',
+                        'Yes. Remarks are enough to close the lead.',
+                        'Managers read the reason. An empty dropdown is an incomplete Future provider close.',
+                    ),
+                ],
+                'Future provider — close until they are ready — examples' => [
+                    self::q(
+                        'An electrician in Budgam wants to join, but still needs to buy tools and cannot send documents this week. What is the example result?',
+                        [
+                            'Future provider, reason Needs equipment first, area Budgam, warm WhatsApp, lead Closed',
+                            'Provider onboarding, agreement sent today',
+                            'Future customer, reason renovation',
+                            'Invalid, service not offered',
+                        ],
+                        0,
+                        'The reason matches the call. Onboarding does not start. The lead is not on today\'s follow-ups.',
+                    ),
+                    self::one(
+                        'On the same call the plumber says they have ID, bank details, and can cover Srinagar south now. What does the example do?',
+                        'Mark as Provider and open onboarding. Do not use Future provider.',
+                        'Close as Future provider so the queue stays short.',
+                        'A ready partner is today\'s Provider lead. Future provider is for someone who cannot start yet.',
+                    ),
+                ],
+                'Flow — Future provider' => [
+                    self::q(
+                        'They want to join, but not today. What does the Future provider flow end with?',
+                        [
+                            'Reason, area, remarks, warm WhatsApp, lead Closed, out of follow-ups. Onboarding not started',
+                            'Agreement sent and a document follow-up tomorrow',
+                            'A provider group post',
+                            'Create Booking',
+                        ],
+                        0,
+                        'The close is intentional. The lead stays out of today\'s follow-ups until they come back ready.',
+                    ),
+                    self::one(
+                        'Halfway through the flow you learn they can send documents today. What do you do?',
+                        'Stop. Mark as Provider and follow onboarding. Do not finish the Future provider close.',
+                        'Finish Future provider, because you already opened the flow.',
+                        'Ready now means Provider. Future provider is only when they cannot start today.',
+                    ),
+                ],
+                'WhatsApp to provider' => [
+                    self::one(
+                        'You closed the lead as Future provider. What does that WhatsApp do?',
+                        'Thanks them, says registration is not starting today, and asks them to call 8899881555 when they are ready.',
+                        'Attaches the partner agreement and a document deadline.',
+                        'The Future provider message is a welcome-back close. The agreement belongs to Provider onboarding.',
+                    ),
+                    self::q(
+                        'The Future provider reason is saved. When do you send the WhatsApp?',
+                        ['The same minute as the panel update', 'Next season', 'Only after they send documents', 'Never. Future provider leads get no message'],
+                        0,
+                        'The warm close is part of finishing the call, the same as every other WhatsApp-after-call rule.',
+                    ),
+                ],
+                'Future provider — close until they are ready — panel pages' => [
+                    self::q(
+                        'Where do you find closed partner leads who are not ready yet, and where are the reasons configured?',
+                        [
+                            'Leads → Future Provider tab, and Lead configuration for the reason list',
+                            'Today\'s follow-ups, because every future partner needs a daily call',
+                            'Outbound Enquiries, the same list as Future customer',
+                            'Providers → Add New Provider',
+                        ],
+                        0,
+                        'Future provider is a closed lead. It is not on today\'s follow-ups, and it does not use the Future customer outbound list.',
+                    ),
+                    self::one(
+                        'You saved a Future provider and want a reminder to call them next week. Do you set Followup On?',
+                        'No. This close stays out of follow-ups. They call when they are ready.',
+                        'Yes. Every lead needs a next date or it is a failure.',
+                        'Future provider is closed on purpose. A follow-up date puts them back in a queue the close is meant to leave.',
+                    ),
+                ],
+                'Future provider — close until they are ready — remember and avoid' => [
+                    self::q(
+                        'You are closing a "not ready to join" call. Which of these is an avoid item?',
+                        [
+                            'Sending the agreement, using Future customer for a future partner, marking Invalid, or setting Followup On',
+                            'Picking the reason that matches what they said',
+                            'A warm WhatsApp the same minute',
+                            'Saving the area with the reason',
+                        ],
+                        0,
+                        'Future provider is a success. Do not onboard them, do not treat them as a future customer, and do not put them back on the follow-up queue.',
+                    ),
+                    self::one(
+                        'They said they are ready for the brief call on this same conversation. Is the Future provider lead finished correctly if you still close it that way?',
+                        'No. Mark as Provider and start onboarding. Future provider is the wrong close.',
+                        'Yes. Future provider is the first step of every partner application.',
+                        'If they can start now, the Provider slide is the correct path.',
                     ),
                 ],
             ],

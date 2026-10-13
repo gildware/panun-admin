@@ -1013,7 +1013,7 @@ class LeadController extends Controller
             'invalid_reason_option_id' => 'nullable|integer',
             'invalid_remarks' => 'nullable|string|max:1000',
             'future_customer_reason_id' => 'nullable|required_if:lead_type,future_customer|exists:lead_future_customer_reasons,id',
-            'future_customer_reason_option_id' => 'nullable|integer',
+            'future_customer_reason_option_id' => 'nullable|string|max:255',
             'future_customer_remarks' => 'nullable|string|max:1000',
             'future_provider_reason_id' => 'nullable|required_if:lead_type,future_provider|exists:lead_future_provider_reasons,id',
             'future_provider_reason_option_id' => 'nullable|integer',
@@ -1390,19 +1390,58 @@ class LeadController extends Controller
     }
 
     /**
-     * A reason with active options requires one of those options.
+     * Choose an existing follow-up answer, or save a newly typed answer into configuration.
      */
-    protected function resolveFutureCustomerOptionId(int $reasonId, mixed $optionId): ?int
+    protected function resolveFutureCustomerOptionId(int $reasonId, mixed $raw): ?int
     {
-        $data = $this->applyFollowupOption(
-            ['future_customer_reason_id' => $reasonId],
-            'future_customer_reason',
-            'future_customer_reason_id',
-            'future_customer_reason_option_id',
-            $optionId
-        );
+        $reason = LeadFutureCustomerReason::query()->find($reasonId);
+        $options = LeadFutureCustomerReasonOption::query()
+            ->where('lead_future_customer_reason_id', $reasonId)
+            ->get();
+        $needsAnswer = filled($reason?->followup_label)
+            || $options->contains(fn ($option) => (bool) $option->is_active);
+        $value = trim((string) ($raw ?? ''));
 
-        return $data['future_customer_reason_option_id'] ?? null;
+        if ($value === '') {
+            if ($needsAnswer) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'future_customer_reason_option_id' => translate('Select_the_follow_up_for_this_reason'),
+                ]);
+            }
+
+            return null;
+        }
+
+        if (ctype_digit($value)) {
+            $byId = $options->first(fn ($option) => (int) $option->id === (int) $value);
+            if ($byId) {
+                if (! $byId->is_active) {
+                    $byId->is_active = true;
+                    $byId->save();
+                }
+
+                return (int) $byId->id;
+            }
+        }
+
+        $needle = mb_strtolower($value);
+        $byName = $options->first(fn ($option) => mb_strtolower(trim((string) $option->name)) === $needle);
+        if ($byName) {
+            if (! $byName->is_active) {
+                $byName->is_active = true;
+                $byName->save();
+            }
+
+            return (int) $byName->id;
+        }
+
+        $created = LeadFutureCustomerReasonOption::create([
+            'lead_future_customer_reason_id' => $reasonId,
+            'name' => $value,
+            'is_active' => true,
+        ]);
+
+        return (int) $created->id;
     }
 
     /**
@@ -1418,18 +1457,11 @@ class LeadController extends Controller
             return $data;
         }
 
-        if ($reasonType === 'future_customer_reason') {
-            $activeIds = LeadFutureCustomerReasonOption::query()
-                ->where('lead_future_customer_reason_id', $reasonId)
-                ->where('is_active', true)
-                ->pluck('id');
-        } else {
-            $activeIds = LeadReasonFollowupOption::query()
-                ->where('reason_type', $reasonType)
-                ->where('reason_id', $reasonId)
-                ->where('is_active', true)
-                ->pluck('id');
-        }
+        $activeIds = LeadReasonFollowupOption::query()
+            ->where('reason_type', $reasonType)
+            ->where('reason_id', $reasonId)
+            ->where('is_active', true)
+            ->pluck('id');
 
         $activeIds = $activeIds->map(fn ($id) => (int) $id)->all();
         if ($activeIds === []) {
@@ -1501,9 +1533,8 @@ class LeadController extends Controller
         } elseif ($leadType === 'future_customer') {
             $data = $request->validate([
                 'future_customer_reason_id' => 'required|exists:lead_future_customer_reasons,id',
-                'future_customer_reason_option_id' => 'nullable|integer',
+                'future_customer_reason_option_id' => 'nullable|string|max:255',
                 'future_customer_remarks' => 'nullable|string|max:1000',
-                'area_id' => 'nullable|string|max:255',
             ]);
             $optionId = $this->resolveFutureCustomerOptionId(
                 (int) $data['future_customer_reason_id'],
@@ -1514,7 +1545,7 @@ class LeadController extends Controller
             } else {
                 unset($data['future_customer_reason_option_id']);
             }
-            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
+            unset($data['area_id']);
 
             $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_FUTURE_CUSTOMER, [], $data);
 
@@ -2694,7 +2725,6 @@ class LeadController extends Controller
             $reasonModel = isset($data['future_customer_reason_id'])
                 ? LeadFutureCustomerReason::with('options')->find($data['future_customer_reason_id'])
                 : null;
-            $futureArea = isset($data['area_id']) ? CustomerLeadArea::find($data['area_id']) : null;
             $rows[] = ['label' => translate('Reason'), 'value' => $reasonModel?->name ?? '—'];
             if (! empty($data['future_customer_reason_option_id'])) {
                 $optionId = (int) $data['future_customer_reason_option_id'];
@@ -2704,7 +2734,10 @@ class LeadController extends Controller
                     'value' => $option?->name ?? '—',
                 ];
             }
-            $rows[] = ['label' => translate('Area'), 'value' => $futureArea?->name ?? '—'];
+            if (! empty($data['area_id'])) {
+                $futureArea = CustomerLeadArea::find($data['area_id']);
+                $rows[] = ['label' => translate('Area'), 'value' => $futureArea?->name ?? '—'];
+            }
             $rows[] = ['label' => translate('Remarks'), 'value' => $data['future_customer_remarks'] ?? '—'];
         } elseif ($leadType === 'future_provider') {
             $reasonModel = isset($data['future_provider_reason_id'])

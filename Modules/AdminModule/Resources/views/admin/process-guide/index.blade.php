@@ -1209,6 +1209,7 @@
         .process-guide-page .pg-training-type-card--provider .pg-training-type-icon { color: #2563eb; }
         .process-guide-page .pg-training-type-card--unknown .pg-training-type-icon { color: #d97706; }
         .process-guide-page .pg-training-type-card--future .pg-training-type-icon { color: #7c3aed; }
+        .process-guide-page .pg-training-type-card--future-provider .pg-training-type-icon { color: #0f766e; }
         .process-guide-page .pg-training-type-card--invalid .pg-training-type-icon { color: #dc2626; }
         .process-guide-page .pg-training-type-card--source .pg-training-type-icon { color: #0d9488; }
         .process-guide-page .pg-training-scenario-title {
@@ -2954,6 +2955,7 @@
         .process-guide-page .pg-training-type-card--provider { border-top-color: #2563eb; }
         .process-guide-page .pg-training-type-card--unknown { border-top-color: #d97706; }
         .process-guide-page .pg-training-type-card--future { border-top-color: #7c3aed; }
+        .process-guide-page .pg-training-type-card--future-provider { border-top-color: #0f766e; }
         .process-guide-page .pg-training-type-card--invalid { border-top-color: #dc2626; }
         .process-guide-page .pg-training-type-card--source { border-top-color: #0d9488; }
         .process-guide-page .pg-training-type-tag {

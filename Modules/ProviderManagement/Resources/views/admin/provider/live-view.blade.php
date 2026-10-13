@@ -3,9 +3,9 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv18';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv18';
-    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv18';
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv19';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv19';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv19';
     $calendarWindowDays = (int) ($calendarWindowDays ?? 90);
     $calendarStartMaxDays = (int) ($calendarStartMaxDays ?? 365);
     $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
@@ -31,6 +31,7 @@
         'calendarStartMaxDays' => $calendarStartMaxDays,
         'categories' => $categoriesJson ?? [],
         'subcategories' => $subcategoriesJson ?? [],
+        'services' => $servicesJson ?? [],
         'placeholderPhoto' => asset('assets/provider-module/img/user2x.png'),
     ];
 @endphp
@@ -179,6 +180,16 @@
                         <option value="">{{ translate('Select_a_category') }}</option>
                     </select>
                 </label>
+                <label class="fld">{{ translate('Expertise') }}
+                    <select id="plv-expert" class="form-select" disabled
+                            data-placeholder-off="{{ translate('Select_a_sub_category') }}"
+                            data-placeholder-on="{{ translate('Any') }}"
+                            data-label-any-expert="{{ translate('Any_expert_in_this_subcategory') }}"
+                            data-label-all="{{ translate('Expert_in_all_services') }}"
+                            data-label-service="{{ translate('Expert') }}">
+                        <option value="">{{ translate('Select_a_sub_category') }}</option>
+                    </select>
+                </label>
                 <label class="fld">{{ translate('Availability') }}
                     <select id="plv-avail" class="form-select">
                         <option value="">{{ translate('Any_status') }}</option>
@@ -289,6 +300,16 @@
                                 data-placeholder-off="{{ translate('Select_a_category') }}"
                                 data-placeholder-on="{{ translate('All_sub_categories') }}">
                             <option value="">{{ translate('Select_a_category') }}</option>
+                        </select>
+                    </label>
+                    <label class="fld">{{ translate('Expertise') }}
+                        <select id="plc-expert" class="form-select" disabled
+                                data-placeholder-off="{{ translate('Select_a_sub_category') }}"
+                                data-placeholder-on="{{ translate('Any') }}"
+                                data-label-any-expert="{{ translate('Any_expert_in_this_subcategory') }}"
+                                data-label-all="{{ translate('Expert_in_all_services') }}"
+                                data-label-service="{{ translate('Expert') }}">
+                            <option value="">{{ translate('Select_a_sub_category') }}</option>
                         </select>
                     </label>
                     <button class="btn btn-outline-primary" id="plc-reset" type="button">

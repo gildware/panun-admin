@@ -4,6 +4,7 @@ namespace Modules\AdminModule\Support;
 
 use Modules\LeadManagement\Entities\LeadCancellationReason;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
+use Modules\LeadManagement\Entities\LeadFutureProviderReason;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
 use Modules\LeadManagement\Entities\ProviderCancellationReason;
 
@@ -26,6 +27,7 @@ class LeadQualificationTrainingGuide
             self::slideHandlingCustomers(),
             self::slideHandlingProviders(),
             self::slideHandlingFutureCustomers(),
+            self::slideHandlingFutureProviders(),
             self::slideHandlingInvalidLeads(),
             self::slideQuiz(),
         ];
@@ -85,7 +87,7 @@ class LeadQualificationTrainingGuide
             ],
             'lead-classifications' => [
                 'icon' => 'label',
-                'overview' => 'Five lead types — what each means and the first things to do once you pick the right one.',
+                'overview' => 'Six lead types — what each means and the first things to do once you pick the right one.',
             ],
             'using-lead-page' => [
                 'icon' => 'dashboard',
@@ -110,6 +112,10 @@ class LeadQualificationTrainingGuide
             'handling-future-customers' => [
                 'icon' => 'event',
                 'overview' => 'Future customer — confirm why no booking today, explain Panun Kaergar, ask for referrals, warm close. Valid success, not Invalid.',
+            ],
+            'handling-future-providers' => [
+                'icon' => 'schedule',
+                'overview' => 'Future provider — they want to join as a partner, but not yet. Pick the reason, warm close, and leave them out of follow-ups. Not onboarding, and not Future customer.',
             ],
             'handling-invalid-leads' => [
                 'icon' => 'block',
@@ -305,6 +311,20 @@ class LeadQualificationTrainingGuide
     }
 
     /** @return array{mandatory: bool, label: string, template: string, example: string, to: string} */
+    private static function waFutureProviderClose(): array
+    {
+        return self::wa(
+            'Future provider call',
+            'Thank you for contacting Panun Kaergar. We would like you to join as a service partner when you are ready. '
+            .'We are not starting registration today. When you have what you need, call or WhatsApp us on 8899881555 and we will complete your onboarding.',
+            'Thank you for contacting Panun Kaergar. We would like you to join as an electrician when your tools are ready. '
+            .'We are not starting registration today. Call or WhatsApp us on 8899881555 when you are ready, and we will complete your onboarding.',
+            true,
+            'provider',
+        );
+    }
+
+    /** @return array{mandatory: bool, label: string, template: string, example: string, to: string} */
     private static function waInvalidClose(): array
     {
         return self::wa(
@@ -332,6 +352,7 @@ class LeadQualificationTrainingGuide
                 ['term' => 'Provider', 'definition' => 'Someone who wants to join Panun Kaergar as a service partner and receive jobs.'],
                 ['term' => 'Unknown', 'definition' => 'Not enough information yet — you must call and ask what they need, then change the type.'],
                 ['term' => 'Future customer', 'definition' => 'No service needed today — saving our number or may need help later; warm close in panel.'],
+                ['term' => 'Future provider', 'definition' => 'Wants to join as a service partner, but not ready yet. Close with a reason. The lead stays out of follow-ups. Do not start onboarding.'],
                 ['term' => 'Follow-up', 'definition' => 'Next action date on the lead (Followup On in panel) — when you must call, message, or close the lead.'],
                 ['term' => 'Mark as', 'definition' => 'Hero buttons that change an Unknown lead to Customer, Provider, Future customer, Future provider, or Invalid. Each opens a modal with required fields. Use these only after they answer.'],
                 ['term' => 'Non Responsive', 'definition' => 'Close for no answer after 3 attempts. Hero → Mark as Non Responsive. The type stays Unknown, Customer, or Provider. The lead leaves follow-ups. Reopen if they call back. Not Invalid, and not Cancel.'],
@@ -339,7 +360,7 @@ class LeadQualificationTrainingGuide
                 ['term' => 'Add follow-up', 'definition' => 'Log each contact attempt — Taken + Call or WhatsApp + remarks. The Follow-ups tab shows how many times the lead was contacted.'],
                 ['term' => 'Call log', 'definition' => 'A phone contact logged via Activity → Call Logs → Add Call Log (or Add follow-up → Call). Shows who you called, when, remarks, and optional recording.'],
                 ['term' => 'Initial call recording', 'definition' => 'One audio upload on the lead main card for the first qualify call — play back, transcribe for AI summary, also listed in Call Logs tab.'],
-                ['term' => 'Open / Closed', 'definition' => 'Lead queue state. Unknown, Customer, and Provider stay Open until Mark as Non Responsive, or until Customer/Provider is Completed or Cancelled. Invalid and Future are always Closed. Non Responsive keeps the type and shows Closed.'],
+                ['term' => 'Open / Closed', 'definition' => 'Lead queue state. Unknown, Customer, and Provider stay Open until Mark as Non Responsive, or until Customer/Provider is Completed or Cancelled. Invalid, Future customer, and Future provider are always Closed. Non Responsive keeps the type and shows Closed.'],
                 ['term' => 'Initial remarks', 'definition' => 'Customer-facing summary on the lead — what was said, promised, and next step. Always update after every call.'],
                 ['term' => 'Comments', 'definition' => 'Internal team notes on the lead — @mention staff, pin for shift handover. Not a substitute for follow-up rows.'],
                 ['term' => 'Workflow checklist', 'definition' => 'Floating steps on lead details — tick each box as you qualify and move toward booking.'],
@@ -479,12 +500,13 @@ class LeadQualificationTrainingGuide
                 self::missionCard(
                     'classify-immediately',
                     'Classify immediately after call',
-                    'Unknown is temporary — after every successful call, set the correct type: Customer, Provider, Future, or Invalid.',
+                    'Unknown is temporary — after every successful call, set the correct type: Customer, Provider, Future customer, Future provider, or Invalid.',
                     'Classification drives the whole process — Path A, Path B, onboarding, or close. Unknown means “not yet qualified.” Once you know what they want, change the type in the same panel update. Never leave Unknown open after a successful conversation.',
                     [
                         'Customer = wants a home service booked or quoted.',
                         'Provider = wants to join Panun Kaergar as a service partner.',
                         'Future customer = valid need but not now — save for later.',
+                        'Future provider = wants to join as a partner, but not ready yet — close, do not start onboarding.',
                         'Invalid = outside our services — close politely with reason.',
                     ],
                     'mission-classify.png',
@@ -771,6 +793,7 @@ class LeadQualificationTrainingGuide
     {
         $invalid = self::activeConfigurationNames(LeadInvalidReason::class);
         $future = self::activeConfigurationNames(LeadFutureCustomerReason::class);
+        $futureProvider = self::activeConfigurationNames(LeadFutureProviderReason::class);
         $customerCancel = self::activeConfigurationNames(LeadCancellationReason::class);
         $providerCancel = self::activeConfigurationNames(ProviderCancellationReason::class);
 
@@ -792,6 +815,13 @@ class LeadQualificationTrainingGuide
                     'text' => 'Mark as Future customer — required on save.',
                     'color' => 'future',
                     'points' => $future !== [] ? $future : ['Ask manager — no future customer reasons configured yet'],
+                ],
+                [
+                    'icon' => 'schedule',
+                    'title' => 'Future provider reasons',
+                    'text' => 'Mark as Future provider — required on save. This closes the lead and keeps it out of follow-ups.',
+                    'color' => 'future-provider',
+                    'points' => $futureProvider !== [] ? $futureProvider : ['Ask manager — no future provider reasons configured yet'],
                 ],
                 [
                     'icon' => 'cancel',
@@ -1319,6 +1349,18 @@ class LeadQualificationTrainingGuide
                     ],
                 ],
                 [
+                    'icon' => 'schedule',
+                    'title' => 'Future provider',
+                    'text' => 'Wants to join Panun Kaergar as a service partner, but not ready yet — documents, tools, season, or a zone we do not cover. Not someone who needs a plumber for their home.',
+                    'color' => 'future-provider',
+                    'points' => [
+                        'On the call, confirm they want to join and why they cannot start onboarding today',
+                        'Set type Future provider + pick the reason from the panel dropdown. Area and remarks are part of the same save',
+                        'Do not send the agreement, chase documents, or add them to a provider group',
+                        'The lead closes and stays out of follow-ups — a valid success, not Invalid and not Provider yet',
+                    ],
+                ],
+                [
                     'icon' => 'block',
                     'title' => 'Invalid',
                     'text' => 'Panun Kaergar cannot help — wrong service (e.g. car repair) or location outside our service area. Still handle politely.',
@@ -1327,7 +1369,7 @@ class LeadQualificationTrainingGuide
                         'Write in remarks exactly what they asked for and where',
                         'Set type Invalid + select the reason in panel',
                         'Polite WhatsApp — sorry we cannot help, briefly list what we do offer',
-                        'Never use Invalid for “no need now” — that is Future customer. Never use Invalid for no answer — that is Mark as Non Responsive.',
+                        'Never use Invalid for “no need now” — that is Future customer. Never use Invalid for “wants to join later” — that is Future provider. Never use Invalid for no answer — that is Mark as Non Responsive.',
                     ],
                 ],
             ],
@@ -1375,10 +1417,11 @@ class LeadQualificationTrainingGuide
                     'The list is how you pick work. Tabs filter by type; filters narrow by source, handler, open/closed, and dates. Follow-up badges show Missed / Due / Due soon on each row.',
                     [
                         'Leads and bookings → Leads',
-                        'Tabs: All / Unknown / Customer / Future Customer / Provider / Invalid',
+                        'Tabs: All / Unknown / Customer / Future Customer / Future Provider / Provider / Invalid',
                         'Filter drawer: Source, Ad Source, Handled By, Open or Closed, date ranges',
                         'Customer tab: status, zone, category, tags. Provider tab: district, zone, checklist count',
-                        'Future tab: outbound enquiry count filter',
+                        'Future Customer tab: outbound enquiry count filter',
+                        'Future Provider tab: closed partner leads who are not ready yet — they are not in today\'s follow-ups',
                         'Row click or View → opens lead detail',
                     ],
                     [
@@ -1440,13 +1483,15 @@ class LeadQualificationTrainingGuide
                         'No answer after 3 attempts → Mark as Non Responsive on the current type (Unknown, Customer, or Provider)',
                         'Customer modal: zone, area, category, service, estimated date, status',
                         'Provider modal: district, zones, categories, address, status',
-                        'Future modal: reason dropdown (required) + area + remarks',
+                        'Future customer modal: reason dropdown (required) + remarks',
+                        'Future provider modal: reason dropdown (required) + area + remarks. This closes the lead and keeps it out of follow-ups',
                         'Invalid modal: reason dropdown (required) + area + remarks',
                     ],
                     [
                         'Changing type by editing remarks only — type must change in panel',
                         'Mark as Customer before you have service, address, and timing on the call',
                         'Using Invalid for “no need now” — that is Future customer',
+                        'Using Provider onboarding for someone who is not ready to join yet — that is Future provider',
                         'Leaving Unknown after a successful qualify call',
                     ],
                     [
@@ -1644,7 +1689,8 @@ class LeadQualificationTrainingGuide
                         'Customer after 3 no-pickups → Mark as Non Responsive. Type stays Customer. Do not Cancel.',
                         'Provider after 3 no-pickups → Mark as Non Responsive. Type stays Provider. Do not Cancel.',
                         'Invalid enquiry (they answered, wrong service or area) → Mark as Invalid → reason',
-                        'Future → Mark as Future customer → reason dropdown — no Cancel needed',
+                        'Future customer → Mark as Future customer → reason dropdown — no Cancel needed',
+                        'Future provider → Mark as Future provider → reason dropdown — no onboarding and no Followup On',
                         'Customer or Provider who answered and then refused → Change Status → Cancel with the matching reason',
                     ],
                     [
@@ -2169,7 +2215,8 @@ class LeadQualificationTrainingGuide
                 'title' => 'Lead qualifier — ask on every Unknown call until you know the type',
                 'items' => [
                     ['question' => 'Do you need a home service (plumber, electrician, cleaning, repair)?', 'type' => 'Customer', 'note' => 'Collect service, problem, full address, date/time on the same call'],
-                    ['question' => 'Do you want to join Panun Kaergar as a service partner?', 'type' => 'Provider', 'note' => 'Collect trade, area, phone — send to onboarding slides'],
+                    ['question' => 'Do you want to join Panun Kaergar as a service partner, and can you start onboarding now?', 'type' => 'Provider', 'note' => 'Collect trade, area, phone — send to onboarding slides'],
+                    ['question' => 'Do you want to join, but not yet — documents, tools, season, or a zone we do not cover?', 'type' => 'Future provider', 'note' => 'Pick the reason, warm close, no agreement and no follow-up'],
                     ['question' => 'No service needed now — just saving our number or need later?', 'type' => 'Future customer', 'note' => 'Confirm reason, explain our services, warm close'],
                     ['question' => 'Request we cannot help with (wrong service or outside our area)?', 'type' => 'Invalid', 'note' => 'Write exact request + location in remarks, polite close'],
                 ],
@@ -2194,8 +2241,8 @@ class LeadQualificationTrainingGuide
                         ),
                         self::trainingStep(
                             'Run the lead qualifier — pick exactly ONE type before you hang up',
-                            'Ask the four qualifier questions in order. Stop as soon as you know the type. Unknown is only allowed until this call ends successfully.',
-                            'Which path applies: Customer / Provider / Future customer / Invalid',
+                            'Ask the qualifier questions in order. Stop as soon as you know the type. Unknown is only allowed until this call ends successfully.',
+                            'Which path applies: Customer / Provider / Future provider / Future customer / Invalid',
                             'Customer: "Kitchen tap is leaking." Provider: "I am an electrician — want to work with you." Future: "Just saving your number for renovation in 3 months." Invalid: "Need car AC repair in Jammu."',
                             'Collect the details for that type (Steps 4–7 below) on the same call.',
                         ),
@@ -2212,6 +2259,13 @@ class LeadQualificationTrainingGuide
                             'Full name, trade/service type, area they cover, phone, can they talk now or schedule callback',
                             '"Electrician, Srinagar south, wants partner registration — available for brief onboarding call now."',
                             'After call → Provider onboarding slide.',
+                        ),
+                        self::trainingStep(
+                            'If Future provider — confirm why they cannot join today, then close',
+                            'They want to receive jobs later, not book a service for their home, and they are not ready for documents and the provider group today.',
+                            'Trade, area, why not now (dropdown reason), phone',
+                            '"Electrician in Budgam — wants to join after he buys tools. Not starting onboarding today."',
+                            'After call → Future provider slide. Do not send the agreement.',
                         ),
                         self::trainingStep(
                             'If Future customer or Invalid — confirm and close the right way on the call',
@@ -2586,6 +2640,7 @@ class LeadQualificationTrainingGuide
             'qualifier' => [
                 'title' => 'Provider onboarding — four steps to Provider registered ✓',
                 'items' => [
+                    ['question' => 'They want to join, but not now — documents, tools, next season, or a zone we do not cover?', 'type' => 'Future provider — not this slide', 'note' => 'Close as Future provider. Do not send the agreement or add them to a group'],
                     ['question' => 'Step 1 — Brief call: explain Panun Kaergar, commission, trade, area, document deadline', 'type' => 'After first contact', 'note' => 'They must understand the model before you send documents'],
                     ['question' => 'Step 2 — WhatsApp agreement + document list + submit-by date', 'type' => 'Same day as Step 1', 'note' => 'ID, skill proof, bank details — use template below'],
                     ['question' => 'Step 3 — Final call: job flow, provider group, 10-minute reply rule, payment', 'type' => 'After docs received', 'note' => 'Only when documents are in — not before'],
@@ -2732,7 +2787,8 @@ class LeadQualificationTrainingGuide
                     ['question' => 'Saving our number for later — no service needed today?', 'type' => 'Future customer', 'note' => 'Pick reason: saving number'],
                     ['question' => 'Renovation or need expected in weeks/months?', 'type' => 'Future customer', 'note' => 'Pick reason: renovation later / no immediate need'],
                     ['question' => 'Just moved — wants to know what we do but not booking now?', 'type' => 'Future customer', 'note' => 'Explain services, warm close'],
-                    ['question' => 'Wrong service or outside area?', 'type' => 'Invalid — not Future', 'note' => 'Future is for valid contacts with no need today only'],
+                    ['question' => 'Wrong service or outside area?', 'type' => 'Invalid — not Future', 'note' => 'Future customer is for valid contacts with no need today only'],
+                    ['question' => 'Wants to join as a partner, but not ready yet?', 'type' => 'Future provider — not Future customer', 'note' => 'Future customer is someone who may need a service later, not a partner'],
                 ],
             ],
             'path_steps' => [
@@ -2835,12 +2891,101 @@ class LeadQualificationTrainingGuide
     }
 
     /** @return array<string, mixed> */
+    private static function slideHandlingFutureProviders(): array
+    {
+        return [
+            'id' => 'handling-future-providers',
+            'title' => 'Future provider — close until they are ready',
+            'subtitle' => 'Section 7 — valid close, not onboarding yet',
+            'type' => 'visual',
+            'panel_links' => [
+                self::panelLink('Future provider tab', '/admin/lead?tab=future_provider'),
+                self::panelLink('Future provider reasons', '/admin/lead/configuration'),
+            ],
+            'qualifier' => [
+                'title' => 'When to use Future provider (not Provider, not Future customer)',
+                'items' => [
+                    ['question' => 'Wants to join, but not ready today — documents still pending?', 'type' => 'Future provider', 'note' => 'Pick reason: Waiting for documents'],
+                    ['question' => 'Will join next season, or still needs tools or a vehicle?', 'type' => 'Future provider', 'note' => 'Pick the matching reason. Do not chase documents now'],
+                    ['question' => 'Can work, but only outside the zones we cover today?', 'type' => 'Future provider', 'note' => 'Pick reason: Outside current zones, and save the area'],
+                    ['question' => 'Ready for the brief call, agreement, and documents now?', 'type' => 'Provider — not Future', 'note' => 'Start onboarding. Future provider is only when they cannot start yet'],
+                    ['question' => 'Saving our number because they may need a home service later?', 'type' => 'Future customer — not Future provider', 'note' => 'Future provider is a future partner, not a future booking'],
+                ],
+            ],
+            'path_steps' => [
+                [
+                    'label' => 'On the call — confirm, close, do not onboard',
+                    'steps' => [
+                        self::trainingStep(
+                            'Confirm they want to join, and why they cannot start today',
+                            'The reason you hear is the reason you will pick in the dropdown. If they can start onboarding now, stop and use the Provider slide instead.',
+                            'Name, trade, area, why not now, when they expect to be ready',
+                            '"I am a plumber in Baramulla. I want to join next season, after winter. I do not have the documents today."',
+                            'Explain that we will onboard them when they are ready — not on this call.',
+                        ),
+                        self::trainingStep(
+                            'Tell them what happens when they are ready',
+                            'They should know we want them as a partner, and that registration starts only when they can send documents and join the provider group.',
+                            'Trade, area, and the ready-when they agreed',
+                            '"When your documents are ready, call 8899881555. We will do a short onboarding call, then add you to the plumber group for your area."',
+                            'Do not send the agreement or document list on this call.',
+                        ),
+                        self::trainingStep(
+                            'Call ends — Mark as Future provider immediately',
+                            'Hero → Mark as Future Provider. Reason is required. Save area and remarks in the same modal. The lead closes and leaves follow-ups.',
+                            'Type Future provider, dropdown reason, area, remarks with trade and why not now',
+                            'Future provider ✓, reason "Will join next season", area Baramulla, remarks "Plumber. Wants to join after winter. No documents today. No onboarding started."',
+                            'Send the warm-close WhatsApp the same minute. Do not set Followup On.',
+                        ),
+                        self::trainingStep(
+                            'WhatsApp — thank them and tell them to call when ready',
+                            'This is a success. They should feel welcome to come back. It is not a booking message and not an agreement.',
+                            'WA sent, our number named, onboarding not started',
+                            'See the Future provider WhatsApp template below.',
+                            'Lead stays Closed. It does not appear in today\'s follow-ups.',
+                        ),
+                    ],
+                ],
+            ],
+            'scenarios' => [
+                [
+                    'title' => 'Tools not ready — close, do not onboard',
+                    'trigger' => 'Call: electrician in Budgam wants to join, but he still needs to buy tools. He cannot send documents this week.',
+                    'action' => 'Future provider → reason "Needs equipment first" → area Budgam → remarks with trade and why → warm WA. No agreement.',
+                    'panel' => 'Future provider ✓, reason matches the call, lead Closed, not on today\'s follow-ups.',
+                ],
+                [
+                    'title' => 'Ready on the same call — do not use Future provider',
+                    'trigger' => 'Call: plumber can talk now, has ID and bank details, and can cover Srinagar south.',
+                    'action' => 'Mark as Provider and open the onboarding slide. Future provider would hide a partner who is ready today.',
+                    'panel' => 'Provider, onboarding remarks, agreement WhatsApp the same day.',
+                ],
+            ],
+            'flowcharts' => [['key' => 'future-provider', 'title' => 'Flow — Future provider']],
+            'messages' => [self::waFutureProviderClose()],
+            'remember' => [
+                'Future provider ✓ is a valid success — they want to join, just not today',
+                'Dropdown reason is required — it must match what they said',
+                'The lead closes and stays out of follow-ups. Do not set Followup On',
+                'No agreement, no document chase, and no provider group while the type is Future provider',
+                'If they are ready on this call, Mark as Provider and start onboarding instead',
+            ],
+            'avoid' => [
+                'Provider onboarding for someone who is not ready',
+                'Future customer for a future partner — that type is for someone who may need a service',
+                'Invalid for "not ready to join" — they are a valid contact',
+                'A follow-up date on a Future provider lead — the close keeps them out of the queue',
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
     private static function slideHandlingInvalidLeads(): array
     {
         return [
             'id' => 'handling-invalid-leads',
             'title' => 'Invalid — polite close',
-            'subtitle' => 'Section 7 — cannot help, still professional',
+            'subtitle' => 'Section 8 — cannot help, still professional',
             'type' => 'visual',
             'qualifier' => [
                 'title' => 'When to use Invalid — confirm before you close',
@@ -2848,6 +2993,7 @@ class LeadQualificationTrainingGuide
                     ['question' => 'Service Panun Kaergar does not offer (car repair, legal, delivery, etc.)?', 'type' => 'Invalid', 'note' => 'Write exact request in remarks'],
                     ['question' => 'Location outside our service area?', 'type' => 'Invalid', 'note' => 'Write location they asked for'],
                     ['question' => 'No service needed today — saving number or need later?', 'type' => 'Future customer — not Invalid', 'note' => 'Invalid is not for "not now"'],
+                    ['question' => 'Wants to join as a partner later, but is not ready today?', 'type' => 'Future provider — not Invalid', 'note' => 'A future partner is a valid close, not a wrong request'],
                     ['question' => 'Needs home service we cover — plumbing, electrical, cleaning?', 'type' => 'Customer — not Invalid', 'note' => 'If we can help, do not close as Invalid'],
                 ],
             ],
@@ -3116,6 +3262,18 @@ class LeadQualificationTrainingGuide
                     ],
                     'correct' => 1,
                     'explain' => 'No need today but valid contact = Future customer. Invalid is wrong service/area only.',
+                ],
+                [
+                    'id' => 'q16b',
+                    'question' => 'Call: "I am an electrician. I want to join Panun Kaergar, but I will only have my documents next season." Correct classification?',
+                    'options' => [
+                        'Provider — send the agreement today and chase the documents',
+                        'Future provider ✓ — reason matches the call, warm WA, lead Closed, no Followup On and no provider group',
+                        'Future customer — they may need a service later',
+                        'Invalid — we cannot onboard them today',
+                    ],
+                    'correct' => 1,
+                    'explain' => 'A partner who is not ready yet is Future provider. Provider onboarding is only when they can start now. Future customer is someone who may need a home service later.',
                 ],
                 [
                     'id' => 'q17',

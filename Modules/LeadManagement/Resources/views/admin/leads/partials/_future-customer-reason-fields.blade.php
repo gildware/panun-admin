@@ -8,12 +8,15 @@
     $reasonField = $reasonField ?? 'future_customer_reason_id';
     $optionField = $optionField ?? 'future_customer_reason_option_id';
     $reasonLabel = $reasonLabel ?? translate('Reason');
+    $allowCustomOption = ! empty($allowCustomOption);
+    $optionPlaceholder = $allowCustomOption ? translate('Select_or_type_to_add') : translate('Select');
     $reasons = $reasons ?? ($futureCustomerReasons ?? collect());
     $followups = $reasons->mapWithKeys(function ($reason) {
         $options = $reason->options ?? collect();
         return [
             (string) $reason->id => [
                 'label' => $reason->followup_label ?: translate('Details'),
+                'asks' => filled($reason->followup_label),
                 'options' => $options->map(fn ($option) => ['id' => $option->id, 'name' => $option->name])->values(),
             ],
         ];
@@ -47,11 +50,15 @@
     <select name="{{ $optionField }}"
             id="{{ $optionSelectId }}"
             class="form-select js-reason-followup-option"
-            data-placeholder="{{ translate('Select') }}"
+            data-placeholder="{{ $optionPlaceholder }}"
+            data-allow-custom="{{ $allowCustomOption ? '1' : '0' }}"
             data-selected="{{ $selectedOption }}"
             disabled>
-        <option value="">{{ translate('Select') }}</option>
+        <option value="">{{ $optionPlaceholder }}</option>
     </select>
+    @if($allowCustomOption)
+        <div class="text-muted small mt-1">{{ translate('Future_customer_followup_custom_help') }}</div>
+    @endif
     @error($optionField)
         <div class="text-danger small mt-1">{{ $message }}</div>
     @enderror
@@ -61,6 +68,36 @@
 @once
     @push('script')
         <script>
+            function destroyFollowupSelect(optionSelect) {
+                if (!window.jQuery || !window.jQuery.fn.select2) return;
+                const $el = window.jQuery(optionSelect);
+                if ($el.data('select2')) {
+                    $el.select2('destroy');
+                }
+            }
+
+            function initFollowupSelect(optionSelect) {
+                if (optionSelect.getAttribute('data-allow-custom') !== '1') return;
+                if (!window.jQuery || !window.jQuery.fn.select2) return;
+                const $el = window.jQuery(optionSelect);
+                const opts = {
+                    width: '100%',
+                    tags: true,
+                    placeholder: optionSelect.getAttribute('data-placeholder') || 'Select or type to add',
+                    allowClear: true,
+                    createTag: function (params) {
+                        const term = (params.term || '').trim();
+                        if (!term || term.length > 255) return null;
+                        return { id: term, text: term, newTag: true };
+                    }
+                };
+                const modal = optionSelect.closest('.modal');
+                if (modal) {
+                    opts.dropdownParent = window.jQuery(modal);
+                }
+                $el.select2(opts);
+            }
+
             window.applyFutureCustomerReasonFollowup = function (select) {
                 if (!select) return;
                 const source = document.getElementById(select.getAttribute('data-followup-source'));
@@ -77,33 +114,46 @@
 
                 const entry = map[String(select.value || '')] || null;
                 const options = entry && Array.isArray(entry.options) ? entry.options : [];
+                const allowCustom = optionSelect.getAttribute('data-allow-custom') === '1';
                 const previous = optionSelect.value || optionSelect.getAttribute('data-selected') || '';
+                destroyFollowupSelect(optionSelect);
                 optionSelect.innerHTML = '';
                 const placeholder = document.createElement('option');
                 placeholder.value = '';
                 placeholder.textContent = optionSelect.getAttribute('data-placeholder') || 'Select';
                 optionSelect.appendChild(placeholder);
+                let matched = false;
                 options.forEach(function (opt) {
                     const el = document.createElement('option');
                     el.value = String(opt.id);
                     el.textContent = opt.name;
                     if (String(opt.id) === String(previous)) {
                         el.selected = true;
+                        matched = true;
                     }
                     optionSelect.appendChild(el);
                 });
+                if (!matched && previous && allowCustom) {
+                    const custom = document.createElement('option');
+                    custom.value = previous;
+                    custom.textContent = previous;
+                    custom.selected = true;
+                    optionSelect.appendChild(custom);
+                }
 
                 const label = wrap.querySelector('[data-followup-label]');
                 if (label) {
                     label.textContent = entry && entry.label ? entry.label : @json(translate('Details'));
                 }
 
-                const show = options.length > 0;
+                const show = options.length > 0 || (allowCustom && !!(entry && entry.asks));
                 wrap.classList.toggle('d-none', !show);
                 optionSelect.required = show;
                 optionSelect.disabled = !show;
                 if (!show) {
                     optionSelect.value = '';
+                } else {
+                    initFollowupSelect(optionSelect);
                 }
             };
 
@@ -119,6 +169,12 @@
                 }
                 this.setAttribute('data-current-reason', next);
                 window.applyFutureCustomerReasonFollowup(this);
+            });
+
+            $(document).on('shown.bs.modal', '.modal', function () {
+                this.querySelectorAll('.js-future-customer-reason').forEach(function (select) {
+                    window.applyFutureCustomerReasonFollowup(select);
+                });
             });
 
             $(function () {

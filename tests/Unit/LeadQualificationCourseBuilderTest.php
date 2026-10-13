@@ -12,7 +12,7 @@ class LeadQualificationCourseBuilderTest extends TestCase
     public function test_every_lesson_has_described_exam_questions(): void
     {
         $sections = (new LeadQualificationCourseBuilder())->build();
-        $this->assertCount(13, $sections);
+        $this->assertCount(14, $sections);
 
         $single = 0;
         $multiple = 0;

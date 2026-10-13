@@ -626,6 +626,7 @@
                                                         'selectId' => 'lead-modal-create-future-reason',
                                                         'selectClass' => 'form-select js-select',
                                                         'marginClass' => 'mb-30',
+                                                        'allowCustomOption' => true,
                                                     ])
                                                     <div class="mb-0">
                                                         <label class="form-label">{{ translate('Remarks') }}</label>

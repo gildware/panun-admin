@@ -362,10 +362,8 @@
                                             'selectId' => 'lead-future-customer-reason',
                                             'selectClass' => 'form-select',
                                             'marginClass' => 'mb-3',
+                                            'allowCustomOption' => true,
                                         ])
-                                        <div class="mb-3">
-                                            @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'future-area-select'])
-                                        </div>
                                         <div class="mb-0">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
                                             <textarea name="future_customer_remarks" class="form-control" rows="3"></textarea>

@@ -2,6 +2,7 @@
 
 namespace Modules\AdminModule\Http\Middleware;
 
+use App\Support\AdminWorkspace;
 use Brian2694\Toastr\Facades\Toastr;
 use Closure;
 use Illuminate\Http\Request;
@@ -41,6 +42,10 @@ class AdminMiddleware
                         translate('Your role is inactive or not assigned. Please contact the admin.'),
                         'warning'
                     );
+                }
+
+                if (AdminWorkspace::requestIsSettings($request) && AdminWorkspace::settingsDenied()) {
+                    abort(403);
                 }
             }
 

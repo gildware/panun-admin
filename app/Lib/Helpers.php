@@ -3371,9 +3371,15 @@ if (!function_exists('getProviderSettings')) {
         ])->first();
 
         if ($setting) {
-            $decoded = json_decode($setting->live_values, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                return $decoded;
+            $values = $setting->live_values;
+            if (is_array($values)) {
+                return $values;
+            }
+            if (is_string($values) && $values !== '') {
+                $decoded = json_decode($values, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $decoded;
+                }
             }
         }
 

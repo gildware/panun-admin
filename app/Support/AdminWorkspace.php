@@ -4,6 +4,7 @@ namespace App\Support;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Modules\UserManagement\Entities\EmployeeRoleAccess;
 
 class AdminWorkspace
 {
@@ -47,7 +48,7 @@ class AdminWorkspace
         return match ($workspace) {
             self::OPERATIONS => self::userCanEnterOperations(),
             self::MARKETING => AdminMarketingRegistry::visibleSections() !== [],
-            self::SETTINGS => AdminSettingsRegistry::visibleSections() !== [],
+            self::SETTINGS => ! self::settingsDenied() && AdminSettingsRegistry::visibleSections() !== [],
             self::ACCOUNTS => self::userCanEnterAccounts(),
             default => in_array($workspace, self::keys(), true),
         };
@@ -163,6 +164,29 @@ class AdminWorkspace
             'admin/campaign*',
             'admin/social-inbox/*/marketing*',
         );
+    }
+
+    /**
+     * An employee_role_accesses row for section "settings" with can_view off
+     * removes the Settings workspace for that person only.
+     */
+    public static function settingsDenied(): bool
+    {
+        $user = auth()->user();
+        if (! $user || $user->user_type !== 'admin-employee') {
+            return false;
+        }
+
+        return EmployeeRoleAccess::query()
+            ->where('employee_id', $user->id)
+            ->where('section_name', 'settings')
+            ->where('can_view', 0)
+            ->exists();
+    }
+
+    public static function requestIsSettings(Request $request): bool
+    {
+        return self::isSettingsPath($request);
     }
 
     private static function isSettingsPath(Request $request): bool
