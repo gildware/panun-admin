@@ -2,6 +2,8 @@
 
 namespace Modules\ZoneManagement\Services;
 
+use Illuminate\Support\Facades\DB;
+
 /**
  * Google Maps builds a draggable handle for every vertex of an editable polygon.
  * District-scale boundaries (thousands of points) freeze the editor, so the map
@@ -11,11 +13,20 @@ class ZoneMapPathSimplifier
 {
     public const MAX_POINTS = 400;
 
+    /** Bird’s-eye cap used when the database cannot simplify in SQL. */
+    public const OVERVIEW_MAX_POINTS = 160;
+
     /** Degrees. About 300m — enough to keep a regional outline recognizable. */
     public const SQL_TOLERANCE = 0.003;
 
+    private static ?bool $databaseSimplify = null;
+
     public function sqlExpression(string $column = 'coordinates', ?int $maxPoints = null, ?float $tolerance = null): string
     {
+        if (! $this->usesDatabaseSimplify()) {
+            return "ST_AsGeoJSON({$column})";
+        }
+
         $max = $maxPoints ?? self::MAX_POINTS;
         $tolerance = $tolerance ?? self::SQL_TOLERANCE;
 
@@ -28,6 +39,10 @@ class ZoneMapPathSimplifier
      */
     public function overviewSqlExpression(string $column = 'coordinates'): string
     {
+        if (! $this->usesDatabaseSimplify()) {
+            return "ST_AsGeoJSON({$column})";
+        }
+
         $tolerance = <<<SQL
 CASE
     WHEN ST_Area({$column}) > 0.05 THEN 0.012
@@ -39,6 +54,36 @@ SQL;
         $simplified = "IFNULL(ST_Simplify({$column}, {$tolerance}), {$column})";
 
         return "ST_AsGeoJSON(IF({$column} IS NULL, NULL, IF(ST_NumPoints(ST_ExteriorRing({$column})) > 80, {$simplified}, {$column})))";
+    }
+
+    /**
+     * MySQL 8.0.13+ and MariaDB 12.0.1+ provide ST_Simplify. Older MariaDB
+     * (typical on shared hosting) rejects the zone query if that name appears.
+     */
+    public function usesDatabaseSimplify(): bool
+    {
+        if (self::$databaseSimplify !== null) {
+            return self::$databaseSimplify;
+        }
+
+        try {
+            $version = (string) (DB::selectOne('SELECT VERSION() AS v')->v ?? '');
+        } catch (\Throwable) {
+            return self::$databaseSimplify = false;
+        }
+
+        return self::$databaseSimplify = self::versionSupportsSimplify($version);
+    }
+
+    public static function versionSupportsSimplify(string $version): bool
+    {
+        if (! preg_match('/(\d+\.\d+\.\d+)/', $version, $match)) {
+            return false;
+        }
+
+        $minimum = stripos($version, 'mariadb') !== false ? '12.0.1' : '8.0.13';
+
+        return version_compare($match[1], $minimum, '>=');
     }
 
     /**
@@ -69,6 +114,22 @@ SQL;
         }
 
         return $this->dropClosingPoint($paths);
+    }
+
+    /**
+     * Map ring for a polygon loaded with sqlExpression() or overviewSqlExpression().
+     * Servers without ST_Simplify return the stored ring, which is reduced here.
+     *
+     * @return array<int, array{lat: float, lng: float}>
+     */
+    public function pathsForMap(mixed $geojson, int $maxPoints = self::MAX_POINTS): array
+    {
+        $paths = $this->fromGeoJson($geojson);
+        if ($this->usesDatabaseSimplify() || count($paths) <= $maxPoints) {
+            return $paths;
+        }
+
+        return $this->simplify($paths, $maxPoints);
     }
 
     /**

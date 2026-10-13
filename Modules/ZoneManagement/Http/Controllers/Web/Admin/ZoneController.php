@@ -282,7 +282,7 @@ class ZoneController extends Controller
 
         $payload = [];
         foreach ($zones as $zone) {
-            $paths = $this->roundCoveragePaths($simplifier->fromGeoJson($zone->map_ring ?? null));
+            $paths = $this->roundCoveragePaths($simplifier->pathsForMap($zone->map_ring ?? null, ZoneMapPathSimplifier::OVERVIEW_MAX_POINTS));
             $payload[] = [
                 'id' => (string) $zone->id,
                 'name' => (string) ($zone->name ?? ''),
@@ -802,7 +802,7 @@ class ZoneController extends Controller
             if (is_string($postedCoordinates) && trim($postedCoordinates) !== '' && $coordinatesUnchanged === '0') {
                 $mapPaths = $simplifier->fromCoordinateText($postedCoordinates);
             } else {
-                $mapPaths = $simplifier->fromGeoJson($zone->map_ring ?? null);
+                $mapPaths = $simplifier->pathsForMap($zone->map_ring ?? null);
             }
 
             $centerLat = $defaultLat;
@@ -858,7 +858,7 @@ class ZoneController extends Controller
             return response()->json(['paths' => [], 'siblings' => []], 200);
         }
 
-        $parentPaths = $simplifier->fromGeoJson($parentRing->map_ring ?? null);
+        $parentPaths = $simplifier->pathsForMap($parentRing->map_ring ?? null);
 
         $excludeId = $request->query('exclude_zone');
         $excludeId = is_string($excludeId) ? trim($excludeId) : '';
@@ -875,7 +875,7 @@ class ZoneController extends Controller
 
         $siblings = [];
         foreach ($siblingsQuery->get() as $child) {
-            $childPaths = $simplifier->fromGeoJson($child->map_ring ?? null);
+            $childPaths = $simplifier->pathsForMap($child->map_ring ?? null);
             if ($childPaths !== []) {
                 $siblings[] = ['paths' => $childPaths];
             }

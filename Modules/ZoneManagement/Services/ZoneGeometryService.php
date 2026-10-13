@@ -268,15 +268,19 @@ class ZoneGeometryService
             : ($type === 'POLYGON' ? 1 : 0);
 
         $pieces = [];
+        $simplifier = app(ZoneMapPathSimplifier::class);
+        $geometryExpr = $simplifier->usesDatabaseSimplify()
+            ? "IF(ST_GeometryType(g) = 'POLYGON' AND ST_NumPoints(ST_ExteriorRing(g)) > 120, ST_Simplify(g, 0.0004), g)"
+            : 'g';
         for ($index = 1; $index <= $count; $index++) {
             $row = DB::selectOne(
-                'SELECT ST_Area(g) AS area,
-                        ST_AsGeoJSON(IF(ST_GeometryType(g) = \'POLYGON\' AND ST_NumPoints(ST_ExteriorRing(g)) > 120, ST_Simplify(g, 0.0004), g)) AS gj,
+                "SELECT ST_Area(g) AS area,
+                        ST_AsGeoJSON({$geometryExpr}) AS gj,
                         ST_Y(ST_Centroid(g)) AS lat,
                         ST_X(ST_Centroid(g)) AS lng
                  FROM (
-                    SELECT IF(? = 1 AND ? = \'POLYGON\', @pk_gap_diff, ST_GeometryN(@pk_gap_diff, ?)) AS g
-                 ) x',
+                    SELECT IF(? = 1 AND ? = 'POLYGON', @pk_gap_diff, ST_GeometryN(@pk_gap_diff, ?)) AS g
+                 ) x",
                 [$count, $type, $index]
             );
             if (! $row || ! isset($row->area) || (float) $row->area < self::GAP_MIN_AREA) {
@@ -287,6 +291,9 @@ class ZoneGeometryService
                 continue;
             }
             $inside = $this->interiorPoint($rings);
+            if (! $simplifier->usesDatabaseSimplify() && count($rings[0]) > 120) {
+                $rings[0] = $simplifier->simplify($rings[0], 120);
+            }
             $lat = $inside['lat'] ?? (float) $row->lat;
             $lng = $inside['lng'] ?? (float) $row->lng;
             $km2 = (float) $row->area * 111.32 * 111.32 * cos(deg2rad($lat));
