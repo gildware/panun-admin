@@ -2146,18 +2146,27 @@ class PeopleWorkspace
         }
     }
 
-    public function notifyTimesheetSubmitted(User $employee, PeopleTimesheet $sheet): void
+    public function notifyTimesheetSubmitted(User $employee, PeopleTimesheet $sheet, ?CarbonInterface $day = null): void
     {
         try {
             $week = $sheet->week_starts_on?->format('j M Y') ?? '';
+            $dayLabel = $day ? Carbon::parse($day->toDateString())->format('l, j F Y') : '';
+            $body = $dayLabel !== ''
+                ? $dayLabel
+                : ($week !== '' ? 'Week of '.$week : 'A timesheet is waiting for a decision.');
+            $reference = (string) $sheet->id;
+            if ($day) {
+                $reference .= ':'.$day->toDateString();
+            }
+            $reference .= ':'.($sheet->updated_at?->getTimestamp() ?? time());
             $this->notifyApprovers(
                 $employee,
                 UserNotification::TYPE_TIMESHEET_SUBMITTED,
                 'Timesheet from '.$this->personName($employee),
-                $week !== '' ? 'Week of '.$week : 'A timesheet is waiting for a decision.',
+                $body,
                 $this->approvalUrl($employee, 'timesheet'),
                 'people_timesheet',
-                (string) $sheet->id.':'.($sheet->updated_at?->getTimestamp() ?? time()),
+                $reference,
             );
         } catch (\Throwable $exception) {
             report($exception);
@@ -2271,14 +2280,39 @@ class PeopleWorkspace
 
         PeopleTimesheet::query()
             ->with('user')
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'draft', 'sent_back'])
+            ->where('updated_at', '>=', now()->subDays(14))
             ->get()
             ->each(function (PeopleTimesheet $sheet) {
                 if (! $sheet->user || $this->approvalAlreadySent(UserNotification::TYPE_TIMESHEET_SUBMITTED, 'people_timesheet', (string) $sheet->id)) {
                     return;
                 }
-                $this->notifyTimesheetSubmitted($sheet->user, $sheet);
+                $day = $this->latestSubmittedTimesheetDay($sheet);
+                if ($day === null) {
+                    return;
+                }
+                $this->notifyTimesheetSubmitted($sheet->user, $sheet, $day);
             });
+    }
+
+    private function latestSubmittedTimesheetDay(PeopleTimesheet $sheet): ?Carbon
+    {
+        $latest = null;
+        $entries = is_array($sheet->entries) ? $sheet->entries : [];
+        foreach ($entries as $date => $entry) {
+            if (! is_array($entry) || ($entry['status'] ?? null) !== 'submitted') {
+                continue;
+            }
+            $day = Carbon::parse($date)->startOfDay();
+            if ($day->isFuture()) {
+                continue;
+            }
+            if ($latest === null || $day->gt($latest)) {
+                $latest = $day;
+            }
+        }
+
+        return $latest;
     }
 
     private function approvalUrl(User $employee, string $tab): string

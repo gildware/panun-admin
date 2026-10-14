@@ -504,7 +504,6 @@ class PeopleWorkspaceController extends Controller
 
         $holidays = PeopleHoliday::query()->pluck('holiday_on')->map(fn ($day) => Carbon::parse($day)->toDateString())->all();
         $complete = $this->timesheetWeekComplete($date->copy()->startOfWeek(Carbon::MONDAY), $entries, $holidays, $user);
-        $previousStatus = (string) $sheet->status;
 
         $sheet->forceFill([
             'entries' => $entries,
@@ -513,9 +512,7 @@ class PeopleWorkspaceController extends Controller
             'decided_by' => $complete ? null : $sheet->decided_by,
             'decided_at' => $complete ? null : $sheet->decided_at,
         ])->save();
-        if ($complete && $previousStatus !== 'pending') {
-            $this->workspace->notifyTimesheetSubmitted($user, $sheet);
-        }
+        $this->workspace->notifyTimesheetSubmitted($user, $sheet, $date);
 
         Toastr::success($complete ? 'Week sent to your manager.' : ($alreadySubmitted ? 'Timesheet day updated.' : 'Timesheet day submitted.'));
 
@@ -937,7 +934,7 @@ class PeopleWorkspaceController extends Controller
     {
         $this->requireHr();
         if (! $this->holidayYearIsOpen($holiday)) {
-            Toastr::error('Only last year, this year, and next year can be changed here.');
+            Toastr::error('Holidays from before last year cannot be changed here.');
 
             return redirect()->route('admin.people.holidays');
         }
@@ -953,7 +950,7 @@ class PeopleWorkspaceController extends Controller
     {
         $this->requireHr();
         if (! $this->holidayYearIsOpen($holiday)) {
-            Toastr::error('Only last year, this year, and next year can be removed here.');
+            Toastr::error('Holidays from before last year cannot be removed here.');
 
             return redirect()->route('admin.people.holidays');
         }
@@ -1570,7 +1567,7 @@ class PeopleWorkspaceController extends Controller
         }
 
         return [
-            'holiday_on' => ['required', 'date', 'after_or_equal:'.($current - 1).'-01-01', 'before_or_equal:'.($current + 1).'-12-31', $unique],
+            'holiday_on' => ['required', 'date', 'after_or_equal:'.($current - 1).'-01-01', 'before_or_equal:'.($current + 20).'-12-31', $unique],
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:2000'],
         ];
@@ -1587,7 +1584,7 @@ class PeopleWorkspaceController extends Controller
                 $year = $current;
             }
         }
-        if ($year < $current - 1 || $year > $current + 1) {
+        if ($year < $current - 1 || $year > $current + 20) {
             return $current;
         }
 
@@ -1613,7 +1610,7 @@ class PeopleWorkspaceController extends Controller
         $year = (int) $holiday->holiday_on->year;
         $current = (int) now()->year;
 
-        return $year >= $current - 1 && $year <= $current + 1;
+        return $year >= $current - 1 && $year <= $current + 20;
     }
 
     /**

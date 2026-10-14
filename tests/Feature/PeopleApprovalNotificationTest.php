@@ -66,9 +66,12 @@ class PeopleApprovalNotificationTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $this->workspace->notifyTimesheetSubmitted($user, $sheet);
+        $this->workspace->notifyTimesheetSubmitted($user, $sheet, Carbon::parse('2026-03-04'));
 
-        $this->assertCount(1, $this->notices($manager->user_id, UserNotification::TYPE_TIMESHEET_SUBMITTED));
+        $managerNotice = $this->notices($manager->user_id, UserNotification::TYPE_TIMESHEET_SUBMITTED);
+        $this->assertCount(1, $managerNotice);
+        $this->assertStringContainsString('Wednesday, 4 March 2026', (string) $managerNotice->first()->body);
+        $this->assertStringContainsString('tab=timesheet', (string) $managerNotice->first()->action_url);
         $this->assertSame([], $this->notices($employee->user_id, UserNotification::TYPE_TIMESHEET_SUBMITTED)->all());
 
         $this->workspace->decideTimesheet($actor, $sheet->fresh(), 'approve');
@@ -111,7 +114,10 @@ class PeopleApprovalNotificationTest extends TestCase
             'user_id' => $employee->user_id,
             'week_starts_on' => '2026-03-09',
             'hours' => ['mon' => 8],
-            'status' => 'pending',
+            'entries' => [
+                '2026-03-09' => ['status' => 'submitted', 'rows' => [['task' => 'Desk', 'hours' => 8]]],
+            ],
+            'status' => 'draft',
         ]);
 
         $this->workspace->notifyOutstandingApprovals();

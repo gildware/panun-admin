@@ -56,7 +56,7 @@
                         <span class="is-disabled" aria-hidden="true"><span class="material-icons">chevron_left</span></span>
                     @endif
                     <strong>{{ $year }}</strong>
-                    @if($year < $currentYear + 1)
+                    @if($year < $currentYear + 20)
                         <a href="{{ route('admin.people.holidays', $holidayQuery(null, $year + 1)) }}" aria-label="{{ $year + 1 }}" title="{{ $year + 1 }}">
                             <span class="material-icons">chevron_right</span>
                         </a>
