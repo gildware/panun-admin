@@ -11369,4 +11369,5 @@ _Message' => 'Customer notification for provider bid offer
   'No_subcategories_match_your_search' => 'No subcategories match your search',
   'Save_expertise' => 'Save expertise',
   'Expertise_saved_successfully' => 'Expertise saved successfully',
+  'Provider_not_found' => 'Provider not found',
 );

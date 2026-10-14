@@ -5988,20 +5988,30 @@ class BookingController extends Controller
     {
         $this->authorize('booking_can_manage_status');
 
-        Validator::make($request->all(), [
-            'service_schedule' => 'required',
-        ]);
+        $rawSchedule = trim((string) $request->input('service_schedule', ''));
+        try {
+            $scheduleAt = $rawSchedule !== '' ? Carbon::parse(str_replace('T', ' ', $rawSchedule)) : null;
+        } catch (\Throwable) {
+            $scheduleAt = null;
+        }
+        if (! $scheduleAt) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Please_enter_a_valid_service_schedule'),
+            ]), 422);
+        }
+        $scheduleAtString = $scheduleAt->toDateTimeString();
 
         $booking = $this->booking->where('id', $bookingId)->first();
         $bookingRepeat = $this->bookingRepeat->where('id', $bookingId)->first();
 
         if (isset($booking)) {
-            $booking->service_schedule = Carbon::parse($request->service_schedule)->toDateTimeString();
+            $booking->service_schedule = $scheduleAtString;
 
-            $bookingScheduleHistory = $this->bookingScheduleHistory;
+            $bookingScheduleHistory = new BookingScheduleHistory();
             $bookingScheduleHistory->booking_id = $bookingId;
             $bookingScheduleHistory->changed_by = $request->user()->id;
-            $bookingScheduleHistory->schedule = $request['service_schedule'];
+            $bookingScheduleHistory->schedule = $scheduleAtString;
 
             if ($booking->isDirty('service_schedule')) {
                 $previousSchedule = $booking->getOriginal('service_schedule');
@@ -6024,12 +6034,12 @@ class BookingController extends Controller
         }
 
         if (isset($bookingRepeat)) {
-            $bookingRepeat->service_schedule = Carbon::parse($request->service_schedule)->toDateTimeString();
+            $bookingRepeat->service_schedule = $scheduleAtString;
 
-            $bookingRepeatScheduleHistory = $this->bookingScheduleHistory;
+            $bookingRepeatScheduleHistory = new BookingScheduleHistory();
             $bookingRepeatScheduleHistory->booking_id = $bookingRepeat->booking_id;
             $bookingRepeatScheduleHistory->changed_by = $request->user()->id;
-            $bookingRepeatScheduleHistory->schedule = $request['service_schedule'];
+            $bookingRepeatScheduleHistory->schedule = $scheduleAtString;
             $bookingRepeatScheduleHistory->booking_repeat_id = $bookingId;
 
             if ($bookingRepeat->isDirty('service_schedule')) {
