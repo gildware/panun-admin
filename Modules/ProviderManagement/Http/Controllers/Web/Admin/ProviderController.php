@@ -1031,7 +1031,7 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_view');
         $request->validate([
-            'web_page' => 'in:overview,questionnaire,subscribed_services,expertise,bookings,withdrawn_bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
+            'web_page' => 'in:overview,questionnaire,subscribed_services,expertise,work_showcase,bookings,withdrawn_bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
@@ -2059,6 +2059,45 @@ class ProviderController extends Controller
                 'providerCompensatedToCustomersTotal',
                 'companyCompensatedToProviderTotal',
                 'paymentNetBalance'
+            ));
+        } elseif ($request->web_page == 'work_showcase') {
+            $provider = $this->provider->with('owner')->find($id);
+            $status = $request->get('status', 'all');
+            if (! in_array($status, ['all', 'approved', 'pending', 'denied'], true)) {
+                $status = 'all';
+            }
+
+            $rawCounts = ProviderShowcaseItem::query()
+                ->where('provider_id', $id)
+                ->select('is_approved', DB::raw('count(*) as total'))
+                ->groupBy('is_approved')
+                ->pluck('total', 'is_approved');
+
+            $counts = [
+                'all' => (int) $rawCounts->sum(),
+                'approved' => (int) ($rawCounts[ProviderShowcaseItem::STATUS_APPROVED] ?? 0),
+                'pending' => (int) ($rawCounts[ProviderShowcaseItem::STATUS_PENDING] ?? 0),
+                'denied' => (int) ($rawCounts[ProviderShowcaseItem::STATUS_DENIED] ?? 0),
+            ];
+
+            $queryParam = ['web_page' => $webPage, 'status' => $status];
+            $items = ProviderShowcaseItem::query()
+                ->where('provider_id', $id)
+                ->with('storage')
+                ->when($status === 'approved', fn ($query) => $query->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED))
+                ->when($status === 'pending', fn ($query) => $query->where('is_approved', ProviderShowcaseItem::STATUS_PENDING))
+                ->when($status === 'denied', fn ($query) => $query->where('is_approved', ProviderShowcaseItem::STATUS_DENIED))
+                ->orderByDesc('sort_order')
+                ->orderByDesc('created_at')
+                ->paginate(pagination_limit())
+                ->appends($queryParam);
+
+            return view('providermanagement::admin.provider.detail.work-showcase', compact(
+                'webPage',
+                'provider',
+                'items',
+                'status',
+                'counts'
             ));
         }
         return back();

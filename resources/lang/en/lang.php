@@ -1154,6 +1154,8 @@
   'provider_update' => 'Provider update',
   'onboarding_requests' => 'Onboarding requests',
   'Work_Showcase_Approvals' => 'Work showcase approvals',
+  'Work_Showcase' => 'Work showcase',
+  'No_work_showcase_items' => 'This provider has not added any work showcase items yet.',
   'Profile_Update_Requests' => 'Profile update requests',
   'Profile_Update_Request' => 'Profile update request',
   'Proposed_Changes' => 'Proposed changes',

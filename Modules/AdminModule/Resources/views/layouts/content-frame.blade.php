@@ -36,7 +36,7 @@
     <script src="{{ asset('assets/admin-module/js/toastr.js') }}"></script>
     <script src="{{ asset('assets/admin-module/js/sweet_alert.js') }}"></script>
     <script src="{{ asset('assets/common/js/common.js') }}"></script>
-    <script src="{{ asset('assets/common/js/form-submit-once.js') }}"></script>
+    <script src="{{ asset('assets/common/js/form-submit-once.js') }}?v={{ @filemtime(public_path('assets/common/js/form-submit-once.js')) }}"></script>
     {!! str_replace('<script type="text/javascript">', '<script type="text/javascript" data-admin-flash-toasts="1">', Toastr::message()) !!}
     @stack('script')
     <script>

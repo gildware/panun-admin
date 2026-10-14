@@ -353,6 +353,16 @@
             return typeof window.FullCalendar === 'undefined';
         }
 
+        // These plugins replace themselves on a second run and drop methods
+        // registered by the page (provider create Submit/Proceed then does nothing).
+        if (absoluteSrc && absoluteSrc.indexOf('jquery.validate.min.js') !== -1) {
+            return !(window.jQuery && window.jQuery.fn && typeof window.jQuery.fn.validate === 'function');
+        }
+
+        if (absoluteSrc && absoluteSrc.indexOf('jquery.steps.min.js') !== -1) {
+            return !(window.jQuery && window.jQuery.fn && typeof window.jQuery.fn.steps === 'function');
+        }
+
         return !scriptSrcIsLoaded(src, oldScript);
     }
 

@@ -13,7 +13,7 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
         (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
-        2026100912,
+        2026101401,
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -212,7 +212,7 @@
 @endif
 <script src="{{asset('assets/admin-module')}}/js/helper.js"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
-<script src="{{asset('assets/common')}}/js/form-submit-once.js"></script>
+<script src="{{ asset('assets/common/js/form-submit-once.js') }}?v={{ @filemtime(public_path('assets/common/js/form-submit-once.js')) }}"></script>
 
 @if(!$adminUsesPartialNav)
 <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>

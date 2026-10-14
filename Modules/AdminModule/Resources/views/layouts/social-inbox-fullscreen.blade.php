@@ -90,7 +90,7 @@
 <script src="{{ asset('assets/admin-module') }}/js/admin-image-fallback.js?v={{ $adminAssetVersion }}"></script>
 <script src="{{ asset('assets/admin-module') }}/js/helper.js"></script>
 <script src="{{ asset('assets/common') }}/js/common.js"></script>
-<script src="{{ asset('assets/common') }}/js/form-submit-once.js"></script>
+<script src="{{ asset('assets/common/js/form-submit-once.js') }}?v={{ @filemtime(public_path('assets/common/js/form-submit-once.js')) }}"></script>
 
 <script src="{{ asset('assets/admin-module') }}/plugins/select2/select2.min.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/sweet_alert.js"></script>

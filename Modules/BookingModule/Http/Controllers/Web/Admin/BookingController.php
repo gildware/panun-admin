@@ -5525,7 +5525,9 @@ class BookingController extends Controller
                         }
                         $parts[] = $promptSvc->compileStatusChangePrompt($fresh, $previousParentStatus);
                         $merged = $promptSvc->mergePromptCompilations(array_values(array_filter($parts)));
-                        $payload = $this->attachWhatsAppAdminPrompt($merged, $payload);
+                        if (is_array($merged) && $merged !== []) {
+                            session()->flash('whatsapp_admin_booking_prompt', $merged);
+                        }
                     }
                 }
             } catch (\Throwable $e) {
@@ -5637,7 +5639,9 @@ class BookingController extends Controller
                         }
 
                         $merged = $promptSvc->mergePromptCompilations(array_values(array_filter($parts)));
-                        $payload = $this->attachWhatsAppAdminPrompt($merged, $payload);
+                        if (is_array($merged) && $merged !== []) {
+                            session()->flash('whatsapp_admin_booking_prompt', $merged);
+                        }
                     }
                 }
             } catch (\Throwable $e) {

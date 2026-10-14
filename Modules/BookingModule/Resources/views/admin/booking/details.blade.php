@@ -3741,6 +3741,9 @@
                         success: function(data) {
                             if (componentId === 'booking_status') {
                                 $("#booking_status").data('current', updatedValue);
+                                if (typeof window.bookingAdminPaintStatus === 'function') {
+                                    window.bookingAdminPaintStatus(updatedValue, revertValue);
+                                }
                             }
                             update_component(componentId, updatedValue);
                             toastr.success(data.message, {
