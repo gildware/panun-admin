@@ -2,14 +2,18 @@
 
 namespace Modules\WhatsAppModule\Services;
 
+use Illuminate\Support\Facades\Schema;
 use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\UserManagement\Entities\User;
+use Modules\WhatsAppModule\Entities\WhatsAppChatStatus;
+use Modules\WhatsAppModule\Entities\WhatsAppChatThreadMeta;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
+use Modules\WhatsAppModule\Support\WhatsAppChatStatusBucket;
 use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 
 /**
@@ -19,7 +23,7 @@ use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
  * - Lead assigned to a human → chat goes to the same human (when a thread exists).
  * - Human takes / replies on a chat → open CRM lead for that phone gets the same assignee.
  * - Chat handed back to AI → CRM lead assignee is left unchanged.
- * - Lead closed (completed / cancelled / invalid / future) → chat returns to AI.
+ * - Lead closed (completed / cancelled / invalid / future / non-responsive) → chat status is closed and the thread returns to AI.
  */
 class LeadWhatsAppAssignmentSyncService
 {
@@ -131,22 +135,98 @@ class LeadWhatsAppAssignmentSyncService
             return;
         }
 
+        $leadPhone = $this->leadLifecycle->normalizeLeadPhone($lead->phone_number);
+        if ($leadPhone && $this->findPrimaryOpenLeadForPhone($leadPhone)) {
+            return;
+        }
+
         self::$syncing = true;
         try {
-            $waUser = WhatsAppUser::query()
-                ->where('phone', $threadPhone)
-                ->where('channel', SocialInboxChannel::WHATSAPP)
-                ->first();
-
-            if (!$waUser || (string) ($waUser->handled_by ?? '') === Lead::HANDLED_BY_AI) {
-                return;
-            }
-
-            $waUser->handled_by = Lead::HANDLED_BY_AI;
-            $waUser->save();
+            SocialInboxChannel::using(SocialInboxChannel::WHATSAPP, function () use ($threadPhone) {
+                $this->closeThreadStatus($threadPhone);
+                $this->assignThreadToAi($threadPhone);
+            });
             $this->forgetChatCaches($threadPhone);
         } finally {
             self::$syncing = false;
+        }
+    }
+
+    protected function assignThreadToAi(string $threadPhone): void
+    {
+        $waUser = WhatsAppUser::query()
+            ->where('phone', $threadPhone)
+            ->where('channel', SocialInboxChannel::WHATSAPP)
+            ->first();
+
+        if (!$waUser || (string) ($waUser->handled_by ?? '') === Lead::HANDLED_BY_AI) {
+            return;
+        }
+
+        $waUser->handled_by = Lead::HANDLED_BY_AI;
+        $waUser->save();
+    }
+
+    /**
+     * Move the thread onto a closed chat status when it is still open.
+     * A status that is already closed is left as the staff set it.
+     */
+    protected function closeThreadStatus(string $threadPhone): void
+    {
+        if (! Schema::hasTable('whatsapp_chat_statuses') || ! Schema::hasTable('whatsapp_chat_thread_meta')) {
+            return;
+        }
+
+        $closedStatus = WhatsAppChatStatus::query()
+            ->where('bucket', WhatsAppChatStatusBucket::CLOSED)
+            ->orderByRaw("CASE WHEN name = 'Closed' THEN 0 ELSE 1 END")
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->first();
+
+        if (! $closedStatus) {
+            return;
+        }
+
+        $meta = WhatsAppChatThreadMeta::firstOrCreateForPhone($threadPhone);
+        $previousStatusId = $meta->whatsapp_chat_status_id ? (int) $meta->whatsapp_chat_status_id : null;
+        if ($previousStatusId === (int) $closedStatus->id) {
+            return;
+        }
+
+        $previousBucket = $previousStatusId
+            ? strtolower((string) WhatsAppChatStatus::query()->whereKey($previousStatusId)->value('bucket'))
+            : WhatsAppChatStatusBucket::OPEN;
+
+        if ($previousBucket === WhatsAppChatStatusBucket::CLOSED) {
+            return;
+        }
+
+        $previousHandler = WhatsAppUser::query()
+            ->where('phone', $threadPhone)
+            ->where('channel', SocialInboxChannel::WHATSAPP)
+            ->value('handled_by');
+
+        $meta->whatsapp_chat_status_id = $closedStatus->id;
+        $meta->save();
+
+        $actorId = auth()->id() ? (string) auth()->id() : null;
+        $employeeId = Lead::assigneeIsHuman($actorId)
+            ? $actorId
+            : (Lead::assigneeIsHuman($previousHandler) ? (string) $previousHandler : null);
+
+        if ($employeeId) {
+            app(StaffActivityLogger::class)->logWhatsAppChatClosed(
+                $employeeId,
+                $threadPhone,
+                (int) $closedStatus->id,
+                $actorId,
+                [
+                    'status_name' => $closedStatus->name,
+                    'source' => 'lead_closed',
+                    'handler_id' => $previousHandler,
+                ]
+            );
         }
     }
 

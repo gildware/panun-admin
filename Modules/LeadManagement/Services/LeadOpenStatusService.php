@@ -37,6 +37,8 @@ class LeadOpenStatusService
             return [];
         }
 
+        $this->hydrateUnknownCloseState($leads);
+
         $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
             ->whereIn('type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
             ->orderByDesc('created_at')
@@ -73,10 +75,16 @@ class LeadOpenStatusService
         foreach ($leads as $lead) {
             $history = $latestByComposite[$lead->id . '|' . $lead->lead_type] ?? null;
             $isOpen = $this->isLeadOpenByTypeHistory($lead, $history, $customerStatuses, $providerStatuses);
+            $label = $isOpen ? 'Open' : 'Closed';
+            $badgeClass = $isOpen ? 'bg-danger' : 'bg-success';
+            if (! $isOpen && $lead->isNonResponsive()) {
+                $label = 'Non Responsive';
+                $badgeClass = 'bg-secondary';
+            }
             $meta[(int) $lead->id] = [
                 'is_open' => $isOpen,
-                'label' => $isOpen ? 'Open' : 'Closed',
-                'badge_class' => $isOpen ? 'bg-danger' : 'bg-success',
+                'label' => $label,
+                'badge_class' => $badgeClass,
             ];
         }
 
@@ -94,16 +102,23 @@ class LeadOpenStatusService
         ?Collection $providerStatuses = null
     ): bool {
         if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
-            return true;
+            $this->ensureUnknownCloseState($lead);
+
+            return ! $lead->isNonResponsive();
         }
 
-        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
+        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
             return false;
         }
 
         $data = ($typeHistory && is_array($typeHistory->data)) ? $typeHistory->data : [];
 
         if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            $this->ensureUnknownCloseState($lead);
+            if ($lead->isNonResponsive()) {
+                return false;
+            }
+
             $statusId = $data['customer_lead_status_id'] ?? null;
             if (!$statusId) {
                 return true;
@@ -115,6 +130,11 @@ class LeadOpenStatusService
         }
 
         if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            $this->ensureUnknownCloseState($lead);
+            if ($lead->isNonResponsive()) {
+                return false;
+            }
+
             $statusId = $data['provider_lead_status_id'] ?? null;
             if (!$statusId) {
                 return true;
@@ -126,5 +146,50 @@ class LeadOpenStatusService
         }
 
         return false;
+    }
+
+    /**
+     * Partial lead selects used by list filters often omit the close columns.
+     *
+     * @param  Collection<int, Lead>  $leads
+     */
+    public function hydrateUnknownCloseState(Collection $leads): void
+    {
+        $missingIds = [];
+        foreach ($leads as $lead) {
+            if (! $lead->supportsNonResponsiveClose()) {
+                continue;
+            }
+            if (! array_key_exists('non_responsive_at', $lead->getAttributes())) {
+                $missingIds[] = (int) $lead->id;
+            }
+        }
+
+        if ($missingIds === []) {
+            return;
+        }
+
+        $flags = Lead::query()->whereIn('id', $missingIds)->pluck('non_responsive_at', 'id');
+        foreach ($leads as $lead) {
+            if (! $lead->supportsNonResponsiveClose()) {
+                continue;
+            }
+            if (array_key_exists('non_responsive_at', $lead->getAttributes())) {
+                continue;
+            }
+            $lead->setAttribute('non_responsive_at', $flags->get($lead->id));
+        }
+    }
+
+    private function ensureUnknownCloseState(Lead $lead): void
+    {
+        if (array_key_exists('non_responsive_at', $lead->getAttributes())) {
+            return;
+        }
+
+        $lead->setAttribute(
+            'non_responsive_at',
+            Lead::query()->whereKey($lead->id)->value('non_responsive_at')
+        );
     }
 }

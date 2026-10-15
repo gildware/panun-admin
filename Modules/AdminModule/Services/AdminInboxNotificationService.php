@@ -3,6 +3,7 @@
 namespace Modules\AdminModule\Services;
 
 use App\Support\AdminHeaderChatCounts;
+use App\Support\AdminWorkspace;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -97,7 +98,7 @@ class AdminInboxNotificationService
         return $notification;
     }
 
-    public function unreadCount(string $userId, ?string $category = null): int
+    public function unreadCount(string $userId, ?string $category = null, ?string $workspace = null): int
     {
         $query = UserNotification::query()
             ->where('user_id', $userId)
@@ -107,10 +108,12 @@ class AdminInboxNotificationService
             $query->where('category', $category);
         }
 
+        $this->scopeWorkspace($query, $workspace);
+
         return $query->count();
     }
 
-    public function readCount(string $userId, ?string $category = null): int
+    public function readCount(string $userId, ?string $category = null, ?string $workspace = null): int
     {
         $query = UserNotification::query()
             ->where('user_id', $userId)
@@ -120,10 +123,39 @@ class AdminInboxNotificationService
             $query->where('category', $category);
         }
 
+        $this->scopeWorkspace($query, $workspace);
+
         return $query->count();
     }
 
-    public function recent(string $userId, int $limit = 50, ?string $category = null): Collection
+    /**
+     * Unread totals for every workspace, used on the workspace chooser.
+     *
+     * @return array<string, int>
+     */
+    public function unreadCountsByWorkspace(string $userId): array
+    {
+        $counts = array_fill_keys(AdminWorkspace::keys(), 0);
+
+        $rows = UserNotification::query()
+            ->where('user_id', $userId)
+            ->whereNull('read_at')
+            ->selectRaw('type, COUNT(*) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        foreach ($rows as $type => $total) {
+            $workspace = UserNotification::workspaceForType((string) $type);
+            if (! array_key_exists($workspace, $counts)) {
+                continue;
+            }
+            $counts[$workspace] += (int) $total;
+        }
+
+        return $counts;
+    }
+
+    public function recent(string $userId, int $limit = 50, ?string $category = null, ?string $workspace = null): Collection
     {
         $query = UserNotification::query()
             ->where('user_id', $userId)
@@ -133,10 +165,12 @@ class AdminInboxNotificationService
             $query->where('category', $category);
         }
 
+        $this->scopeWorkspace($query, $workspace);
+
         return $query->take($limit)->get();
     }
 
-    public function paginated(string $userId, ?string $filter = null, ?string $category = null, int $perPage = 20): LengthAwarePaginator
+    public function paginated(string $userId, ?string $filter = null, ?string $category = null, int $perPage = 20, ?string $workspace = null): LengthAwarePaginator
     {
         $query = UserNotification::query()
             ->where('user_id', $userId)
@@ -152,6 +186,8 @@ class AdminInboxNotificationService
             $query->where('category', $category);
         }
 
+        $this->scopeWorkspace($query, $workspace);
+
         return $query->paginate($perPage)->withQueryString();
     }
 
@@ -163,7 +199,7 @@ class AdminInboxNotificationService
             ->first();
     }
 
-    public function unreadSince(string $userId, ?string $sinceId = null, ?string $category = null): Collection
+    public function unreadSince(string $userId, ?string $sinceId = null, ?string $category = null, ?string $workspace = null): Collection
     {
         $query = UserNotification::query()
             ->where('user_id', $userId)
@@ -173,6 +209,8 @@ class AdminInboxNotificationService
         if ($category !== null) {
             $query->where('category', $category);
         }
+
+        $this->scopeWorkspace($query, $workspace);
 
         if ($sinceId) {
             $since = UserNotification::query()->find($sinceId);
@@ -199,7 +237,7 @@ class AdminInboxNotificationService
         return (bool) $updated;
     }
 
-    public function markAllAsRead(string $userId, ?string $category = null): int
+    public function markAllAsRead(string $userId, ?string $category = null, ?string $workspace = null): int
     {
         $query = UserNotification::query()
             ->where('user_id', $userId)
@@ -208,6 +246,8 @@ class AdminInboxNotificationService
         if ($category !== null) {
             $query->where('category', $category);
         }
+
+        $this->scopeWorkspace($query, $workspace);
 
         $updated = $query->update(['read_at' => now()]);
 
@@ -222,10 +262,31 @@ class AdminInboxNotificationService
     {
         try {
             Cache::forget("admin_header_counts:{$userId}");
+            foreach (AdminWorkspace::keys() as $workspace) {
+                Cache::forget("admin_header_counts:{$userId}:{$workspace}");
+            }
             Cache::forget("admin_inbox_notifications:{$userId}");
             AdminHeaderChatCounts::forgetForUser($userId);
         } catch (Throwable $e) {
             report($e);
         }
+    }
+
+    private function scopeWorkspace($query, ?string $workspace)
+    {
+        if ($workspace === null || ! in_array($workspace, AdminWorkspace::keys(), true)) {
+            return $query;
+        }
+
+        $types = UserNotification::typesForWorkspace($workspace);
+        if ($types === []) {
+            $query->whereRaw('0 = 1');
+
+            return $query;
+        }
+
+        $query->whereIn('type', $types);
+
+        return $query;
     }
 }

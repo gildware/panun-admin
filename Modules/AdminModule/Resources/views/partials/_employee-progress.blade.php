@@ -197,10 +197,9 @@
                                         <span class="progress-summary-badge is-active">{{ $dailySub }}</span>
                                     </div>
                                 @endif
-                                @include('adminmodule::partials._employee-progress-team-rank-cards', [
+                                @include('adminmodule::partials._employee-progress-team-rank-table', [
                                     'rows' => $teamRankRowsDaily,
                                     'highlightEmployeeId' => $highlightEmployeeId,
-                                    'variant' => 'overview',
                                     'rankMetricPeriodParams' => $rankMetricPeriods['daily'],
                                     'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery,
                                     'rankMetricLinksEnabled' => $rankMetricLinksEnabled,
@@ -214,10 +213,9 @@
                                         <span class="progress-summary-badge is-active">{{ $monthlySub }}</span>
                                     @endif
                                 </div>
-                                @include('adminmodule::partials._employee-progress-team-rank-cards', [
+                                @include('adminmodule::partials._employee-progress-team-rank-table', [
                                     'rows' => $teamRankRowsMonthly,
                                     'highlightEmployeeId' => $highlightEmployeeId,
-                                    'variant' => 'overview',
                                     'rankMetricPeriodParams' => $rankMetricPeriods['monthly'],
                                     'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery,
                                     'rankMetricLinksEnabled' => $rankMetricLinksEnabled,

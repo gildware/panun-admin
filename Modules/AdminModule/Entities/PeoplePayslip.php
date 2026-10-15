@@ -3,6 +3,7 @@
 namespace Modules\AdminModule\Entities;
 
 use App\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\UserManagement\Entities\User;
@@ -37,5 +38,18 @@ class PeoplePayslip extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * People marked No billable are kept off payroll.
+     */
+    public function scopeForPayroll(Builder $query): Builder
+    {
+        $hidden = PeopleProfile::query()->where('billing_type', 'non_billable')->pluck('user_id');
+        if ($hidden->isNotEmpty()) {
+            $query->whereNotIn($query->qualifyColumn('user_id'), $hidden);
+        }
+
+        return $query;
     }
 }

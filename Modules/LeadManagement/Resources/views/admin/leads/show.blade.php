@@ -242,6 +242,33 @@
                         </div>
                     </div>
 
+                    <div class="modal fade" id="leadNonResponsiveModal" tabindex="-1" aria-labelledby="leadNonResponsiveModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header border-0">
+                                    <h5 class="modal-title" id="leadNonResponsiveModalLabel">{{ translate('Mark_as_Non_Responsive') }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                </div>
+                                <form method="POST" action="{{ route('admin.lead.non-responsive.mark', $lead->id) }}">
+                                    @csrf
+                                    @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                                    <input type="hidden" name="mark_non_responsive" value="1">
+                                    <div class="modal-body pt-0">
+                                        <p class="text-muted small">{{ translate('Unknown_non_responsive_help') }}</p>
+                                        <div class="mb-0">
+                                            <label class="form-label" for="non_responsive_remarks">{{ translate('Remarks') }}</label>
+                                            <textarea name="non_responsive_remarks" id="non_responsive_remarks" class="form-control" rows="3" maxlength="1000">{{ old('non_responsive_remarks') }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                        <button type="submit" class="btn btn-secondary">{{ translate('Mark_as_Non_Responsive') }}</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="modal fade" id="leadInvalidModal" tabindex="-1" aria-labelledby="leadInvalidModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content">
@@ -254,15 +281,12 @@
                                     @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
                                     <input type="hidden" name="lead_type" value="invalid">
                                     <div class="modal-body pt-0">
-                                        <div class="mb-3">
-                                            <label class="form-label">{{ translate('Reason') }}</label>
-                                            <select name="invalid_reason_id" class="form-select" required>
-                                                <option value="">{{ translate('Select_Reason') }}</option>
-                                                @foreach($invalidReasons as $reason)
-                                                    <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
+                                        @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                            'selectId' => 'lead-invalid-reason',
+                                            'reasons' => $invalidReasons,
+                                            'reasonField' => 'invalid_reason_id',
+                                            'optionField' => 'invalid_reason_option_id',
+                                        ])
                                         <div class="mb-3">
                                             @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'invalid-area-select'])
                                         </div>
@@ -286,6 +310,42 @@
                         </div>
                     </div>
 
+                    <div class="modal fade" id="leadFutureProviderModal" tabindex="-1" aria-labelledby="leadFutureProviderModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header border-0">
+                                    <h5 class="modal-title" id="leadFutureProviderModalLabel">{{ translate('Mark_as_Future_Provider_Lead') }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                </div>
+                                <form method="POST" action="{{ route('admin.lead.type.update', $lead->id) }}">
+                                    @csrf
+                                    @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                                    <input type="hidden" name="lead_type" value="future_provider">
+                                    <div class="modal-body pt-0">
+                                        <p class="text-muted small">{{ translate('Future_provider_help') }}</p>
+                                        @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                            'selectId' => 'lead-future-provider-reason',
+                                            'reasons' => $futureProviderReasons,
+                                            'reasonField' => 'future_provider_reason_id',
+                                            'optionField' => 'future_provider_reason_option_id',
+                                        ])
+                                        <div class="mb-3">
+                                            @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'future-provider-area-select'])
+                                        </div>
+                                        <div class="mb-0">
+                                            <label class="form-label">{{ translate('Remarks') }}</label>
+                                            <textarea name="future_provider_remarks" class="form-control" rows="3"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                        <button type="submit" class="btn btn-secondary">{{ translate('Mark_as_Future_Provider_Lead') }}</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="modal fade" id="leadFutureCustomerModal" tabindex="-1" aria-labelledby="leadFutureCustomerModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content">
@@ -298,18 +358,12 @@
                                     @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
                                     <input type="hidden" name="lead_type" value="future_customer">
                                     <div class="modal-body pt-0">
-                                        <div class="mb-3">
-                                            <label class="form-label">{{ translate('Reason') }}</label>
-                                            <select name="future_customer_reason_id" class="form-select" required>
-                                                <option value="">{{ translate('Select_Reason') }}</option>
-                                                @foreach($futureCustomerReasons as $reason)
-                                                    <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'future-area-select'])
-                                        </div>
+                                        @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                            'selectId' => 'lead-future-customer-reason',
+                                            'selectClass' => 'form-select',
+                                            'marginClass' => 'mb-3',
+                                            'allowCustomOption' => true,
+                                        ])
                                         <div class="mb-0">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
                                             <textarea name="future_customer_remarks" class="form-control" rows="3"></textarea>
@@ -364,6 +418,11 @@
                                     @endif
                                     <div class="modal-body pt-0">
                                         <div class="row g-3">
+                                            <div class="col-md-6">
+                                                @include('leadmanagement::admin.leads.partials._lead-temperature-select', [
+                                                    'selected' => $lead->lead_temperature ?: ($customerEditData['lead_temperature'] ?? ''),
+                                                ])
+                                            </div>
                                             @if($lead->lead_type !== \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Customer_Lead_Status') }}</label>
@@ -379,13 +438,16 @@
                                             <div class="col-12 js-lead-cancel-fields d-none">
                                                 <div class="row g-3">
                                                     <div class="col-md-6">
-                                                        <label class="form-label">{{ translate('Customer_cancellation_reasons') }}</label>
-                                                        <select name="cancellation_reason_id" class="form-select" disabled>
-                                                            <option value="">{{ translate('Select') }}</option>
-                                                            @foreach($cancellationReasons as $reason)
-                                                                <option value="{{ $reason->id }}" {{ ($customerEditData['cancellation_reason_id'] ?? '') == $reason->id ? 'selected' : '' }}>{{ $reason->name }}</option>
-                                                            @endforeach
-                                                        </select>
+                                                        @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                                            'selectId' => 'lead-customer-mark-cancel-reason',
+                                                            'marginClass' => 'mb-0',
+                                                            'reasons' => $cancellationReasons,
+                                                            'reasonField' => 'cancellation_reason_id',
+                                                            'optionField' => 'cancellation_reason_option_id',
+                                                            'reasonLabel' => translate('Customer_cancellation_reasons'),
+                                                            'selectedReasonId' => $customerEditData['cancellation_reason_id'] ?? '',
+                                                            'selectedOptionId' => $customerEditData['cancellation_reason_option_id'] ?? '',
+                                                        ])
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
@@ -405,7 +467,12 @@
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
-                                                @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'lead-area-select', 'areaSelected' => $customerEditData['area_id'] ?? ''])
+                                                @include('leadmanagement::admin.leads.partials._area-select', [
+                                                    'areaSelectId' => 'lead-area-select',
+                                                    'areaSelected' => $customerEditData['area_id'] ?? '',
+                                                    'areaZoneId' => $customerEditData['zone_id'] ?? '',
+                                                    'areaZoneScoped' => true,
+                                                ])
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Category') }}</label>
@@ -493,6 +560,11 @@
                                     <div class="modal-body pt-0">
                                         <div class="row g-3">
                                             <div class="col-md-6">
+                                                @include('leadmanagement::admin.leads.partials._lead-temperature-select', [
+                                                    'selected' => $lead->lead_temperature ?: ($providerEditData['lead_temperature'] ?? ''),
+                                                ])
+                                            </div>
+                                            <div class="col-md-6">
                                                 <label class="form-label">{{ translate('District') }}</label>
                                                 <select name="district_id" class="form-select">
                                                     <option value="">{{ translate('Select_District') }}</option>
@@ -516,13 +588,16 @@
                                             <div class="col-12 js-lead-cancel-fields d-none">
                                                 <div class="row g-3">
                                                     <div class="col-md-6">
-                                                        <label class="form-label">{{ translate('Provider_cancellation_reasons') }}</label>
-                                                        <select name="provider_cancellation_reason_id" class="form-select" disabled>
-                                                            <option value="">{{ translate('Select') }}</option>
-                                                            @foreach($providerCancellationReasons as $reason)
-                                                                <option value="{{ $reason->id }}" {{ ($providerEditData['provider_cancellation_reason_id'] ?? '') == $reason->id ? 'selected' : '' }}>{{ $reason->name }}</option>
-                                                            @endforeach
-                                                        </select>
+                                                        @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                                            'selectId' => 'lead-provider-mark-cancel-reason',
+                                                            'marginClass' => 'mb-0',
+                                                            'reasons' => $providerCancellationReasons,
+                                                            'reasonField' => 'provider_cancellation_reason_id',
+                                                            'optionField' => 'provider_cancellation_reason_option_id',
+                                                            'reasonLabel' => translate('Provider_cancellation_reasons'),
+                                                            'selectedReasonId' => $providerEditData['provider_cancellation_reason_id'] ?? '',
+                                                            'selectedOptionId' => $providerEditData['provider_cancellation_reason_option_id'] ?? '',
+                                                        ])
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
@@ -552,7 +627,12 @@
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
-                                                @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'provider-area-select', 'areaSelected' => $providerEditData['area_id'] ?? ''])
+                                                @include('leadmanagement::admin.leads.partials._area-select', [
+                                                    'areaSelectId' => 'provider-area-select',
+                                                    'areaSelected' => $providerEditData['area_id'] ?? '',
+                                                    'areaZoneIds' => $providerZoneIdsForEdit,
+                                                    'areaZoneScoped' => true,
+                                                ])
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Service_Category') }}</label>
@@ -964,15 +1044,13 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                     </div>
                     <div class="modal-body pt-0">
-                        <div class="mb-3">
-                            <label class="form-label">{{ translate('Customer_cancellation_reasons') }}</label>
-                            <select id="customer-cancel-reason-id" class="form-select">
-                                <option value="">{{ translate('Select') }}</option>
-                                @foreach($cancellationReasons as $reason)
-                                    <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                            'selectId' => 'customer-cancel-reason-id',
+                            'reasons' => $cancellationReasons,
+                            'reasonField' => 'cancellation_reason_id',
+                            'optionField' => 'cancellation_reason_option_id',
+                            'reasonLabel' => translate('Customer_cancellation_reasons'),
+                        ])
                         <div class="mb-0">
                             <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
                             <textarea id="customer-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
@@ -1000,15 +1078,13 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                     </div>
                     <div class="modal-body pt-0">
-                        <div class="mb-3">
-                            <label class="form-label">{{ translate('Provider_cancellation_reasons') }}</label>
-                            <select id="provider-cancel-reason-id" class="form-select">
-                                <option value="">{{ translate('Select') }}</option>
-                                @foreach($providerCancellationReasons as $reason)
-                                    <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                            'selectId' => 'provider-cancel-reason-id',
+                            'reasons' => $providerCancellationReasons,
+                            'reasonField' => 'provider_cancellation_reason_id',
+                            'optionField' => 'provider_cancellation_reason_option_id',
+                            'reasonLabel' => translate('Provider_cancellation_reasons'),
+                        ])
                         <div class="mb-0">
                             <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
                             <textarea id="provider-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
@@ -1077,6 +1153,12 @@
         .btn-lead-type-future:hover:not(:disabled) {
             background-color: #0dcaf0 !important; /* Bootstrap info (light blue) */
             border-color: #0dcaf0 !important;
+            color: #fff !important;
+        }
+
+        .btn-lead-type-non-responsive:hover:not(:disabled) {
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
             color: #fff !important;
         }
 
@@ -1447,6 +1529,49 @@
                 if (typeof initZoneTreeSelect2 === 'function') {
                     initZoneTreeSelect2($('#lead-zone-select'), $customerModal.length ? { dropdownParent: $customerModal } : {});
                 }
+                window.loadZoneAreasForSelect = function ($select, zoneIds) {
+                    if (!$select || !$select.length) {
+                        return;
+                    }
+                    var current = $select.val();
+                    var placeholder = $select.data('placeholder') || '';
+                    var ids = (zoneIds || []).filter(Boolean);
+                    $.get(@json(route('admin.zone.areas')), {zone_ids: ids}, function (res) {
+                        var areas = (res && res.areas) || [];
+                        if ($select.data('select2')) {
+                            $select.select2('destroy');
+                        }
+                        var selectedValues = Array.isArray(current) ? current.map(String) : (current ? [String(current)] : []);
+                        $select.find('option').not('[value=""]').remove();
+                        if (!$select.find('option[value=""]').length && !$select.prop('multiple')) {
+                            $select.append(new Option(placeholder, '', false, false));
+                        }
+                        var found = {};
+                        areas.forEach(function (area) {
+                            var selected = selectedValues.indexOf(String(area.id)) !== -1;
+                            if (selected) {
+                                found[String(area.id)] = true;
+                            }
+                            $select.append(new Option(area.name, area.id, selected, selected));
+                        });
+                        selectedValues.forEach(function (value) {
+                            if (value && !found[value]) {
+                                $select.append(new Option(value, value, true, true));
+                            }
+                        });
+                        var opts = {
+                            width: '100%',
+                            tags: true,
+                            placeholder: placeholder,
+                            allowClear: true
+                        };
+                        var $modal = $select.closest('.modal');
+                        if ($modal.length) {
+                            opts.dropdownParent = $modal;
+                        }
+                        $select.select2(opts);
+                    });
+                };
                 $('.lead-area-select').each(function () {
                     var $el = $(this);
                     var opts = {
@@ -2600,6 +2725,9 @@
 
             $('#leadCustomerModal').on('change', '[name="zone_id"]', function () {
                 if (window._customerModalPrefilling) return;
+                if (typeof window.loadZoneAreasForSelect === 'function') {
+                    window.loadZoneAreasForSelect($('#lead-area-select'), [$(this).val()]);
+                }
                 loadCategories();
             });
             $('#leadCustomerModal').on('change', '[name="service_category"]', function () {
@@ -2624,8 +2752,21 @@
                 var baseType = ($status.find('option:selected').data('base-type') || '').toString();
                 var isCancel = baseType === 'cancel';
                 $fields.toggleClass('d-none', !isCancel);
-                $fields.find('select, textarea').prop('disabled', !isCancel);
-                $fields.find('select').prop('required', isCancel);
+                $fields.find('select, textarea').not('.js-reason-followup-option').prop('disabled', !isCancel);
+                $fields.find('select').not('.js-reason-followup-option').prop('required', isCancel);
+                $fields.find('.js-future-customer-reason').each(function () {
+                    var optionSelect = document.getElementById(this.getAttribute('data-option-select'));
+                    if (!isCancel) {
+                        if (optionSelect) {
+                            optionSelect.disabled = true;
+                            optionSelect.required = false;
+                        }
+                        return;
+                    }
+                    if (window.applyFutureCustomerReasonFollowup) {
+                        window.applyFutureCustomerReasonFollowup(this);
+                    }
+                });
             }
 
             $('#leadCustomerModal').on('show.bs.modal change', function (e) {
@@ -2681,7 +2822,7 @@
                 $view.removeClass('d-none');
             });
 
-            function performProviderStatusUpdate(statusId, cancelReasonId, cancelRemarks) {
+            function performProviderStatusUpdate(statusId, cancelReasonId, cancelRemarks, cancelOptionId) {
                 var baseType = getSelectedBaseType();
                 $updateBtn.prop('disabled', true);
                 $.ajax({
@@ -2691,6 +2832,7 @@
                         _token: csrfToken,
                         provider_lead_status_id: statusId || null,
                         provider_cancellation_reason_id: baseType === 'cancel' ? (cancelReasonId || null) : null,
+                        provider_cancellation_reason_option_id: baseType === 'cancel' ? (cancelOptionId || null) : null,
                         provider_cancellation_remarks: baseType === 'cancel' ? (cancelRemarks || null) : null
                     },
                     success: function (res) {
@@ -2723,6 +2865,9 @@
                 if (baseType === 'cancel') {
                     if ($cancelReason.length) {
                         $cancelReason.val('');
+                        if (window.applyFutureCustomerReasonFollowup) {
+                            window.applyFutureCustomerReasonFollowup($cancelReason.get(0));
+                        }
                     }
                     if ($cancelRemarks.length) {
                         $cancelRemarks.val('');
@@ -2733,7 +2878,7 @@
                     return;
                 }
 
-                performProviderStatusUpdate(statusId, null, null);
+                performProviderStatusUpdate(statusId, null, null, null);
             });
 
             if ($cancelSaveBtn && $cancelSaveBtn.length) {
@@ -2743,9 +2888,15 @@
                         if (typeof toastr !== 'undefined') toastr.error('{{ translate('Provider_cancellation_reasons') }} {{ translate('is_required') }}');
                         return;
                     }
+                    var optionEl = document.getElementById('provider-cancel-reason-id-option');
+                    var optionId = optionEl && !optionEl.disabled ? (optionEl.value || '').toString().trim() : '';
+                    if (optionEl && !optionEl.disabled && !optionId) {
+                        if (typeof toastr !== 'undefined') toastr.error('{{ translate('Select_the_follow_up_for_this_reason') }}');
+                        return;
+                    }
                     var remarks = ($cancelRemarks.val() || '').toString();
                     var statusId = $select.val() || '';
-                    performProviderStatusUpdate(statusId, reasonId, remarks);
+                    performProviderStatusUpdate(statusId, reasonId, remarks, optionId);
                 });
             }
         })();
@@ -2794,7 +2945,7 @@
                 $view.removeClass('d-none');
             });
 
-            function performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, workflowConfirmed) {
+            function performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, workflowConfirmed, cancelOptionId) {
                 var baseType = getSelectedBaseType();
                 $updateBtn.prop('disabled', true);
                 $.ajax({
@@ -2804,6 +2955,7 @@
                         _token: csrfToken,
                         customer_lead_status_id: statusId || null,
                         cancellation_reason_id: baseType === 'cancel' ? (cancelReasonId || null) : null,
+                        cancellation_reason_option_id: baseType === 'cancel' ? (cancelOptionId || null) : null,
                         cancellation_remarks: baseType === 'cancel' ? (cancelRemarks || null) : null,
                         workflow_confirmed: workflowConfirmed ? 1 : 0
                     },
@@ -2837,15 +2989,15 @@
                 });
             }
 
-            function maybeGateCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks) {
+            function maybeGateCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, cancelOptionId) {
                 var baseType = getSelectedBaseType();
                 if ((baseType === 'booked' || baseType === 'completed') && window.WorkflowGate) {
                     window.WorkflowGate.check(@json(\Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_STATUS_BOOKED), function () {
-                        performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, true);
+                        performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, true, cancelOptionId);
                     });
                     return;
                 }
-                performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, false);
+                performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, false, cancelOptionId);
             }
 
             $updateBtn.on('click', function () {
@@ -2855,6 +3007,9 @@
                 if (baseType === 'cancel') {
                     if ($cancelReason.length) {
                         $cancelReason.val('');
+                        if (window.applyFutureCustomerReasonFollowup) {
+                            window.applyFutureCustomerReasonFollowup($cancelReason.get(0));
+                        }
                     }
                     if ($cancelRemarks.length) {
                         $cancelRemarks.val('');
@@ -2865,7 +3020,7 @@
                     return;
                 }
 
-                maybeGateCustomerStatusUpdate(statusId, null, null);
+                maybeGateCustomerStatusUpdate(statusId, null, null, null);
             });
 
             if ($cancelModal.length) {
@@ -2880,8 +3035,14 @@
                         if (typeof toastr !== 'undefined') toastr.error('{{ translate('Customer_cancellation_reasons') }} {{ translate('is_required') }}');
                         return;
                     }
+                    var optionEl = document.getElementById('customer-cancel-reason-id-option');
+                    var optionId = optionEl && !optionEl.disabled ? (optionEl.value || '').toString().trim() : '';
+                    if (optionEl && !optionEl.disabled && !optionId) {
+                        if (typeof toastr !== 'undefined') toastr.error('{{ translate('Select_the_follow_up_for_this_reason') }}');
+                        return;
+                    }
                     var statusId = $select.val() || '';
-                    maybeGateCustomerStatusUpdate(statusId, reasonId, remarks);
+                    maybeGateCustomerStatusUpdate(statusId, reasonId, remarks, optionId);
                 });
             }
         })();
@@ -3175,6 +3336,9 @@
 
             providerZoneSelect.on('change', function () {
                 loadProviderCategories();
+                if (typeof window.loadZoneAreasForSelect === 'function') {
+                    window.loadZoneAreasForSelect($('#provider-area-select'), providerSelectedZoneIds());
+                }
             });
             providerCategorySelect.on('change', function () {
                 loadProviderSubcategories();
@@ -3549,6 +3713,40 @@
                 commentsWrap.scrollTop = commentsWrap.scrollHeight;
             }
 
+            function resubmitNonResponsiveForm(oldInput) {
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = @json(route('admin.lead.non-responsive.mark', $lead->id));
+                form.style.display = 'none';
+
+                var tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = '_token';
+                tokenInput.value = csrfToken();
+                form.appendChild(tokenInput);
+
+                var confirmedInput = document.createElement('input');
+                confirmedInput.type = 'hidden';
+                confirmedInput.name = 'workflow_confirmed';
+                confirmedInput.value = '1';
+                form.appendChild(confirmedInput);
+
+                ['non_responsive_remarks', 'in_modal', 'mark_non_responsive'].forEach(function (key) {
+                    var value = oldInput ? oldInput[key] : '';
+                    if (value === null || value === undefined || value === '') {
+                        return;
+                    }
+                    var field = document.createElement('input');
+                    field.type = 'hidden';
+                    field.name = key;
+                    field.value = value;
+                    form.appendChild(field);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+
             function resubmitLeadTypeChangeForm(oldInput) {
                 var form = document.createElement('form');
                 form.method = 'POST';
@@ -3616,7 +3814,7 @@
 
             @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)
             document.querySelectorAll(
-                '#leadInvalidModal form, #leadFutureCustomerModal form, #leadCustomerModal form, #leadProviderModal form'
+                '#leadNonResponsiveModal form, #leadInvalidModal form, #leadFutureCustomerModal form, #leadFutureProviderModal form, #leadCustomerModal form, #leadProviderModal form'
             ).forEach(function (form) {
                 form.addEventListener('submit', function (e) {
                     if (!window.WorkflowGate) {
@@ -3647,7 +3845,11 @@
                 } else if (gateAction === @json(\Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE)) {
                     var oldTypeChangeInput = @json(old() ?: []);
                     window.WorkflowGate.showConfirmModal(gateData, gateAction, function () {
-                        resubmitLeadTypeChangeForm(oldTypeChangeInput);
+                        if (String(oldTypeChangeInput.mark_non_responsive || '') === '1') {
+                            resubmitNonResponsiveForm(oldTypeChangeInput);
+                        } else {
+                            resubmitLeadTypeChangeForm(oldTypeChangeInput);
+                        }
                     });
                 }
             });
@@ -3667,6 +3869,7 @@
         })();
     </script>
     @include('leadmanagement::admin.leads.partials._lead-edit-followup-scripts')
+    @include('leadmanagement::admin.leads.partials._lead-temperature-script')
 @endpush
 
 @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)

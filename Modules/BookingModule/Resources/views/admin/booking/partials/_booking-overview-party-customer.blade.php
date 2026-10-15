@@ -1,6 +1,9 @@
 @php
     $partyMeta = $followupDetailMeta['customer'] ?? null;
     $bookingOpen = ($booking ?? null)?->requiresMandatoryNextFollowup() ?? false;
+    $customerNonResponsive = is_object($booking ?? null)
+        && method_exists($booking, 'isCustomerNonResponsive')
+        && $booking->isCustomerNonResponsive();
     $partyCardToneClass = '';
 
     if ($bookingOpen && ! empty($partyMeta['has_pending'])) {
@@ -72,10 +75,54 @@
                     {{ Str::limit($customerAddressText !== '' ? $customerAddressText : translate('Customer Address required'), 120) }}
                 </span>
             </div>
-            @include('bookingmodule::admin.booking.partials._booking-overview-party-followup', [
-                'followup' => $nextFollowupCustomer ?? null,
-                'partyMeta' => $partyMeta,
-            ])
+            @if(! $customerNonResponsive)
+                @include('bookingmodule::admin.booking.partials._booking-overview-party-followup', [
+                    'followup' => $nextFollowupCustomer ?? null,
+                    'partyMeta' => $partyMeta,
+                ])
+            @endif
+            @if($customerNonResponsive)
+                <div class="alert alert-secondary py-2 px-3 mt-2 mb-0">
+                    <strong>{{ translate('Non_Responsive') }}</strong>
+                    — {{ translate('Booking_customer_closed_as_non_responsive') }}
+                    @if($booking->customer_non_responsive_at)
+                        <span class="d-block small mt-1">{{ translate('Closed_on') }} {{ $booking->customer_non_responsive_at->format('d M Y, h:i A') }}</span>
+                    @endif
+                    @if(trim((string) $booking->customer_non_responsive_remarks) !== '')
+                        <span class="d-block small">{{ $booking->customer_non_responsive_remarks }}</span>
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
 </div>
+
+@if($bookingOpen && $booking)
+    @can('booking_view')
+        <div class="modal fade" id="bookingCustomerNonResponsiveModal" tabindex="-1" aria-labelledby="bookingCustomerNonResponsiveModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title" id="bookingCustomerNonResponsiveModalLabel">{{ translate('Mark_as_Non_Responsive') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                    </div>
+                    <form method="POST" action="{{ route('admin.booking.customer_non_responsive.mark', $booking->id) }}">
+                        @csrf
+                        <input type="hidden" name="redirect_web_page" value="{{ request('web_page') === 'followups' ? 'followups' : 'details' }}">
+                        <div class="modal-body pt-0">
+                            <p class="text-muted small">{{ translate('Booking_customer_non_responsive_help') }}</p>
+                            <div class="mb-0">
+                                <label class="form-label" for="customer_non_responsive_remarks">{{ translate('Remarks') }}</label>
+                                <textarea name="customer_non_responsive_remarks" id="customer_non_responsive_remarks" class="form-control" rows="3" maxlength="1000">{{ old('customer_non_responsive_remarks') }}</textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                            <button type="submit" class="btn btn-secondary">{{ translate('Mark_as_Non_Responsive') }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endcan
+@endif

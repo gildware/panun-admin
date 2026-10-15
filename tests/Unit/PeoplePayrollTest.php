@@ -20,6 +20,7 @@ class PeoplePayrollTest extends TestCase
             'other_deduction' => 0,
         ], 20, 2, 500);
 
+        $this->assertSame(20000.0, $slip['breakdown']['base']);
         $this->assertSame(30000.0, $slip['breakdown']['full_gross']);
         $this->assertSame(3000.0, $slip['breakdown']['lop_amount']);
         $this->assertSame(27000.0, $slip['gross']);
@@ -42,5 +43,30 @@ class PeoplePayrollTest extends TestCase
         ], 0, 0, 0);
 
         $this->assertSame(0.0, $slip['net']);
+    }
+
+    public function test_a_bonus_is_added_onto_the_payslip_net(): void
+    {
+        $slip = PeoplePayroll::calculate([
+            'basic' => 20000,
+            'hra' => 0,
+            'special_allowance' => 0,
+            'pf_employee' => 0,
+            'pf_employer' => 0,
+            'professional_tax' => 0,
+            'tds' => 0,
+            'other_deduction' => 0,
+        ], 20, 2, 0);
+
+        $slip = PeoplePayroll::applyBonusLines($slip, [
+            ['id' => 'bonus-1', 'label' => 'Bonus', 'amount' => 1500],
+            ['id' => 'incentive-1', 'label' => 'Incentive', 'amount' => 500],
+        ]);
+
+        $this->assertSame(20000.0, $slip['breakdown']['base']);
+        $this->assertSame(2000.0, $slip['breakdown']['lop_amount']);
+        $this->assertSame(2000.0, PeoplePayroll::bonusTotal($slip['breakdown']));
+        $this->assertSame(18000.0, $slip['gross']);
+        $this->assertSame(20000.0, $slip['net']);
     }
 }

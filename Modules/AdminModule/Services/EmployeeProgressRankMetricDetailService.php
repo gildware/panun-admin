@@ -14,7 +14,6 @@ use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
-use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\UserManagement\Entities\User;
@@ -28,6 +27,7 @@ class EmployeeProgressRankMetricDetailService
         private readonly LeadFollowupService $leadFollowupService,
         private readonly LeadDataQualityScoreService $leadDataQuality,
         private readonly LeadOpenStatusService $leadOpenStatus,
+        private readonly EmployeeProgressScoreService $progressScore,
     ) {}
 
     /**
@@ -107,7 +107,7 @@ class EmployeeProgressRankMetricDetailService
                 'columns' => [
                     ['key' => 'lead', 'label' => translate('Lead') ?? 'Lead'],
                     ['key' => 'phone', 'label' => translate('Phone') ?? 'Phone'],
-                    ['key' => 'at', 'label' => translate('Received_at') ?? 'Received'],
+                    ['key' => 'at', 'label' => translate('Progress_provider_registered') ?? 'Registered'],
                 ],
             ],
             'outbound_enquiries' => [
@@ -433,56 +433,20 @@ class EmployeeProgressRankMetricDetailService
      */
     private function providersRegistered(string $employeeId, Carbon $periodStart, Carbon $periodEnd): array
     {
-        $rangeStart = $periodStart->copy()->startOfDay();
-        $rangeEnd = $periodEnd->copy()->endOfDay();
+        return $this->progressScore
+            ->registeredProviderLeadsInPeriod([$employeeId], $periodStart, $periodEnd)
+            ->map(function (array $row) {
+                /** @var Lead $lead */
+                $lead = $row['lead'];
 
-        $completedStatusIds = ProviderLeadStatus::query()
-            ->where('base_type', 'completed')
-            ->pluck('id')
-            ->map(fn ($id) => (string) $id)
+                return [
+                    'lead' => $lead->name ?: $lead->phone_number ?: $lead->id,
+                    'phone' => $lead->phone_number ?: '—',
+                    'at' => $row['registered_at']->format('d M Y h:i a'),
+                    'url' => route('admin.lead.show', $lead->id),
+                ];
+            })
             ->all();
-
-        if ($completedStatusIds === []) {
-            return [];
-        }
-
-        $leads = Lead::query()
-            ->where('handled_by', $employeeId)
-            ->where('lead_type', Lead::TYPE_PROVIDER)
-            ->whereBetween('date_time_of_lead_received', [$rangeStart, $rangeEnd])
-            ->orderByDesc('date_time_of_lead_received')
-            ->get(['id', 'name', 'phone_number', 'date_time_of_lead_received']);
-
-        if ($leads->isEmpty()) {
-            return [];
-        }
-
-        $histories = LeadTypeHistory::query()
-            ->whereIn('lead_id', $leads->pluck('id')->all())
-            ->where('type', Lead::TYPE_PROVIDER)
-            ->orderByDesc('created_at')
-            ->get(['lead_id', 'data', 'created_at'])
-            ->groupBy('lead_id')
-            ->map(fn ($group) => $group->first());
-
-        $rows = [];
-        foreach ($leads as $lead) {
-            $history = $histories->get($lead->id);
-            $data = is_array($history?->data) ? $history->data : [];
-            $statusId = isset($data['provider_lead_status_id']) ? (string) $data['provider_lead_status_id'] : '';
-            if ($statusId === '' || ! in_array($statusId, $completedStatusIds, true)) {
-                continue;
-            }
-
-            $rows[] = [
-                'lead' => $lead->name ?: $lead->phone_number ?: $lead->id,
-                'phone' => $lead->phone_number ?: '—',
-                'at' => optional($lead->date_time_of_lead_received)->format('d M Y h:i a'),
-                'url' => route('admin.lead.show', $lead->id),
-            ];
-        }
-
-        return $rows;
     }
 
     /**

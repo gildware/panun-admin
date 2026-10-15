@@ -1,10 +1,7 @@
 @php
-    $groupActive = request()->is('admin/dashboard') || request()->is('admin/dashboard/*');
     $workActive = request()->is('admin/dashboard') && ! request()->is('admin/dashboard/*');
     $operationsActive = request()->is('admin/dashboard/operations');
-    $financeActive = request()->is('admin/dashboard/finance');
-    $operatingSystemActive = request()->is('admin/dashboard/operating-system*');
-    $businessSystemActive = request()->is('admin/dashboard/business-system*');
+    $groupActive = $workActive || $operationsActive;
 @endphp
 <div class="top-nav-item">
     <button type="button" class="top-nav-trigger {{ $groupActive ? 'is-active' : '' }}">
@@ -24,23 +21,6 @@
             'href' => route('admin.dashboard.operations'),
             'label' => translate('Operations'),
             'active' => $operationsActive,
-        ])
-        @include('adminmodule::layouts.partials.top-nav._link', [
-            'href' => route('admin.dashboard.finance'),
-            'label' => translate('Finance'),
-            'active' => $financeActive,
-        ])
-        @include('adminmodule::layouts.partials.top-nav._link', [
-            'href' => route('admin.dashboard.operating-system'),
-            'label' => translate('Operating_System'),
-            'active' => $operatingSystemActive,
-            'fullPage' => true,
-        ])
-        @include('adminmodule::layouts.partials.top-nav._link', [
-            'href' => route('admin.dashboard.business-system'),
-            'label' => translate('Business_System'),
-            'active' => $businessSystemActive,
-            'fullPage' => true,
         ])
     </div>
 </div>

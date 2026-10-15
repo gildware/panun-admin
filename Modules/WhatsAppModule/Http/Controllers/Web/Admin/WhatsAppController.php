@@ -371,7 +371,7 @@ class WhatsAppController extends Controller
             $leads = $normalized
                 ? Lead::where('phone_number', $normalized)
                     ->orderByDesc('id')
-                    ->get(['id', 'lead_type', 'phone_number', 'name', 'date_time_of_lead_received'])
+                    ->get(['id', 'lead_type', 'phone_number', 'name', 'date_time_of_lead_received', 'non_responsive_at'])
                 : collect();
             $leadStatusMap = $this->buildLeadStatusMap($leads);
             $lead = $leads->first();
@@ -3143,8 +3143,8 @@ class WhatsAppController extends Controller
 
     /**
      * Mirror Lead module rules:
-     * - Open: unknown OR customer/provider with base_type not in [completed, cancel]
-     * - Closed: invalid, future_customer, or base_type completed/cancel.
+     * - Open: unknown, or customer/provider with base_type not in [completed, cancel], and not closed as non-responsive
+     * - Closed: invalid, future_customer, future_provider, non-responsive, or base_type completed/cancel.
      *
      * @param \Illuminate\Support\Collection<int, CustomerLeadStatus>|null $customerStatuses
      * @param \Illuminate\Support\Collection<int, ProviderLeadStatus>|null $providerStatuses
@@ -3156,16 +3156,20 @@ class WhatsAppController extends Controller
         ?\Illuminate\Support\Collection $providerStatuses = null
     ): bool {
         if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
-            return true;
+            return ! $lead->isNonResponsive();
         }
 
-        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
+        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
             return false;
         }
 
         $data = ($typeHistory && is_array($typeHistory->data)) ? $typeHistory->data : [];
 
         if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            if ($lead->isNonResponsive()) {
+                return false;
+            }
+
             $statusId = $data['customer_lead_status_id'] ?? null;
             if (!$statusId) {
                 return true;
@@ -3176,6 +3180,10 @@ class WhatsAppController extends Controller
         }
 
         if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            if ($lead->isNonResponsive()) {
+                return false;
+            }
+
             $statusId = $data['provider_lead_status_id'] ?? null;
             if (!$statusId) {
                 return true;

@@ -58,6 +58,15 @@ class Booking extends Model
         return ! in_array($status, ['completed', 'canceled', 'refunded'], true);
     }
 
+    /**
+     * Customer follow-up is closed because the customer did not respond.
+     * The booking status stays unchanged, and the provider follow-up continues.
+     */
+    public function isCustomerNonResponsive(): bool
+    {
+        return $this->customer_non_responsive_at !== null;
+    }
+
     protected $casts = [
         'readable_id' => 'string',
         'is_paid' => 'integer',
@@ -92,6 +101,7 @@ class Booking extends Model
         'repeat_until_stopped' => 'boolean',
         'repeat_stopped_at' => 'datetime',
         'repeat_cadence_meta' => 'array',
+        'customer_non_responsive_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -155,6 +165,9 @@ class Booking extends Model
         'repeat_until_stopped',
         'repeat_stopped_at',
         'repeat_cadence_meta',
+        'customer_non_responsive_at',
+        'customer_non_responsive_by',
+        'customer_non_responsive_remarks',
     ];
 
     protected $appends = ['evidence_photos_full_path'];

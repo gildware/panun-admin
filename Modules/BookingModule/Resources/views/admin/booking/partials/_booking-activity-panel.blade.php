@@ -354,12 +354,6 @@
             syncBookingActivityPanel(document.getElementById('admin-main') || document);
         }
 
-        var sideReschedule = document.getElementById('booking-schedule-edit-toggle-side');
-        var mainReschedule = document.getElementById('booking-schedule-edit-toggle');
-        if (sideReschedule && mainReschedule) {
-            sideReschedule.addEventListener('click', function () { mainReschedule.click(); });
-        }
-
         window.__bookingActivityFiltersBound = true;
     })();
 </script>

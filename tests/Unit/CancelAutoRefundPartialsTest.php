@@ -109,6 +109,35 @@ class CancelAutoRefundPartialsTest extends TestCase
         $this->assertFalse(booking_wallet_refund_is_revertible($companyPool));
     }
 
+    public function test_transfer_refund_is_revertible_only_for_customer_transfer_out_rows(): void
+    {
+        if (! function_exists('booking_transfer_refund_is_revertible')) {
+            $this->markTestSkipped('Helper not loaded');
+        }
+
+        $transfer = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $transfer->reason = \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND;
+        $transfer->type = \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT;
+        $transfer->amount = 100;
+        $transfer->transaction_id = '628810624408';
+        $transfer->reference_note = 'UPI';
+        $this->assertTrue(booking_transfer_refund_is_revertible($transfer));
+
+        $wallet = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $wallet->reason = \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND;
+        $wallet->type = \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT;
+        $wallet->amount = 100;
+        $this->assertFalse(booking_transfer_refund_is_revertible($wallet));
+
+        $companyPool = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $companyPool->reason = \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND;
+        $companyPool->type = \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT;
+        $companyPool->amount = 100;
+        $companyPool->transaction_id = 'DISPUTE-1';
+        $companyPool->received_by = \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY;
+        $this->assertFalse(booking_transfer_refund_is_revertible($companyPool));
+    }
+
     public function test_wallet_refund_ledger_trx_reference_round_trips(): void
     {
         if (! function_exists('booking_wallet_refund_ledger_trx_reference')) {

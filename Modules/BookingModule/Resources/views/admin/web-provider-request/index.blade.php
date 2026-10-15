@@ -95,16 +95,16 @@
                                         @php
                                             $leadMeta = $providerRequest->lead ? ($leadDisplayData[$providerRequest->lead->id] ?? null) : null;
                                         @endphp
-                                        <tr>
+                                        <tr class="js-record-preview-row" data-preview-url="{{ route('admin.booking.web-provider-requests.show', $providerRequest->id) }}">
                                             <td class="text-muted">{{ $requests->firstItem() + $key }}</td>
                                             <td class="text-nowrap">
-                                                <a href="{{ route('admin.booking.web-provider-requests.show', $providerRequest->id) }}" class="link-primary">
+                                                <a href="{{ route('admin.booking.web-provider-requests.show', $providerRequest->id) }}" class="link-primary js-record-preview" data-turbo="false">
                                                     {{ $providerRequest->reference_id }}
                                                 </a>
                                             </td>
                                             <td class="text-nowrap">
                                                 @if($providerRequest->lead)
-                                                    <a href="{{ route('admin.lead.show', $providerRequest->lead->id) }}" class="link-primary fw-semibold">
+                                                    <a href="{{ route('admin.lead.show', $providerRequest->lead->id) }}" class="link-primary fw-semibold js-record-preview" data-turbo="false">
                                                         #{{ $providerRequest->lead->id }}
                                                     </a>
                                                 @else
@@ -132,11 +132,11 @@
                                             <td class="text-nowrap">{{ $providerRequest->created_at?->format('d M Y h:i a') }}</td>
                                             <td>
                                                 <div class="wpr-action-btns">
-                                                    <a href="{{ route('admin.booking.web-provider-requests.show', $providerRequest->id) }}" class="btn btn--secondary">
+                                                    <a href="{{ route('admin.booking.web-provider-requests.show', $providerRequest->id) }}" class="btn btn--secondary js-record-preview" data-turbo="false">
                                                         {{ translate('View') }}
                                                     </a>
                                                     @if($providerRequest->lead)
-                                                        <a href="{{ route('admin.lead.show', $providerRequest->lead->id) }}" class="btn btn--primary">
+                                                        <a href="{{ route('admin.lead.show', $providerRequest->lead->id) }}" class="btn btn--primary js-record-preview" data-turbo="false">
                                                             {{ translate('View_Lead') }}
                                                         </a>
                                                     @endif
@@ -173,4 +173,5 @@
     </div>
 
     @include('bookingmodule::admin.web-provider-request.partials._delete-modal')
+    @include('adminmodule::layouts.partials._record-preview-modal', ['previewTitle' => translate('Web_Provider_Request_Details')])
 @endsection

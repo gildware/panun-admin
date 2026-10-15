@@ -643,7 +643,7 @@ class EmployeeProgressMetricHelp
             ),
             self::rankHelpKey('providers_registered') => self::rankEntry(
                 translate('New_Providers_Registered') ?? 'New Providers registered',
-                'New provider leads assigned to you whose received date is in this period and that are currently Registered. Older provider leads you registered this period are not counted. Score = quantity × +'.$providers.'.',
+                'Provider leads assigned to you that are currently Registered, counted in the month you marked them Registered. A lead received earlier still counts in the month it was registered. Score = quantity × +'.$providers.'.',
                 2,
                 $providers,
             ),

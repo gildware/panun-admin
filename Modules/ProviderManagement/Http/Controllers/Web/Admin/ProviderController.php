@@ -59,6 +59,7 @@ use Modules\ProviderManagement\Services\ProviderProfileChangeDiffService;
 use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderExpertiseService;
 use Modules\ProviderManagement\Services\ProviderQuestionnaireService;
 use Modules\ProviderManagement\Support\ProviderOnboardingQuestionnaire;
 use Modules\ProviderManagement\Support\ProviderPhoneUpdateNormalizer;
@@ -1030,7 +1031,7 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_view');
         $request->validate([
-            'web_page' => 'in:overview,questionnaire,subscribed_services,bookings,withdrawn_bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
+            'web_page' => 'in:overview,questionnaire,subscribed_services,expertise,work_showcase,bookings,withdrawn_bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
@@ -1325,6 +1326,23 @@ class ProviderController extends Controller
                 'subscribedServicesZoneNames',
                 'subscribedFilterCategories',
                 'selectedCategoryIds'
+            ));
+
+        } elseif ($request->web_page == 'expertise') {
+            $provider = $this->provider->with('owner')->find($id);
+            $expertise = app(ProviderExpertiseService::class)->groupsForProvider((string) $id);
+            $expertiseGroups = $expertise['groups'];
+            $expertiseAllServicesCount = $expertise['all_services_count'];
+            $expertiseSelectedServicesCount = $expertise['selected_services_count'];
+            $canEditExpertise = Gate::allows('provider_update');
+
+            return view('providermanagement::admin.provider.detail.expertise', compact(
+                'webPage',
+                'provider',
+                'expertiseGroups',
+                'expertiseAllServicesCount',
+                'expertiseSelectedServicesCount',
+                'canEditExpertise'
             ));
 
         } //bookings & special_bookings (special = non-empty financial settlement_outcome on parent booking)
@@ -2042,6 +2060,45 @@ class ProviderController extends Controller
                 'companyCompensatedToProviderTotal',
                 'paymentNetBalance'
             ));
+        } elseif ($request->web_page == 'work_showcase') {
+            $provider = $this->provider->with('owner')->find($id);
+            $status = $request->get('status', 'all');
+            if (! in_array($status, ['all', 'approved', 'pending', 'denied'], true)) {
+                $status = 'all';
+            }
+
+            $rawCounts = ProviderShowcaseItem::query()
+                ->where('provider_id', $id)
+                ->select('is_approved', DB::raw('count(*) as total'))
+                ->groupBy('is_approved')
+                ->pluck('total', 'is_approved');
+
+            $counts = [
+                'all' => (int) $rawCounts->sum(),
+                'approved' => (int) ($rawCounts[ProviderShowcaseItem::STATUS_APPROVED] ?? 0),
+                'pending' => (int) ($rawCounts[ProviderShowcaseItem::STATUS_PENDING] ?? 0),
+                'denied' => (int) ($rawCounts[ProviderShowcaseItem::STATUS_DENIED] ?? 0),
+            ];
+
+            $queryParam = ['web_page' => $webPage, 'status' => $status];
+            $items = ProviderShowcaseItem::query()
+                ->where('provider_id', $id)
+                ->with('storage')
+                ->when($status === 'approved', fn ($query) => $query->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED))
+                ->when($status === 'pending', fn ($query) => $query->where('is_approved', ProviderShowcaseItem::STATUS_PENDING))
+                ->when($status === 'denied', fn ($query) => $query->where('is_approved', ProviderShowcaseItem::STATUS_DENIED))
+                ->orderByDesc('sort_order')
+                ->orderByDesc('created_at')
+                ->paginate(pagination_limit())
+                ->appends($queryParam);
+
+            return view('providermanagement::admin.provider.detail.work-showcase', compact(
+                'webPage',
+                'provider',
+                'items',
+                'status',
+                'counts'
+            ));
         }
         return back();
     }
@@ -2069,6 +2126,24 @@ class ProviderController extends Controller
         Toastr::success(translate('Questionnaire_saved_successfully'));
 
         return redirect()->route('admin.provider.details', [$id, 'web_page' => 'questionnaire']);
+    }
+
+    public function updateExpertise(string $id, Request $request): RedirectResponse
+    {
+        $this->authorize('provider_update');
+
+        $provider = $this->provider->find($id);
+        if (! $provider) {
+            Toastr::error(translate('Provider_or_account_not_found'));
+
+            return redirect()->route('admin.provider.list');
+        }
+
+        app(ProviderExpertiseService::class)->save((string) $provider->id, $request->input('expertise', []));
+
+        Toastr::success(translate('Expertise_saved_successfully'));
+
+        return redirect()->route('admin.provider.details', [$id, 'web_page' => 'expertise']);
     }
 
     /**

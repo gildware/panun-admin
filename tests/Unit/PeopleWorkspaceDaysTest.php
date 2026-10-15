@@ -31,6 +31,18 @@ class PeopleWorkspaceDaysTest extends TestCase
         $this->assertSame(5, $days);
     }
 
+    public function test_a_request_that_crosses_the_year_is_split(): void
+    {
+        $days = PeopleWorkspace::daysByYear(
+            Carbon::parse('2026-12-31'),
+            Carbon::parse('2027-01-01'),
+            [],
+            ['sun']
+        );
+
+        $this->assertSame([2026 => 1.0, 2027 => 1.0], $days);
+    }
+
     public function test_an_empty_week_off_counts_every_day(): void
     {
         $days = PeopleWorkspace::countWorkingDays(

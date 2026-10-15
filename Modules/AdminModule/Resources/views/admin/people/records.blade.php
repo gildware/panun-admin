@@ -66,7 +66,14 @@
                         </select>
                     </div>
                     <div class="field"><label for="job_title">Seat</label><input id="job_title" name="job_title" value="{{ old('job_title', 'Employee') }}" required></div>
-                    <div class="field"><label for="work_location">Work location</label><input id="work_location" name="work_location" value="{{ old('work_location') }}"></div>
+                    <div class="field"><label for="work_location">Work location</label>
+                        <select id="work_location" name="work_location">
+                            <option value="">Not set</option>
+                            @foreach(\Modules\AdminModule\Entities\PeopleProfile::WORK_LOCATIONS as $value => $label)
+                                <option value="{{ $value }}" @selected(old('work_location') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                     <div class="field"><label for="joined_on">Joined</label><input id="joined_on" type="date" name="joined_on" value="{{ old('joined_on') }}"></div>
                     <div class="field"><label for="manager_id">Manager</label>
                         <select id="manager_id" name="manager_id">

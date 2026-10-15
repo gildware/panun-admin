@@ -2933,6 +2933,38 @@ if (!function_exists('revertBookingWalletRefund')) {
     }
 }
 
+if (!function_exists('revertBookingTransferRefund')) {
+    /**
+     * Remove one recorded customer transfer refund (UPI / bank). Does not move wallet or account balances.
+     *
+     * @throws \RuntimeException transfer_refund_not_found|transfer_refund_not_revertible
+     */
+    function revertBookingTransferRefund($booking, string $ledgerId): void
+    {
+        $ledgerId = trim($ledgerId);
+        if ($ledgerId === '') {
+            throw new \RuntimeException('transfer_refund_not_found');
+        }
+
+        DB::transaction(function () use ($booking, $ledgerId) {
+            $ledger = LedgerTransaction::query()
+                ->where('booking_id', $booking['id'])
+                ->whereKey($ledgerId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $ledger) {
+                throw new \RuntimeException('transfer_refund_not_found');
+            }
+            if (! booking_transfer_refund_is_revertible($ledger)) {
+                throw new \RuntimeException('transfer_refund_not_revertible');
+            }
+
+            $ledger->delete();
+        });
+    }
+}
+
 if (!function_exists('booking_wallet_refund_transactions_for_ledger')) {
     /**
      * Linked booking_refund transactions for a wallet-refund ledger row.

@@ -16,7 +16,55 @@
 
         /* Table — between default and ultra-compact */
         .table-leads-card .card-body { padding: 1rem 1.25rem; }
-        .table-leads-fixed-layout { min-width: 1050px; font-size: 0.875rem; }
+        .table-leads-fixed-layout { min-width: 1180px; font-size: 0.875rem; }
+        .lead-temp-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.05rem;
+            height: 1.35rem;
+            padding: 0 0.28rem 0 0.22rem;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        .lead-temp-pill .material-icons {
+            font-size: 0.85rem;
+            width: 0.85rem;
+            height: 0.85rem;
+            line-height: 0.85rem;
+        }
+        .lead-temp-pill__text {
+            padding-right: 0.35rem;
+        }
+        .lead-temp-pill .lead-temperature-select {
+            appearance: none;
+            -webkit-appearance: none;
+            border: 0;
+            background-color: transparent;
+            color: inherit;
+            font: inherit;
+            font-weight: 700;
+            line-height: 1;
+            height: 1.35rem;
+            margin: 0;
+            padding: 0 0.8rem 0 0.05rem;
+            width: auto;
+            cursor: pointer;
+            box-shadow: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0 center;
+            background-size: 0.55rem;
+        }
+        .lead-temp-pill .lead-temperature-select:focus {
+            outline: none;
+        }
+        .lead-temp-pill--hotter { background: #ffe4e6; color: #9f1239; }
+        .lead-temp-pill--hot { background: #ffedd5; color: #c2410c; }
+        .lead-temp-pill--warm { background: #fef3c7; color: #92400e; }
+        .lead-temp-pill--cold { background: #e0f2fe; color: #0369a1; }
         .table-leads-fixed-layout th,
         .table-leads-fixed-layout td {
             white-space: nowrap;
@@ -55,6 +103,43 @@
         }
         .lead-table-row { cursor: pointer; }
         .lead-table-row:hover { background-color: rgba(13, 110, 253, 0.06); }
+        .lead-view-modal-dialog {
+            width: calc(100vw - 1.5rem);
+            max-width: 1440px;
+            height: calc(100vh - 1.5rem);
+            margin: 0.75rem auto;
+        }
+        .lead-view-modal-dialog .modal-content {
+            height: 100%;
+            overflow: hidden;
+            border: 0;
+            border-radius: 0.75rem;
+        }
+        .lead-view-modal-dialog .modal-header {
+            flex-shrink: 0;
+        }
+        .lead-view-modal-dialog .modal-body {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 0;
+            background: #f4f5f7;
+        }
+        .lead-view-modal-dialog iframe {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: #fff;
+        }
+        .lead-view-modal__loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.86);
+            z-index: 2;
+        }
         .lead-filter-btn { overflow: visible; }
         .lead-filter-btn-margin { margin-right: 1rem; }
         .lead-filter-offcanvas { display: flex; flex-direction: column; }
@@ -86,6 +171,7 @@
                                 'unknown' => 0,
                                 'customer' => 0,
                                 'future_customer' => 0,
+                                'future_provider' => 0,
                                 'provider' => 0,
                                 'invalid' => 0,
                             ];
@@ -121,6 +207,14 @@
                                    href="{{ route('admin.lead.index', ['tab' => 'future_customer']) }}">
                                     {{ translate('Future_Customer_Lead') }}
                                     <span class="count js-lead-tab-count" data-tab="future_customer">{{ $leadTabCounts['future_customer'] }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $tab == 'future_provider' ? 'active' : '' }}"
+                                   data-lead-tab="future_provider"
+                                   href="{{ route('admin.lead.index', ['tab' => 'future_provider']) }}">
+                                    {{ translate('Future_Provider_Lead') }}
+                                    <span class="count js-lead-tab-count" data-tab="future_provider">{{ $leadTabCounts['future_provider'] }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
@@ -177,11 +271,12 @@
                         if (in_array($tab, ['all', 'unknown', 'customer', 'provider'], true) && !empty($followupFrom) && !empty($followupTo)) {
                             $filtersAppliedCount += 1;
                         }
+                        $leadTemperatures = $leadTemperatures ?? [];
                         if ($tab === 'provider') {
-                            $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds);
+                            $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds) + count($leadTemperatures);
                         }
                         if ($tab === 'customer') {
-                            $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0);
+                            $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0) + count($leadTemperatures);
                             if (($customerHasBooking ?? 'all') !== 'all') {
                                 $filtersAppliedCount += 1;
                             }
@@ -290,6 +385,14 @@
                                     <h6 class="text-muted text-uppercase small fw-semibold mb-3 pb-2 border-bottom">{{ translate('Provider_Related_Filter') }}</h6>
                                     <div class="d-flex flex-column gap-3">
                                         <div>
+                                            <label class="form-label">{{ translate('Lead_Temperature') }}</label>
+                                            <select name="lead_temperature[]" class="form-select js-select-multi" multiple>
+                                                @foreach(\Modules\LeadManagement\Entities\Lead::leadTemperatures() as $value => $label)
+                                                    <option value="{{ $value }}" {{ in_array($value, $leadTemperatures ?? [], true) ? 'selected' : '' }}>{{ translate($label) }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label class="form-label">{{ translate('Status') }}</label>
                                             <select name="status_ids[]" class="form-select js-select-multi" multiple>
                                                 @foreach($filterProviderStatuses as $status)
@@ -329,6 +432,14 @@
                                 <div class="lead-filter-section mb-4">
                                     <h6 class="text-muted text-uppercase small fw-semibold mb-3 pb-2 border-bottom">{{ translate('Customer_Related_Filter') }}</h6>
                                     <div class="d-flex flex-column gap-3">
+                                        <div>
+                                            <label class="form-label">{{ translate('Lead_Temperature') }}</label>
+                                            <select name="lead_temperature[]" class="form-select js-select-multi" multiple>
+                                                @foreach(\Modules\LeadManagement\Entities\Lead::leadTemperatures() as $value => $label)
+                                                    <option value="{{ $value }}" {{ in_array($value, $leadTemperatures ?? [], true) ? 'selected' : '' }}>{{ translate($label) }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                         <div>
                                             <label class="form-label">{{ translate('Status') }}</label>
                                             <select name="customer_status_ids[]" class="form-select js-select-multi" multiple>
@@ -422,6 +533,36 @@
                         </div>
                     </div>
 
+                    <div class="modal fade" id="leadViewModal" tabindex="-1" aria-labelledby="leadViewModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered lead-view-modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header py-2">
+                                    <h5 class="modal-title" id="leadViewModalLabel">{{ translate('Lead_Details') }}</h5>
+                                    <div class="d-flex align-items-center gap-2 ms-auto">
+                                        <a href="#"
+                                           id="lead-view-new-tab"
+                                           class="btn btn-sm btn--primary d-inline-flex align-items-center gap-1"
+                                           target="_blank"
+                                           rel="noopener noreferrer"
+                                           data-turbo="false">
+                                            <span class="material-icons" style="font-size: 18px;">open_in_new</span>
+                                            {{ translate('View_in_new_tab') }}
+                                        </a>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                    </div>
+                                </div>
+                                <div class="modal-body p-0">
+                                    <div class="lead-view-modal__loading d-none" id="lead-view-loading">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">{{ translate('Loading') }}</span>
+                                        </div>
+                                    </div>
+                                    <iframe id="lead-view-frame" title="{{ translate('Lead_Details') }}" src="about:blank"></iframe>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Lead Create Modal -->
                     <div class="modal fade" id="leadCreateModal" tabindex="-1" aria-labelledby="leadCreateModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -470,6 +611,14 @@
                                                         @endforeach
                                                     </select>
                                                 </div>
+
+                                                @include('leadmanagement::admin.leads.partials._lead-temperature-select', [
+                                                    'id' => 'lead-modal-create-temperature',
+                                                    'wrapId' => 'lead-modal-create-temperature-wrap',
+                                                    'wrapClass' => 'mb-30 d-none',
+                                                    'required' => false,
+                                                    'disabled' => true,
+                                                ])
                                             </div>
 
                                             <div class="col-lg-6">
@@ -516,31 +665,42 @@
                                             </div>
                                             <div class="col-12">
                                                 <div class="mb-30 d-none" id="lead-modal-create-invalid-fields">
-                                                    <div class="mb-30">
-                                                        <label class="form-label">{{ translate('Reason') }}</label>
-                                                        <select name="invalid_reason_id" class="form-select js-select" id="lead-modal-create-invalid-reason">
-                                                            <option value="">{{ translate('Select_Reason') }}</option>
-                                                            @foreach($invalidReasons as $reason)
-                                                                <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
+                                                    @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                                        'selectId' => 'lead-modal-create-invalid-reason',
+                                                        'selectClass' => 'form-select js-select',
+                                                        'marginClass' => 'mb-30',
+                                                        'reasons' => $invalidReasons,
+                                                        'reasonField' => 'invalid_reason_id',
+                                                        'optionField' => 'invalid_reason_option_id',
+                                                    ])
                                                     <div class="mb-0">
                                                         <label class="form-label">{{ translate('Remarks') }}</label>
                                                         <textarea name="invalid_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}"></textarea>
                                                     </div>
                                                 </div>
 
-                                                <div class="mb-30 d-none" id="lead-modal-create-future-fields">
-                                                    <div class="mb-30">
-                                                        <label class="form-label">{{ translate('Reason') }}</label>
-                                                        <select name="future_customer_reason_id" class="form-select js-select" id="lead-modal-create-future-reason">
-                                                            <option value="">{{ translate('Select_Reason') }}</option>
-                                                            @foreach($futureCustomerReasons as $reason)
-                                                                <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                                                            @endforeach
-                                                        </select>
+                                                <div class="mb-30 d-none" id="lead-modal-create-future-provider-fields">
+                                                    @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                                        'selectId' => 'lead-modal-create-future-provider-reason',
+                                                        'selectClass' => 'form-select js-select',
+                                                        'marginClass' => 'mb-30',
+                                                        'reasons' => $futureProviderReasons,
+                                                        'reasonField' => 'future_provider_reason_id',
+                                                        'optionField' => 'future_provider_reason_option_id',
+                                                    ])
+                                                    <div class="mb-0">
+                                                        <label class="form-label">{{ translate('Remarks') }}</label>
+                                                        <textarea name="future_provider_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}"></textarea>
                                                     </div>
+                                                </div>
+
+                                                <div class="mb-30 d-none" id="lead-modal-create-future-fields">
+                                                    @include('leadmanagement::admin.leads.partials._future-customer-reason-fields', [
+                                                        'selectId' => 'lead-modal-create-future-reason',
+                                                        'selectClass' => 'form-select js-select',
+                                                        'marginClass' => 'mb-30',
+                                                        'allowCustomOption' => true,
+                                                    ])
                                                     <div class="mb-0">
                                                         <label class="form-label">{{ translate('Remarks') }}</label>
                                                         <textarea name="future_customer_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}"></textarea>
@@ -642,7 +802,7 @@
             }
 
             const LEAD_TAB_FILTERS_KEY = 'admin_lead_tab_filters';
-            const LEAD_TABS = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
+            const LEAD_TABS = ['all', 'unknown', 'customer', 'future_customer', 'future_provider', 'provider', 'invalid'];
 
             function currentLeadTab() {
                 return ($('#lead-filter-form input[name="tab"]').val()
@@ -781,8 +941,7 @@
                     $row.find('a.btn-lead-view')
                         .attr('href', stamped)
                         .attr('data-turbo', 'false')
-                        .attr('target', '_blank')
-                        .attr('rel', 'noopener noreferrer');
+                        .removeAttr('target');
                 });
                 $('#lead-list-wrapper .pagination a').attr('data-turbo', 'false');
             }
@@ -849,19 +1008,70 @@
                 stampLeadReturnUrls();
             });
 
-            function openLeadInNewTab(url) {
+            function leadPreviewUrls(url) {
+                const modalDest = new URL(url, window.location.origin);
+                modalDest.searchParams.delete('lead_list');
+                modalDest.searchParams.set('in_modal', '1');
+
+                const tabDest = new URL(withLeadListReturn(url), window.location.origin);
+                tabDest.searchParams.delete('in_modal');
+                tabDest.searchParams.delete('inModal');
+
+                return {
+                    modal: modalDest.href,
+                    tab: tabDest.href
+                };
+            }
+
+            function openLeadPreview(url) {
                 if (!url) {
                     return;
                 }
-                const dest = new URL(withLeadListReturn(url), window.location.origin);
-                window.open(dest.href, '_blank', 'noopener,noreferrer');
+                const urls = leadPreviewUrls(url);
+                const frame = document.getElementById('lead-view-frame');
+                const modalEl = document.getElementById('leadViewModal');
+                if (!frame || !modalEl || typeof bootstrap === 'undefined') {
+                    window.location.href = urls.tab;
+                    return;
+                }
+                $('#lead-view-new-tab').attr('href', urls.tab);
+                $('#lead-view-loading').removeClass('d-none');
+                if (frame.getAttribute('src') !== urls.modal) {
+                    frame.src = urls.modal;
+                } else {
+                    $('#lead-view-loading').addClass('d-none');
+                }
+                bootstrap.Modal.getOrCreateInstance(modalEl, { focus: false }).show();
             }
+
+            $('#lead-view-frame').off('load.leadIndexNav').on('load.leadIndexNav', function () {
+                const src = this.getAttribute('src') || '';
+                if (src && src !== 'about:blank') {
+                    $('#lead-view-loading').addClass('d-none');
+                }
+            });
+
+            $('#leadViewModal').off('hidden.bs.modal.leadIndexNav').on('hidden.bs.modal.leadIndexNav', function () {
+                const frame = document.getElementById('lead-view-frame');
+                if (frame) {
+                    frame.src = 'about:blank';
+                }
+                $('#lead-view-loading').addClass('d-none');
+            });
+
+            $(document).on('click.leadIndexNav', '#lead-list-wrapper a.btn-lead-view', function (e) {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.which === 2) {
+                    return;
+                }
+                e.preventDefault();
+                openLeadPreview($(this).attr('href') || $(this).attr('data-lead-url'));
+            });
 
             $(document).on('click.leadIndexNav', '.lead-table-row', function (e) {
                 if ($(e.target).closest('a, button, input, select, textarea, label').length) {
                     return;
                 }
-                openLeadInNewTab($(this).attr('data-lead-url') || $(this).data('lead-url'));
+                openLeadPreview($(this).attr('data-lead-url') || $(this).data('lead-url'));
             });
 
             if (typeof window.__leadIndexNavOnClick === 'function') {
@@ -927,7 +1137,26 @@
             }
 
             const TYPE_INVALID_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
+            const TYPE_CUSTOMER_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER }}';
+            const TYPE_PROVIDER_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER }}';
             const TYPE_FUTURE_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER }}';
+            const TYPE_FUTURE_PROVIDER_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_PROVIDER }}';
+
+            function syncModalReasonFollowup($select, active) {
+                if (!$select.length) return;
+                $select.prop('required', active);
+                const optionSelect = document.getElementById($select.attr('data-option-select'));
+                if (!active) {
+                    if (optionSelect) {
+                        optionSelect.required = false;
+                        optionSelect.disabled = true;
+                    }
+                    return;
+                }
+                if (window.applyFutureCustomerReasonFollowup) {
+                    window.applyFutureCustomerReasonFollowup($select.get(0));
+                }
+            }
 
             function leadModalCreateApplyTypeUi() {
                 const $typeSelect = $('#lead-modal-create-type-select');
@@ -937,23 +1166,28 @@
                 const t = $typeSelect.val();
                 const isInvalid = t === TYPE_INVALID_MODAL;
                 const isFuture = t === TYPE_FUTURE_MODAL;
+                const isFutureProvider = t === TYPE_FUTURE_PROVIDER_MODAL;
+                const needsTemperature = t === TYPE_CUSTOMER_MODAL || t === TYPE_PROVIDER_MODAL;
+                const hidesFollowup = isInvalid || isFuture || isFutureProvider;
 
-                $('#lead-modal-create-followup-wrap').toggleClass('d-none', isInvalid || isFuture);
+                $('#lead-modal-create-temperature-wrap').toggleClass('d-none', !needsTemperature);
+                $('#lead-modal-create-temperature').prop('disabled', !needsTemperature).prop('required', needsTemperature);
+
+                $('#lead-modal-create-followup-wrap').toggleClass('d-none', hidesFollowup);
                 $('#lead-modal-create-invalid-fields').toggleClass('d-none', !isInvalid);
                 $('#lead-modal-create-future-fields').toggleClass('d-none', !isFuture);
-                $('#lead-modal-create-general-remarks-wrap').toggleClass('d-none', isInvalid || isFuture);
+                $('#lead-modal-create-future-provider-fields').toggleClass('d-none', !isFutureProvider);
+                $('#lead-modal-create-general-remarks-wrap').toggleClass('d-none', hidesFollowup);
 
-                $('#lead-modal-create-next-followup-input').prop('disabled', isInvalid || isFuture);
-                $('#lead-modal-create-remarks').prop('disabled', isInvalid || isFuture);
+                $('#lead-modal-create-next-followup-input').prop('disabled', hidesFollowup);
+                $('#lead-modal-create-remarks').prop('disabled', hidesFollowup);
 
                 const $invalidReason = $('#lead-modal-create-invalid-reason');
                 const $futureReason = $('#lead-modal-create-future-reason');
-                if ($invalidReason.length) {
-                    $invalidReason.prop('required', isInvalid);
-                }
-                if ($futureReason.length) {
-                    $futureReason.prop('required', isFuture);
-                }
+                const $futureProviderReason = $('#lead-modal-create-future-provider-reason');
+                syncModalReasonFollowup($invalidReason, isInvalid);
+                syncModalReasonFollowup($futureReason, isFuture);
+                syncModalReasonFollowup($futureProviderReason, isFutureProvider);
 
             }
 

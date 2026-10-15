@@ -56,65 +56,7 @@ if (! function_exists('fcm_service_account_credentials')) {
 
  function sendNotificationToHttp(array|null $data): bool
  {
-    $account = fcm_service_account_credentials();
-    $project_id = $account['project_id'] ?? null;
-    $clientEmail = $account['client_email'] ?? null;
-    $privateKey = $account['private_key'] ?? null;
-    if (is_null($project_id) || is_null($clientEmail) || is_null($privateKey)) return false;
-
-    $accessToken = getAccessToken($clientEmail, $privateKey);
-    if (! filled($accessToken)) {
-        log_push_notification_delivery([
-            'fcm_token' => data_get($data, 'message.token'),
-            'topic' => data_get($data, 'message.topic'),
-            'notification_type' => data_get($data, 'message.data.type'),
-            'title' => data_get($data, 'message.data.title'),
-            'push_notification_id' => data_get($data, 'message.data.push_notification_id') ?: null,
-            'booking_id' => data_get($data, 'message.data.booking_id') ?: null,
-            'status' => 'failed',
-            'http_status' => null,
-            'error_message' => ($project_id === 'chat-e2e-test-project')
-                ? 'Firebase is still using the chat E2E dummy service account. Upload the panun-kaergar-a162d service account JSON in Admin → Third Party → Firebase push.'
-                : 'FCM OAuth access token could not be obtained. Check Firebase service account in admin third-party settings.',
-        ]);
-
-        return false;
-    }
-
-    $url = 'https://fcm.googleapis.com/v1/projects/'. $project_id .'/messages:send';
-    $headers = [
-        'Authorization' => 'Bearer ' . $accessToken,
-        'Content-Type' => 'application/json',
-    ];
-
-    $logContext = [
-        'fcm_token' => data_get($data, 'message.token'),
-        'topic' => data_get($data, 'message.topic'),
-        'notification_type' => data_get($data, 'message.data.type'),
-        'title' => data_get($data, 'message.data.title'),
-        'push_notification_id' => data_get($data, 'message.data.push_notification_id') ?: null,
-        'booking_id' => data_get($data, 'message.data.booking_id') ?: null,
-    ];
-
-    try {
-        $response = Http::withHeaders($headers)->post($url, $data);
-        $success = $response->successful();
-
-        log_push_notification_delivery(array_merge($logContext, [
-            'status' => $success ? 'sent' : 'failed',
-            'http_status' => $response->status(),
-            'error_message' => $success ? null : $response->body(),
-        ]));
-
-        return $success;
-    } catch (\Exception $exception) {
-        log_push_notification_delivery(array_merge($logContext, [
-            'status' => 'failed',
-            'error_message' => $exception->getMessage(),
-        ]));
-
-        return false;
-    }
+    return \App\Support\FcmNotificationBatch::enqueue($data);
 }
 
 if (! function_exists('fcm_base64url_encode')) {
@@ -141,7 +83,13 @@ if (! function_exists('fcm_base64url_encode')) {
     openssl_sign($unsignedJwt, $signature, $privateKey, OPENSSL_ALGO_SHA256);
     $jwt = $unsignedJwt . '.' . fcm_base64url_encode($signature);
 
-    $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+    $cacheKey = 'fcm_oauth_access_token:'.sha1((string) $clientEmail);
+    $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+    if (is_string($cached) && $cached !== '') {
+        return $cached;
+    }
+
+    $response = Http::asForm()->connectTimeout(2)->timeout(5)->post('https://oauth2.googleapis.com/token', [
         'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
         'assertion' => $jwt,
     ]);
@@ -156,7 +104,15 @@ if (! function_exists('fcm_base64url_encode')) {
         return null;
     }
 
-    return $response->json('access_token');
+    $accessToken = $response->json('access_token');
+    if (! is_string($accessToken) || $accessToken === '') {
+        return null;
+    }
+
+    $expiresIn = (int) ($response->json('expires_in') ?? 3600);
+    \Illuminate\Support\Facades\Cache::put($cacheKey, $accessToken, max(60, $expiresIn - 300));
+
+    return $accessToken;
 }
 
 if (!function_exists('format_push_notification_body')) {

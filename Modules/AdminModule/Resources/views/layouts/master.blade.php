@@ -13,13 +13,13 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
         (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
-        2026090414,
+        2026101512,
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
 
 <head>
-    <title>@yield('title')</title>
+    @include('adminmodule::layouts.partials._document-head')
 
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
     <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
@@ -28,8 +28,6 @@
     <meta name="keywords" content=""/>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @php($favIcon = getBusinessSettingsImageFullPath(key: 'business_favicon', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/placeholder.png'))
-    <link rel="shortcut icon" href="{{ $favIcon }}"/>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -65,14 +63,11 @@
     @endif
     @if($adminUsesPartialNav)
         <style>
-            html:not(.admin-shell-ready) body .main-area {
-                opacity: 0 !important;
-                pointer-events: none;
-            }
             turbo-frame#admin-main.admin-main-frame--loading,
             #admin-main.admin-main-frame--loading { visibility: hidden; }
         </style>
         <script>
+            document.documentElement.classList.add('admin-shell-ready');
             if (sessionStorage.getItem('admin_shell_ready') === '1') {
                 document.documentElement.classList.add('admin-skip-preloader');
             }
@@ -86,7 +81,7 @@
     @stack('css_or_js')
 </head>
 
-<body class="{{ $adminUsesTopNav ? 'nav-top' : '' }}"
+<body class="{{ $adminUsesTopNav ? 'nav-top' : '' }} {{ admin_workspace_body_class() }}"
       data-admin-img-placeholder="{{ admin_nav_placeholder() }}"
       data-admin-profile-placeholder="{{ admin_nav_placeholder('profile') }}"
       data-admin-logo-placeholder="{{ admin_nav_placeholder('logo') }}"
@@ -123,7 +118,7 @@
 
 <main class="main-area">
     @if($adminUsesPartialNav)
-        <turbo-frame id="admin-main" class="admin-main-frame admin-main-frame--loading" data-turbo-cache="false" aria-busy="true">
+        <turbo-frame id="admin-main" class="admin-main-frame" data-turbo-cache="false" aria-busy="false">
     @endif
 
     @if(admin_in_settings_module() && ! request()->routeIs('admin.settings.index', 'admin.settings.home-cache'))
@@ -205,17 +200,19 @@
                 }
             }
 
-            window.setTimeout(function () {
-                if (!document.documentElement.classList.contains('admin-shell-ready')) {
-                    revealAdminShellFallback();
-                }
-            }, 3000);
+            revealAdminShellFallback();
+
+            if (typeof window.adminPartialNavLoad !== 'function') {
+                var fallback = document.createElement('script');
+                fallback.src = '/public/assets/admin-module/js/admin-partial-nav.js?v={{ $adminAssetVersion }}';
+                document.body.appendChild(fallback);
+            }
         })();
     </script>
 @endif
 <script src="{{asset('assets/admin-module')}}/js/helper.js"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
-<script src="{{asset('assets/common')}}/js/form-submit-once.js"></script>
+<script src="{{ asset('assets/common/js/form-submit-once.js') }}?v={{ @filemtime(public_path('assets/common/js/form-submit-once.js')) }}"></script>
 
 @if(!$adminUsesPartialNav)
 <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>

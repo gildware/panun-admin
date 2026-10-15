@@ -2,6 +2,7 @@
 
 namespace Modules\AdminModule\Http\Controllers\Web\Admin;
 
+use App\Support\AdminWorkspace;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -28,14 +29,16 @@ class NotificationController extends Controller
             $category = null;
         }
 
+        $workspace = AdminWorkspace::current();
+
         return view('adminmodule::admin.notifications.index', [
-            'notifications' => $inboxNotificationService->paginated($userId, $filter, $category),
+            'notifications' => $inboxNotificationService->paginated($userId, $filter, $category, 20, $workspace),
             'filter' => $filter,
             'category' => $category,
-            'externalUnreadCount' => $inboxNotificationService->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL),
-            'internalUnreadCount' => $inboxNotificationService->unreadCount($userId, UserNotification::CATEGORY_INTERNAL),
-            'externalReadCount' => $inboxNotificationService->readCount($userId, UserNotification::CATEGORY_EXTERNAL),
-            'internalReadCount' => $inboxNotificationService->readCount($userId, UserNotification::CATEGORY_INTERNAL),
+            'externalUnreadCount' => $inboxNotificationService->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL, $workspace),
+            'internalUnreadCount' => $inboxNotificationService->unreadCount($userId, UserNotification::CATEGORY_INTERNAL, $workspace),
+            'externalReadCount' => $inboxNotificationService->readCount($userId, UserNotification::CATEGORY_EXTERNAL, $workspace),
+            'internalReadCount' => $inboxNotificationService->readCount($userId, UserNotification::CATEGORY_INTERNAL, $workspace),
         ]);
     }
 
@@ -94,7 +97,7 @@ class NotificationController extends Controller
             $category = null;
         }
 
-        $inboxNotificationService->markAllAsRead((string) $request->user()->id, $category);
+        $inboxNotificationService->markAllAsRead((string) $request->user()->id, $category, AdminWorkspace::current());
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
 
         return redirect()->route('admin.notifications.index', $request->only(['filter', 'category']));

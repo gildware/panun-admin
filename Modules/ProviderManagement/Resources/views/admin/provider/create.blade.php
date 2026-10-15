@@ -893,13 +893,26 @@
                 }
             };
 
-            $.validator.addMethod("providerZoneLeafPick", function () {
-                var form = document.getElementById("create-provider-form");
-                if (!form) {
-                    return true;
+            function ensureProviderCreateZoneMethod() {
+                var jq = window.jQuery;
+                if (!jq || !jq.validator || typeof jq.validator.addMethod !== "function") {
+                    return;
                 }
-                return form.querySelectorAll("input.provider-zone-leaf-cb:checked").length > 0;
-            }, "{{ addslashes(translate('Select_Zone')) }}");
+                if (typeof jq.validator.methods.providerZoneLeafPick === "function") {
+                    return;
+                }
+                // Partial page loads re-run jquery.validate and wipe custom methods.
+                // Register again before each step check so Proceed/Submit still validate zones.
+                jq.validator.addMethod("providerZoneLeafPick", function () {
+                    var form = document.getElementById("create-provider-form");
+                    if (!form) {
+                        return true;
+                    }
+                    return form.querySelectorAll("input.provider-zone-leaf-cb:checked").length > 0;
+                }, "{{ addslashes(translate('Select_Zone')) }}");
+            }
+
+            ensureProviderCreateZoneMethod();
 
             formWizard.validate({
                 errorElement: "div",
@@ -1154,6 +1167,7 @@
                         return false;
                     }
 
+                    ensureProviderCreateZoneMethod();
                     var validator = formWizard.data("validator");
                     if (!validator) {
                         return formWizard.valid();
@@ -1173,8 +1187,13 @@
                         if (providerCreateJqvIgnoreFilter(0, this)) {
                             return;
                         }
-                        // jquery.validate can return undefined for some file inputs; only explicit false fails the step
-                        if (validator.element(this) === false) {
+                        // jquery.validate can return undefined for some file inputs; only explicit false fails the step.
+                        // A missing rule used to throw and leave Proceed/Submit looking dead.
+                        try {
+                            if (validator.element(this) === false) {
+                                stepValid = false;
+                            }
+                        } catch (validationError) {
                             stepValid = false;
                         }
                     });

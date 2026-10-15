@@ -1,11 +1,12 @@
 @php
     $days = [\Modules\AdminModule\Entities\PeopleLeavePolicy::class, 'formatDays'];
     $paidTypes = $leaveTypes->where('tracks_balance', true)->values();
-    $leaveTab = $leaveTab ?? 'policies';
+    $leaveTab = $leaveTab ?? 'types';
 @endphp
 <nav class="people-ws-tabs">
     <a class="{{ $leaveTab === 'types' ? 'is-on' : '' }}" href="{{ route('admin.hr.index', ['section' => 'leave', 'tab' => 'types']) }}">Leave types</a>
     <a class="{{ in_array($leaveTab, ['policies', 'configure'], true) ? 'is-on' : '' }}" href="{{ route('admin.hr.index', ['section' => 'leave', 'tab' => 'policies']) }}">Leave policies</a>
+    <a class="{{ $leaveTab === 'balances' ? 'is-on' : '' }}" href="{{ route('admin.hr.index', ['section' => 'leave', 'tab' => 'balances']) }}">Leave balances</a>
 </nav>
 
 @if($leaveTab === 'types')
@@ -25,6 +26,7 @@
                     <th>Leave type</th>
                     <th>Short name</th>
                     <th>Balance</th>
+                    <th>Future dates</th>
                     <th>Policies</th>
                     <th>Actions</th>
                 </tr>
@@ -36,6 +38,7 @@
                     <td>{{ $type->name }}</td>
                     <td>{{ $type->short_name }}</td>
                     <td>{{ $type->tracks_balance ? 'Uses a balance' : 'No balance' }}</td>
+                    <td>{{ $type->allows_future ? 'Allowed' : 'Not allowed' }}</td>
                     <td>{{ $policyCount }} {{ $policyCount === 1 ? 'policy' : 'policies' }}</td>
                     <td>
                         <div class="people-dept-actions">
@@ -47,6 +50,7 @@
                                 data-name="{{ $type->name }}"
                                 data-short="{{ $type->short_name }}"
                                 data-balance="{{ $type->tracks_balance ? '1' : '0' }}"
+                                data-future="{{ $type->allows_future ? '1' : '0' }}"
                             >Edit</button>
                             <form method="post" action="{{ route('admin.hr.leave.types.destroy', $type) }}" onsubmit="return confirm(@json('Delete '.$type->name.'?'))">
                                 @csrf
@@ -58,7 +62,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5" class="people-ws-note">No leave types yet.</td>
+                    <td colspan="6" class="people-ws-note">No leave types yet.</td>
                 </tr>
             @endforelse
             </tbody>
@@ -95,6 +99,10 @@
                             <input type="hidden" name="tracks_balance" value="0">
                             <label for="leave_type_balance"><input id="leave_type_balance" type="checkbox" name="tracks_balance" value="1" @checked(old('form_context') === 'leave-type' ? old('tracks_balance') == '1' : true)> This leave uses a balance</label>
                         </div>
+                        <div class="field">
+                            <input type="hidden" name="allows_future" value="0">
+                            <label for="leave_type_future"><input id="leave_type_future" type="checkbox" name="allows_future" value="1" @checked(old('form_context') === 'leave-type' ? old('allows_future') == '1' : true)> Can be applied for future dates</label>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button class="btn-pw" type="button" data-bs-dismiss="modal">Cancel</button>
@@ -114,16 +122,18 @@
         var nameInput = document.getElementById('leave_type_name');
         var shortInput = document.getElementById('leave_type_short');
         var balance = document.getElementById('leave_type_balance');
+        var future = document.getElementById('leave_type_future');
         var editing = document.getElementById('leave-type-editing-id');
         var modalEl = document.getElementById('leaveTypeModal');
         if (!form || !modalEl || !window.bootstrap) {
             return;
         }
 
-        function openLeaveType(id, name, shortName, usesBalance) {
+        function openLeaveType(id, name, shortName, usesBalance, allowsFuture) {
             nameInput.value = name || '';
             shortInput.value = shortName || '';
             balance.checked = !!usesBalance;
+            future.checked = !!allowsFuture;
             if (id) {
                 form.action = form.getAttribute('data-update').replace('__ID__', id);
                 editing.value = id;
@@ -141,20 +151,66 @@
         document.addEventListener('click', function (event) {
             var edit = event.target.closest('[data-leave-type-edit]');
             if (edit) {
-                openLeaveType(edit.getAttribute('data-id'), edit.getAttribute('data-name'), edit.getAttribute('data-short'), edit.getAttribute('data-balance') === '1');
+                openLeaveType(edit.getAttribute('data-id'), edit.getAttribute('data-name'), edit.getAttribute('data-short'), edit.getAttribute('data-balance') === '1', edit.getAttribute('data-future') === '1');
                 return;
             }
             if (event.target.closest('[data-leave-type-add]')) {
-                openLeaveType('', '', '', true);
+                openLeaveType('', '', '', true, true);
             }
         });
 
         @if(old('form_context') === 'leave-type')
-        openLeaveType(@json(old('editing_id')), @json(old('name')), @json(old('short_name')), @json(old('tracks_balance') == '1'));
+        openLeaveType(@json(old('editing_id')), @json(old('name')), @json(old('short_name')), @json(old('tracks_balance') == '1'), @json(old('allows_future') == '1'));
         @endif
     })();
     </script>
     @endpush
+@elseif($leaveTab === 'balances')
+    @php
+        $balanceTypes = $leaveTypes->where('tracks_balance', true)->values();
+        $balanceRows = $staff
+            ->filter(fn ($person) => ($profiles->get($person->id)->employment_status ?? '') !== 'exited')
+            ->sortBy(fn ($person) => $workspace->displayName($person))
+            ->values();
+    @endphp
+    <div class="people-ws-head">
+        <div>
+            <h1>Leave balances</h1>
+            <p>Days left this year for every current employee. Each number is what remains of that leave type.</p>
+        </div>
+    </div>
+    <article class="people-ws-card people-ws-scroll">
+        <table class="people-dept-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    @foreach($balanceTypes as $type)
+                        <th>{{ $type->name }}</th>
+                    @endforeach
+                </tr>
+            </thead>
+            <tbody>
+            @forelse($balanceRows as $person)
+                @php
+                    $profile = $profiles->get($person->id);
+                    $balance = $balances->get($person->id);
+                @endphp
+                <tr>
+                    <td>{{ $workspace->displayName($person) }}</td>
+                    <td>{{ $profile && $profile->department ? $profile->department : '—' }}</td>
+                    @foreach($balanceTypes as $type)
+                        <td>{{ $days($balance ? $balance->remaining($type->code) : 0) }}</td>
+                    @endforeach
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="{{ 2 + $balanceTypes->count() }}" class="people-ws-note">No employees yet.</td>
+                </tr>
+            @endforelse
+            </tbody>
+        </table>
+    </article>
 @elseif($leaveTab === 'configure' && $policyFocus)
     @php
         $configureUrl = route('admin.hr.index', ['section' => 'leave', 'tab' => 'configure', 'policy' => $policyFocus->id]);
@@ -192,6 +248,23 @@
         </form>
         <form class="people-ws-card" method="post" action="{{ route('admin.hr.leave.assign') }}">
             @csrf
+            <h2>Assign to an employee type</h2>
+            <p class="people-ws-note">Probation and permanent can use different policies. Moving someone from probation to permanent switches them. A policy set on that person stays.</p>
+            <input type="hidden" name="policy_id" value="{{ $policyFocus->id }}">
+            <div class="field">
+                <label for="assign_stage">Employee type</label>
+                <select id="assign_stage" name="employment_stage" required>
+                    <option value="">Choose a type</option>
+                    @foreach(['probation' => 'Probation', 'permanent' => 'Permanent'] as $stage => $label)
+                        @php $count = (int) ($stageCounts[$stage] ?? 0); @endphp
+                        <option value="{{ $stage }}">{{ $label }} · {{ $count }} {{ $count === 1 ? 'person' : 'people' }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <button class="btn-pw primary" type="submit">Assign employee type</button>
+        </form>
+        <form class="people-ws-card" method="post" action="{{ route('admin.hr.leave.assign') }}">
+            @csrf
             <h2>Assign to a department</h2>
             <p class="people-ws-note">People in this department get the days now. Anyone who joins later gets them too. One department keeps one policy per leave type.</p>
             <input type="hidden" name="policy_id" value="{{ $policyFocus->id }}">
@@ -208,6 +281,40 @@
             <button class="btn-pw primary" type="submit" @disabled($departments->isEmpty())>Assign department</button>
         </form>
     </div>
+    <article class="people-ws-card people-ws-mt people-ws-scroll">
+        <table class="people-dept-table">
+            <thead>
+                <tr>
+                    <th>Employee type</th>
+                    <th>People</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @forelse($policyStages as $link)
+                @php
+                    $stageLabel = $link->employment_stage === 'probation' ? 'Probation' : 'Permanent';
+                    $count = (int) ($stageCounts[$link->employment_stage] ?? 0);
+                @endphp
+                <tr>
+                    <td>{{ $stageLabel }}</td>
+                    <td>{{ $count }} {{ $count === 1 ? 'person' : 'people' }}</td>
+                    <td>
+                        <form method="post" action="{{ route('admin.hr.leave.stages.detach', ['policy' => $policyFocus, 'stage' => $link->employment_stage]) }}" onsubmit="return confirm(@json('Remove this policy from '.$stageLabel.'? People who were also assigned it directly keep it.'))">
+                            @csrf
+                            @method('DELETE')
+                            <button class="btn-pw danger" type="submit">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="3" class="people-ws-note">No employee type is using this policy yet.</td>
+                </tr>
+            @endforelse
+            </tbody>
+        </table>
+    </article>
     <article class="people-ws-card people-ws-mt people-ws-scroll">
         <table class="people-dept-table">
             <thead>
@@ -256,9 +363,13 @@
             @forelse($assignedPeople as $assignment)
                 @php
                     $profile = $profiles->get($assignment->user_id);
-                    $source = $assignment->via_employee && $assignment->via_department
-                        ? 'Employee and department'
-                        : ($assignment->via_department ? 'Department' : 'Employee');
+                    $stageLabel = ($profile->employment_stage ?? 'permanent') === 'probation' ? 'Probation' : 'Permanent';
+                    $sources = array_filter([
+                        $assignment->via_employee ? 'Employee' : null,
+                        $assignment->via_stage ? $stageLabel : null,
+                        $assignment->via_department ? 'Department' : null,
+                    ]);
+                    $source = $sources === [] ? 'Employee' : implode(' and ', $sources);
                 @endphp
                 <tr>
                     <td>{{ $assignment->user ? $workspace->displayName($assignment->user) : '—' }}</td>
@@ -266,11 +377,13 @@
                     <td>{{ $source }}</td>
                     <td>{{ $assignment->next_accrual_on ? $assignment->next_accrual_on->format('j M Y') : '—' }}</td>
                     <td>
-                        <form method="post" action="{{ route('admin.hr.leave.assignments.destroy', $assignment) }}" onsubmit="return confirm(@json('Remove this policy from '.($assignment->user ? $workspace->displayName($assignment->user) : 'this person').'?'))">
-                            @csrf
-                            @method('DELETE')
-                            <button class="btn-pw danger" type="submit">Remove</button>
-                        </form>
+                        @if($assignment->via_employee)
+                            <form method="post" action="{{ route('admin.hr.leave.assignments.destroy', $assignment) }}" onsubmit="return confirm(@json('Remove this direct assignment from '.($assignment->user ? $workspace->displayName($assignment->user) : 'this person').'?'))">
+                                @csrf
+                                @method('DELETE')
+                                <button class="btn-pw danger" type="submit">Remove</button>
+                            </form>
+                        @endif
                     </td>
                 </tr>
             @empty
@@ -285,7 +398,7 @@
     <div class="people-ws-head">
         <div>
             <h1>Leave policies</h1>
-            <p>Each policy is for one leave type. Days are added when you assign it to a person or a department, then again each month or each year. A department keeps the policy for people who join later.</p>
+            <p>Each policy is for one leave type. Assign it to probation, permanent, a department, or one person. A person assignment wins over the employee type, and the employee type wins over the department.</p>
         </div>
         <div class="people-ws-head-actions">
             <button class="btn-pw primary" type="button" data-leave-policy-add @disabled($paidTypes->isEmpty())>Add policy</button>
@@ -323,6 +436,7 @@
                                 data-type="{{ $policy->leave_type_id }}"
                                 data-accrual="{{ $policy->accrual_type }}"
                                 data-days="{{ $days((float) $policy->days) }}"
+                                data-carry="{{ $days((float) ($policy->carry_limit ?? 0)) }}"
                             >Edit</button>
                             <form method="post" action="{{ route('admin.hr.leave.policies.destroy', $policy) }}" onsubmit="return confirm(@json('Delete '.$policy->name.'?'))">
                                 @csrf
@@ -359,7 +473,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="people-ws-note">One policy covers one leave type. Days are what one credit adds. They go on the balance when you assign the policy, then again each month or each year.</p>
+                        <p class="people-ws-note">One policy covers one leave type. Monthly adds these days when you assign it, then on the 1st of each month. Yearly adds a share of the year now, then the full amount on 1 January. Joining after the 15th starts from the next month. Carry is how many unused days move into the next year.</p>
                         <div class="field">
                             <label for="policy_name">Name</label>
                             <input id="policy_name" name="name" value="{{ old('name') }}" required maxlength="80">
@@ -385,6 +499,10 @@
                             <label for="policy_days">Days</label>
                             <input id="policy_days" name="days" type="number" min="0.5" max="365" step="0.5" value="{{ old('days', 1) }}" required>
                         </div>
+                        <div class="field">
+                            <label for="policy_carry">Carry into next year</label>
+                            <input id="policy_carry" name="carry_limit" type="number" min="0" max="365" step="0.5" value="{{ old('carry_limit', 0) }}">
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button class="btn-pw" type="button" data-bs-dismiss="modal">Cancel</button>
@@ -395,30 +513,37 @@
         </div>
     </div>
 
-    @push('script')
     <script>
     (function () {
-        var form = document.getElementById('leave-policy-form');
-        var title = document.getElementById('leavePolicyModalLabel');
-        var submit = document.getElementById('leave-policy-submit');
-        var nameInput = document.getElementById('policy_name');
-        var typeInput = document.getElementById('policy_leave_type');
-        var accrualInput = document.getElementById('accrual_type');
-        var daysInput = document.getElementById('policy_days');
-        var editing = document.getElementById('leave-policy-editing-id');
-        var modalEl = document.getElementById('leavePolicyModal');
-        if (!form || !modalEl || !window.bootstrap) {
-            return;
+        if (window.__pkLeavePolicyModal) return;
+        window.__pkLeavePolicyModal = true;
+
+        function modalEl() {
+            var all = document.querySelectorAll('#leavePolicyModal');
+            for (var i = 0; i < all.length - 1; i++) all[i].remove();
+            var modal = all[all.length - 1] || document.getElementById('leavePolicyModal');
+            if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
+            return modal;
         }
 
         function openPolicy(policy) {
+            var modal = modalEl();
+            var form = document.getElementById('leave-policy-form');
+            if (!modal || !form || !window.bootstrap) return;
             policy = policy || {};
+            var nameInput = document.getElementById('policy_name');
+            var typeInput = document.getElementById('policy_leave_type');
+            var accrualInput = document.getElementById('accrual_type');
+            var daysInput = document.getElementById('policy_days');
+            var carryInput = document.getElementById('policy_carry');
+            var editing = document.getElementById('leave-policy-editing-id');
+            var title = document.getElementById('leavePolicyModalLabel');
+            var submit = document.getElementById('leave-policy-submit');
             nameInput.value = policy.name || '';
-            if (typeInput && policy.type) {
-                typeInput.value = policy.type;
-            }
+            if (typeInput && policy.type) typeInput.value = policy.type;
             accrualInput.value = policy.accrual || 'monthly';
             daysInput.value = policy.days || '1';
+            if (carryInput) carryInput.value = policy.carry || '0';
             if (policy.id) {
                 form.action = form.getAttribute('data-update').replace('__ID__', policy.id);
                 editing.value = policy.id;
@@ -430,7 +555,7 @@
                 title.textContent = 'Add a policy';
                 submit.textContent = 'Add policy';
             }
-            window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            window.bootstrap.Modal.getOrCreateInstance(modal).show();
         }
 
         document.addEventListener('click', function (event) {
@@ -441,7 +566,8 @@
                     name: edit.getAttribute('data-name'),
                     type: edit.getAttribute('data-type'),
                     accrual: edit.getAttribute('data-accrual'),
-                    days: edit.getAttribute('data-days')
+                    days: edit.getAttribute('data-days'),
+                    carry: edit.getAttribute('data-carry')
                 });
                 return;
             }
@@ -456,10 +582,10 @@
             name: @json(old('name')),
             type: @json(old('leave_type_id')),
             accrual: @json(old('accrual_type', 'monthly')),
-            days: @json(old('days', 1))
+            days: @json(old('days', 1)),
+            carry: @json(old('carry_limit', 0))
         });
         @endif
     })();
     </script>
-    @endpush
 @endif

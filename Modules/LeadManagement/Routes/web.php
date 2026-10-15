@@ -58,6 +58,8 @@ Route::group([
         Route::delete('comments/{comment}', [LeadCommentController::class, 'destroy'])->middleware(['can:lead_update'])->name('comments.destroy');
 
         Route::post('{id}/type', [LeadController::class, 'updateType'])->middleware(['can:lead_update'])->name('type.update');
+        Route::post('{id}/non-responsive', [LeadController::class, 'markNonResponsive'])->middleware(['can:lead_update'])->name('non-responsive.mark');
+        Route::post('{id}/non-responsive/reopen', [LeadController::class, 'reopenNonResponsive'])->middleware(['can:lead_update'])->name('non-responsive.reopen');
         Route::post('{lead}/followups', [LeadController::class, 'storeFollowup'])->middleware(['can:lead_update'])->name('followups.store');
         Route::put('{lead}/followups/{followup}/details', [LeadController::class, 'editFollowup'])->middleware(['can:lead_update'])->name('followups.edit');
         Route::delete('{lead}/followups/{followup}', [LeadController::class, 'destroyFollowup'])->middleware(['can:lead_update'])->name('followups.destroy');
@@ -78,6 +80,7 @@ Route::group([
         Route::put('{id}/checklist/{checklistItem}', [LeadController::class, 'updateProviderChecklist'])->middleware(['can:lead_update'])->name('checklist.update');
         Route::put('{id}/provider-status', [LeadController::class, 'updateProviderStatus'])->middleware(['can:lead_update'])->name('provider-status.update');
         Route::put('{id}/customer-status', [LeadController::class, 'updateCustomerStatus'])->middleware(['can:lead_update'])->name('customer-status.update');
+        Route::put('{id}/temperature', [LeadController::class, 'updateTemperature'])->middleware(['can:lead_update'])->name('temperature.update');
         Route::put('{id}/customer-tags', [LeadController::class, 'updateCustomerTags'])->middleware(['can:lead_update'])->name('customer-tags.update');
         Route::put('{id}/temporary-provider', [LeadController::class, 'updateTemporaryProvider'])->middleware(['can:lead_update'])->name('temporary-provider.update');
         Route::post('customer-tag', [LeadController::class, 'storeCustomerLeadTag'])->middleware(['can:lead_add'])->name('customer-tag.store');

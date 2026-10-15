@@ -5,8 +5,8 @@
 @endphp
 
 <div class="card h-100">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
             <h3 class="c1 mb-0">{{ $title }}</h3>
             <button type="button"
                     class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
@@ -41,20 +41,19 @@
                     <tr>
                         <td>{{ $item->id }}</td>
                         <td>{{ $item->name }}</td>
-                        <td>{{ $item->description ?? '—' }}</td>
+                        <td class="lead-config-desc" title="{{ $item->description }}">{{ $item->description ?: '—' }}</td>
                         @if($hasBaseTypeField)
                             <td class="text-capitalize">{{ $item->base_type ?? 'pending' }}</td>
                         @endif
                         @if($hasColorField)
                             <td>
-                                <span class="d-inline-block rounded border" style="width: 24px; height: 24px; background-color: {{ $item->color ?? '#0d6efd' }};" title="{{ $item->color ?? '#0d6efd' }}"></span>
-                                <span class="ms-1 small text-muted">{{ $item->color ?? '#0d6efd' }}</span>
+                                <span class="d-inline-block rounded border" style="width: 16px; height: 16px; background-color: {{ $item->color ?? '#0d6efd' }};" title="{{ $item->color ?? '#0d6efd' }}"></span>
                             </td>
                         @endif
                         <td class="text-center">
                             <button type="button"
                                     class="action-btn {{ $item->is_active ? 'btn--light-success' : 'btn--light-secondary' }} fw-medium"
-                                    style="--size: 40px"
+                                    style="--size: 26px"
                                     data-bs-toggle="modal"
                                     data-bs-target="#{{ $modalId }}-toggle"
                                     data-config-id="{{ $item->id }}"
@@ -70,7 +69,7 @@
                             <div class="d-inline-flex align-items-center gap-1">
                                 <button type="button"
                                         class="action-btn btn--light-primary fw-medium"
-                                        style="--size: 30px"
+                                        style="--size: 26px"
                                         data-bs-toggle="modal"
                                         data-bs-target="#{{ $modalId }}"
                                         data-config-action="edit"
@@ -84,7 +83,7 @@
                                 </button>
                                 <button type="button"
                                         class="action-btn btn--light-danger fw-medium"
-                                        style="--size: 30px"
+                                        style="--size: 26px"
                                         data-bs-toggle="modal"
                                         data-bs-target="#{{ $modalId }}-delete"
                                         data-config-id="{{ $item->id }}"
@@ -329,7 +328,7 @@
 @push('style')
     <style>
         .action-btn .material-icons {
-            font-size: 22px;
+            font-size: 16px;
         }
     </style>
 @endpush

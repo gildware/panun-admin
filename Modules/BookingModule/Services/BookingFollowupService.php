@@ -13,6 +13,8 @@ class BookingFollowupService
 
     public const BOOKING_CLOSED_NOTE = 'Booking closed — follow-up cancelled';
 
+    public const CUSTOMER_NON_RESPONSIVE_NOTE = 'Customer marked non-responsive';
+
     /** Show “Follow-up due” when scheduled time is within this many hours (and still in the future). */
     public const FOLLOWUP_DUE_HOURS = 2;
 
@@ -217,6 +219,52 @@ class BookingFollowupService
         return $rows->count();
     }
 
+    /**
+     * Close the customer follow-up without changing the booking status.
+     */
+    public function markCustomerNonResponsive(Booking $booking, ?string $remarks, ?string $by = null): void
+    {
+        if (! $booking->requiresMandatoryNextFollowup() || $booking->isCustomerNonResponsive()) {
+            return;
+        }
+
+        $remarks = trim((string) $remarks);
+        $booking->customer_non_responsive_at = Carbon::now();
+        $booking->customer_non_responsive_by = $by;
+        $booking->customer_non_responsive_remarks = $remarks !== '' ? $remarks : null;
+        $booking->save();
+
+        $this->cancelScheduledForParty($booking, 'customer', self::CUSTOMER_NON_RESPONSIVE_NOTE);
+    }
+
+    /**
+     * Put the customer follow-up back on an open booking.
+     */
+    public function reopenCustomerNonResponsive(Booking $booking, ?string $createdBy = null): void
+    {
+        if (! $booking->isCustomerNonResponsive() || ! $booking->requiresMandatoryNextFollowup()) {
+            return;
+        }
+
+        $booking->customer_non_responsive_at = null;
+        $booking->customer_non_responsive_by = null;
+        $booking->customer_non_responsive_remarks = null;
+        $booking->save();
+
+        $now = Carbon::now();
+        $followUpAt = $booking->service_schedule
+            ? $this->suggestedFollowupAtForStaffCreate(Carbon::parse($booking->service_schedule), $now)
+            : $now->copy()->addDay()->setTime(10, 0, 0);
+
+        $this->schedule(
+            $booking,
+            $followUpAt,
+            'customer',
+            translate('Reopened_after_customer_non_responsive'),
+            $createdBy
+        );
+    }
+
     public function schedule(
         Booking $booking,
         Carbon|string $date,
@@ -225,6 +273,13 @@ class BookingFollowupService
         ?string $createdBy = null,
         ?string $urgency = null
     ): BookingFollowup {
+        if ($for === 'customer' && $booking->isCustomerNonResponsive()) {
+            $booking->customer_non_responsive_at = null;
+            $booking->customer_non_responsive_by = null;
+            $booking->customer_non_responsive_remarks = null;
+            $booking->save();
+        }
+
         $this->cancelScheduledForParty($booking, $for);
 
         return BookingFollowup::create([
@@ -463,6 +518,17 @@ class BookingFollowupService
             $bookingMeta = [];
 
             foreach (['customer', 'provider'] as $party) {
+                if ($party === 'customer' && $booking->isCustomerNonResponsive()) {
+                    $bookingMeta[$party] = [
+                        'status' => 'non_responsive',
+                        'label' => 'Non_Responsive',
+                        'badge_class' => 'bg-secondary',
+                        'date_class' => 'text-secondary',
+                        'cell_class' => '',
+                    ];
+                    continue;
+                }
+
                 $cellMeta = $this->buildFollowupListCellMeta($next[$party], $open);
                 if ($cellMeta) {
                     $bookingMeta[$party] = $cellMeta;
@@ -491,11 +557,16 @@ class BookingFollowupService
         ?BookingFollowup $nextProvider = null
     ): array {
         $open = $booking->requiresMandatoryNextFollowup();
+        $customerClosed = $booking->isCustomerNonResponsive();
 
         if ($nextCustomer === null || $nextProvider === null) {
             $next = $this->nextScheduledFollowups($booking);
             $nextCustomer = $nextCustomer ?? $next['customer'];
             $nextProvider = $nextProvider ?? $next['provider'];
+        }
+
+        if ($customerClosed) {
+            $nextCustomer = null;
         }
 
         $partyMeta = function (?BookingFollowup $followup) use ($open): array {

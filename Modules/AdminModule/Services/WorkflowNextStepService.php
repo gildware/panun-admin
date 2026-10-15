@@ -534,16 +534,23 @@ class WorkflowNextStepService
     private function resolveLeadScenario(Lead $lead, array $customerData, ?array $leadBooking, bool $isPendingCustomer): ?string
     {
         if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
+            if ($lead->isNonResponsive()) {
+                return null;
+            }
+
             return 'lead.unknown';
         }
         if ($lead->lead_type === Lead::TYPE_PROVIDER) {
-            if (! $this->isOpenProviderLead($customerData)) {
+            if ($lead->isNonResponsive() || ! $this->isOpenProviderLead($customerData)) {
                 return null;
             }
 
             return 'lead.provider.onboarding';
         }
         if ($lead->lead_type !== Lead::TYPE_CUSTOMER) {
+            return null;
+        }
+        if ($lead->isNonResponsive()) {
             return null;
         }
         if ($leadBooking || ! empty($customerData['booking_id'])) {

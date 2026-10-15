@@ -1,6 +1,19 @@
 @extends('adminmodule::layouts.new-master')
 
-@section('title', 'People & HR')
+@php
+    $pageTitles = [
+        'people' => 'People',
+        'person' => 'People',
+        'departments' => 'Departments',
+        'leave' => 'Leaves',
+        'attendance' => 'Attendance',
+        'salary' => 'Salary',
+        'payroll' => 'Payroll',
+        'configuration' => 'Configuration',
+    ];
+@endphp
+
+@section('title', $pageTitles[$section] ?? 'People & HR')
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/people-workspace.css') }}?v={{ filemtime(public_path('assets/admin-module/css/people-workspace.css')) }}">
@@ -36,7 +49,7 @@
         @endif
 
         @include('adminmodule::admin.people._close')
-        @if(in_array($section, ['salary', 'person'], true))
+        @if(in_array($section, ['salary', 'person', 'configuration'], true))
             @include('adminmodule::admin.people._date_pop')
         @endif
     </div>

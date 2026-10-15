@@ -379,14 +379,18 @@ class WhatsAppLeadLifecycleService
     public function isLeadOpen(Lead $lead): bool
     {
         if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
-            return true;
+            return ! $lead->isNonResponsive();
         }
 
-        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
+        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
             return false;
         }
 
         if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            if ($lead->isNonResponsive()) {
+                return false;
+            }
+
             $history = LeadTypeHistory::where('lead_id', $lead->id)
                 ->where('type', Lead::TYPE_CUSTOMER)
                 ->latest()
@@ -403,6 +407,10 @@ class WhatsAppLeadLifecycleService
         }
 
         if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            if ($lead->isNonResponsive()) {
+                return false;
+            }
+
             $history = LeadTypeHistory::where('lead_id', $lead->id)
                 ->where('type', Lead::TYPE_PROVIDER)
                 ->latest()

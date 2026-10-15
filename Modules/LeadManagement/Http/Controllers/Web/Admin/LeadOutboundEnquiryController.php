@@ -148,6 +148,10 @@ class LeadOutboundEnquiryController extends Controller
             return redirect()->route('admin.lead.show', array_merge(['id' => $enquiry->lead_id], $redirectParams));
         }
 
+        if ($request->boolean('in_modal')) {
+            return redirect()->route('admin.lead.outbound-enquiry.edit', [$enquiry, 'in_modal' => 1]);
+        }
+
         return redirect()->route('admin.lead.outbound-enquiry.index');
     }
 

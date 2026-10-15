@@ -95,16 +95,16 @@
                                         @php
                                             $leadMeta = $booking->lead ? ($leadDisplayData[$booking->lead->id] ?? null) : null;
                                         @endphp
-                                        <tr>
+                                        <tr class="js-record-preview-row" data-preview-url="{{ route('admin.booking.web-bookings.show', $booking->id) }}">
                                             <td class="text-muted">{{ $bookings->firstItem() + $key }}</td>
                                             <td class="text-nowrap">
-                                                <a href="{{ route('admin.booking.web-bookings.show', $booking->id) }}" class="link-primary">
+                                                <a href="{{ route('admin.booking.web-bookings.show', $booking->id) }}" class="link-primary js-record-preview" data-turbo="false">
                                                     {{ $booking->reference_id }}
                                                 </a>
                                             </td>
                                             <td class="text-nowrap">
                                                 @if($booking->lead)
-                                                    <a href="{{ route('admin.lead.show', $booking->lead->id) }}" class="link-primary fw-semibold">
+                                                    <a href="{{ route('admin.lead.show', $booking->lead->id) }}" class="link-primary fw-semibold js-record-preview" data-turbo="false">
                                                         #{{ $booking->lead->id }}
                                                     </a>
                                                 @else
@@ -132,11 +132,11 @@
                                             <td class="text-nowrap">{{ $booking->created_at?->format('d M Y h:i a') }}</td>
                                             <td>
                                                 <div class="wb-action-btns">
-                                                    <a href="{{ route('admin.booking.web-bookings.show', $booking->id) }}" class="btn btn--secondary">
+                                                    <a href="{{ route('admin.booking.web-bookings.show', $booking->id) }}" class="btn btn--secondary js-record-preview" data-turbo="false">
                                                         {{ translate('View') }}
                                                     </a>
                                                     @if($booking->lead)
-                                                        <a href="{{ route('admin.lead.show', $booking->lead->id) }}" class="btn btn--primary">
+                                                        <a href="{{ route('admin.lead.show', $booking->lead->id) }}" class="btn btn--primary js-record-preview" data-turbo="false">
                                                             {{ translate('View_Lead') }}
                                                         </a>
                                                     @endif
@@ -174,4 +174,5 @@
     </div>
 
     @include('bookingmodule::admin.web-booking.partials._delete-modal')
+    @include('adminmodule::layouts.partials._record-preview-modal', ['previewTitle' => translate('Web_Booking_Details')])
 @endsection

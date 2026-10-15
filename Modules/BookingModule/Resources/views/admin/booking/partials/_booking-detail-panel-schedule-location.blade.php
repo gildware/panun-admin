@@ -76,8 +76,11 @@
                                        name="service_schedule"
                                        value="{{ $serviceScheduleLocalValue }}"
                                        id="service_schedule"
-                                       data-original="{{ $serviceScheduleLocalValue }}"
-                                       onchange="service_schedule_update()">
+                                       data-original="{{ $serviceScheduleLocalValue }}">
+                                <span class="booking-schedule-edit-actions">
+                                    <button type="button" class="btn btn-sm btn--primary" id="booking-schedule-save">{{ translate('Save') }}</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="booking-schedule-cancel">{{ translate('Cancel') }}</button>
+                                </span>
                             </span>
                         @else
                             <span id="booking-overview-service-schedule">

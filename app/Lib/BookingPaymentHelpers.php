@@ -1340,10 +1340,10 @@ if (!function_exists('booking_on_hold_is_after_visit_from_ongoing')) {
 
 if (! function_exists('booking_admin_can_reassign_provider')) {
     /**
-     * Admin may change provider before the visit starts, and also while the booking
-     * is on hold after a visit (current status on_hold, including after it was ongoing).
+     * Admin may change provider while the booking is pending, accepted, or on hold,
+     * including after an earlier visit was ongoing and the booking was put back to pending.
      * While the booking is currently ongoing, or after it is completed or canceled,
-     * reassign is blocked; close the booking and book again.
+     * reassign is blocked.
      *
      * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat  $booking
      */
@@ -1368,8 +1368,7 @@ if (! function_exists('booking_admin_can_reassign_provider')) {
         if ($currentSt === 'ongoing') {
             return false;
         }
-        // Hold before the visit and hold after visit may both change provider.
-        if ($currentSt === 'on_hold') {
+        if (in_array($currentSt, ['pending', 'accepted', 'on_hold', 'pending_cancellation'], true)) {
             return true;
         }
 
@@ -3647,6 +3646,59 @@ if (! function_exists('booking_revertible_wallet_refund_ledgers')) {
             ->orderByDesc('id')
             ->get()
             ->filter(fn (LedgerTransaction $row) => booking_wallet_refund_is_revertible($row))
+            ->values();
+    }
+}
+
+if (! function_exists('booking_transfer_refund_is_revertible')) {
+    /**
+     * Admin can remove a recorded bank/UPI transfer refund. Wallet credits and dispute-pool legs are excluded.
+     */
+    function booking_transfer_refund_is_revertible(LedgerTransaction $entry): bool
+    {
+        if ((string) ($entry->reason ?? '') !== LedgerTransaction::REASON_REFUND) {
+            return false;
+        }
+        if ((string) ($entry->type ?? '') !== LedgerTransaction::TYPE_OUT) {
+            return false;
+        }
+        if (round((float) ($entry->amount ?? 0), 2) < 0.01) {
+            return false;
+        }
+        if (booking_refund_ledger_method_key($entry) !== 'transfer') {
+            return false;
+        }
+        $receivedBy = strtolower(trim((string) ($entry->received_by ?? '')));
+        if (in_array($receivedBy, [
+            LedgerTransaction::RECEIVED_BY_COMPANY,
+            LedgerTransaction::RECEIVED_BY_PROVIDER,
+        ], true)) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+if (! function_exists('booking_revertible_transfer_refund_ledgers')) {
+    /**
+     * @return \Illuminate\Support\Collection<int, LedgerTransaction>
+     */
+    function booking_revertible_transfer_refund_ledgers(Booking $booking): \Illuminate\Support\Collection
+    {
+        $bid = (string) ($booking->id ?? '');
+        if ($bid === '') {
+            return collect();
+        }
+
+        return LedgerTransaction::query()
+            ->where('booking_id', $bid)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn (LedgerTransaction $row) => booking_transfer_refund_is_revertible($row))
             ->values();
     }
 }

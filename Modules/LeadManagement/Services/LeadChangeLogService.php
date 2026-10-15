@@ -13,7 +13,10 @@ use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadCancellationReason;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
+use Modules\LeadManagement\Entities\LeadFutureCustomerReasonOption;
+use Modules\LeadManagement\Entities\LeadFutureProviderReason;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
+use Modules\LeadManagement\Entities\LeadReasonFollowupOption;
 use Modules\LeadManagement\Entities\ProviderCancellationReason;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\ServiceManagement\Entities\Service;
@@ -113,9 +116,11 @@ class LeadChangeLogService
                 'service_description' => 'Service_Additional_Details_(Optional)',
                 'estimated_service_at' => 'Estimated_Date_Time_of_Service',
                 'estimated_service_value' => 'Estimated_Service_Value',
+                'lead_temperature' => 'Lead_Temperature',
                 'customer_lead_status_id' => 'Customer_Lead_Status',
                 'temporary_provider_id' => 'Temporary_Provider',
                 'cancellation_reason_id' => 'Customer_cancellation_reasons',
+                'cancellation_reason_option_id' => 'Follow_up',
                 'cancellation_remarks' => 'Cancellation_Remarks',
             ],
             Lead::TYPE_PROVIDER => [
@@ -127,19 +132,29 @@ class LeadChangeLogService
                 'provider_service_category' => 'Service_Category',
                 'provider_service_subcategory' => 'Sub_Category',
                 'provider_service_details' => 'Service_Details',
+                'lead_temperature' => 'Lead_Temperature',
                 'provider_lead_status_id' => 'Provider_Lead_Status',
                 'provider_cancellation_reason_id' => 'Provider_cancellation_reasons',
+                'provider_cancellation_reason_option_id' => 'Follow_up',
                 'provider_cancellation_remarks' => 'Cancellation_Remarks',
             ],
             Lead::TYPE_INVALID => [
                 'invalid_reason_id' => 'Reason',
+                'invalid_reason_option_id' => 'Follow_up',
                 'area_id' => 'Area',
                 'invalid_remarks' => 'Remarks',
             ],
             Lead::TYPE_FUTURE_CUSTOMER => [
                 'future_customer_reason_id' => 'Reason',
+                'future_customer_reason_option_id' => 'Follow_up',
                 'area_id' => 'Area',
                 'future_customer_remarks' => 'Remarks',
+            ],
+            Lead::TYPE_FUTURE_PROVIDER => [
+                'future_provider_reason_id' => 'Reason',
+                'future_provider_reason_option_id' => 'Follow_up',
+                'area_id' => 'Area',
+                'future_provider_remarks' => 'Remarks',
             ],
             default => [],
         };
@@ -206,12 +221,16 @@ class LeadChangeLogService
             'area_id' => CustomerLeadArea::find($value)?->name ?? (string) $value,
             'service_category', 'service_subcategory', 'provider_service_category', 'provider_service_subcategory' => Category::withoutGlobalScopes()->find($value)?->name ?? (string) $value,
             'service_name' => Service::withoutGlobalScopes()->find($value)?->name ?? (string) $value,
+            'lead_temperature' => Lead::leadTemperatureLabel(is_string($value) ? $value : null),
             'customer_lead_status_id' => CustomerLeadStatus::find($value)?->name ?? (string) $value,
             'provider_lead_status_id' => ProviderLeadStatus::find($value)?->name ?? (string) $value,
             'cancellation_reason_id' => LeadCancellationReason::find($value)?->name ?? (string) $value,
             'provider_cancellation_reason_id' => ProviderCancellationReason::find($value)?->name ?? (string) $value,
             'invalid_reason_id' => LeadInvalidReason::find($value)?->name ?? (string) $value,
             'future_customer_reason_id' => LeadFutureCustomerReason::find($value)?->name ?? (string) $value,
+            'future_customer_reason_option_id' => LeadFutureCustomerReasonOption::find($value)?->name ?? (string) $value,
+            'future_provider_reason_id' => LeadFutureProviderReason::find($value)?->name ?? (string) $value,
+            'invalid_reason_option_id', 'future_provider_reason_option_id', 'cancellation_reason_option_id', 'provider_cancellation_reason_option_id' => LeadReasonFollowupOption::find($value)?->name ?? (string) $value,
             'district_id' => District::find($value)?->name ?? (string) $value,
             'temporary_provider_id' => Provider::find($value)?->company_name ?? (string) $value,
             'estimated_service_at' => $this->formatDateTime($value),

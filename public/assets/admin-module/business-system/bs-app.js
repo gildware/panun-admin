@@ -519,7 +519,12 @@
           </article>
         `).join("")}
       </div>`;
-p || "")}</p>
+    return `<div class="rd-flow">
+      <div class="rd-flow-hub">
+        <span class="mso">inventory_2</span>
+        <div>
+          <b>${esc(graph.hub || "Library")}</b>
+          <p>${esc(graph.hubWhy || "")}</p>
         </div>
       </div>
       <div class="rd-flow-pair">

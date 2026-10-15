@@ -128,6 +128,7 @@
     const ZONES = payload.zones || [];
     const PROVIDERS = payload.providers || [];
     const SUBCATEGORIES = payload.subcategories || [];
+    const SERVICES = payload.services || [];
     const DEFAULT_ZONE_ID = payload.defaultZoneId || '';
     const zoneById = {};
     ZONES.forEach(function (z) { zoneById[z.id] = z; });
@@ -151,6 +152,7 @@
     const zoneSel = document.getElementById('plv-zone');
     const catSel = document.getElementById('plv-cat');
     const subSel = document.getElementById('plv-sub');
+    const expertSel = document.getElementById('plv-expert');
     const availSel = document.getElementById('plv-avail');
     const listEl = document.getElementById('plv-list');
     const listCount = document.getElementById('plv-list-count');
@@ -212,6 +214,63 @@
         selectEl.value = '';
     }
 
+    function fillExpertiseSelect(selectEl, subId) {
+        if (!selectEl) {
+            return;
+        }
+        const enabled = !!subId;
+        const placeholder = selectEl.getAttribute(enabled ? 'data-placeholder-on' : 'data-placeholder-off')
+            || (enabled ? 'Any' : 'Select a subcategory');
+        const anyExpert = selectEl.getAttribute('data-label-any-expert') || 'Any expert in this subcategory';
+        const allServices = selectEl.getAttribute('data-label-all') || 'Expert in all services';
+        const servicePrefix = selectEl.getAttribute('data-label-service') || 'Expert';
+        const rows = enabled
+            ? SERVICES.filter(function (s) { return s.sub_category_id === subId; })
+            : [];
+        let html = '<option value="">' + escapeHtml(placeholder) + '</option>';
+        if (enabled) {
+            html += '<option value="any-expert">' + escapeHtml(anyExpert) + '</option>';
+            html += '<option value="all-services">' + escapeHtml(allServices) + '</option>';
+            rows.forEach(function (s) {
+                html += '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(servicePrefix + ': ' + s.name) + '</option>';
+            });
+        }
+        selectEl.disabled = !enabled;
+        selectEl.innerHTML = html;
+        selectEl.value = '';
+    }
+
+    function expertiseHits(p, subId, expertValue) {
+        if (!expertValue || !subId) {
+            return true;
+        }
+        const rows = (p.expertise || []).filter(function (e) { return e.sub_category_id === subId; });
+        if (expertValue === 'any-expert') {
+            return rows.length > 0;
+        }
+        if (expertValue === 'all-services') {
+            return rows.some(function (e) { return e.scope === 'sub_category'; });
+        }
+        return rows.some(function (e) {
+            return e.scope === 'sub_category' || e.service_id === expertValue;
+        });
+    }
+
+    function expertiseChips(p) {
+        const rows = p.expertise || [];
+        if (!rows.length) {
+            return '';
+        }
+        const shown = rows.slice(0, 3).map(function (e) {
+            const label = e.scope === 'sub_category' ? e.name + ' · all' : e.name;
+            return '<span class="provider-live-chip provider-live-chip--expert">' + escapeHtml(label) + '</span>';
+        }).join('');
+        const more = rows.length > 3
+            ? '<span class="provider-live-chip provider-live-chip--expert">+' + (rows.length - 3) + '</span>'
+            : '';
+        return shown + more;
+    }
+
     function serviceChips(p) {
         const subs = p.subcategories || [];
         const names = (subs.length ? subs : (p.categories || [])).map(function (c) {
@@ -236,6 +295,7 @@
             zone: zoneSel.value,
             cat: catSel.value,
             sub: subSel ? subSel.value : '',
+            expert: expertSel ? expertSel.value : '',
             avail: availSel.value
         };
     }
@@ -253,6 +313,7 @@
         if (!zoneHits(p, f.zone)) return false;
         if (f.cat && !(p.categories || []).some(function (c) { return c.id === f.cat; })) return false;
         if (f.sub && !(p.subcategories || []).some(function (c) { return c.id === f.sub; })) return false;
+        if (!expertiseHits(p, f.sub, f.expert)) return false;
         if (f.avail && p.avail !== f.avail) return false;
         if (f.q) {
             const zoneNames = (p.zone_ids || []).map(function (id) {
@@ -260,7 +321,8 @@
             }).join(' ');
             const catNames = (p.categories || []).map(function (c) { return c.name; }).join(' ');
             const subNames = (p.subcategories || []).map(function (c) { return c.name; }).join(' ');
-            const blob = [p.name, p.address, p.phone, zoneNames, catNames, subNames].join(' ').toLowerCase();
+            const expertNames = (p.expertise || []).map(function (e) { return e.name; }).join(' ');
+            const blob = [p.name, p.address, p.phone, zoneNames, catNames, subNames, expertNames].join(' ').toLowerCase();
             if (blob.indexOf(f.q) === -1) return false;
         }
         return true;
@@ -395,6 +457,9 @@
             '<div class="plv-popup-body">' +
             '<div class="plv-popup-name">' + escapeHtml(p.name) + '</div>' +
             '<div class="plv-popup-addr">' + escapeHtml(p.address || 'No address on file') + '</div>' +
+            ((p.expertise || []).length
+                ? '<div class="plv-popup-addr">Expert: ' + escapeHtml((p.expertise || []).map(function (e) { return e.name; }).slice(0, 4).join(', ')) + '</div>'
+                : '') +
             '</div></div>';
     }
 
@@ -590,7 +655,7 @@
                 (p.rating ? ' · ' + p.rating + '★' : '') +
                 '</div>' +
                 '<div class="provider-live-addr">' + escapeHtml(p.address) + '</div>' +
-                '<div class="provider-live-chips">' + catChips + zones + '</div>' +
+                '<div class="provider-live-chips">' + expertiseChips(p) + catChips + zones + '</div>' +
                 '</div>' +
                 '<span class="provider-live-status ' + p.avail + '">' + statusLabel(p.avail) + '</span>' +
                 '</div>';
@@ -799,13 +864,17 @@
     });
 
     ['input', 'change'].forEach(function (evt) {
-        [zoneSel, catSel, subSel, availSel].forEach(function (el) {
+        [zoneSel, catSel, subSel, expertSel, availSel].forEach(function (el) {
             if (!el) {
                 return;
             }
             el.addEventListener(evt, function () {
                 if (el === catSel) {
                     fillSubSelect(subSel, catSel.value);
+                    fillExpertiseSelect(expertSel, '');
+                }
+                if (el === subSel) {
+                    fillExpertiseSelect(expertSel, subSel.value);
                 }
                 didFit = false;
                 render();
@@ -827,6 +896,7 @@
             if (availSel) availSel.value = '';
         }
         fillSubSelect(subSel, '');
+        fillExpertiseSelect(expertSel, '');
         clearListFind();
         selected = null;
         cardOverlay.hide();
@@ -862,6 +932,7 @@
     });
 
     fillSubSelect(subSel, catSel ? catSel.value : '');
+    fillExpertiseSelect(expertSel, subSel ? subSel.value : '');
     render();
     google.maps.event.addListenerOnce(map, 'idle', function () {
         google.maps.event.trigger(map, 'resize');

@@ -1,4 +1,4 @@
-@extends('adminmodule::layouts.new-master')
+@extends((request()->boolean('in_modal') || request()->boolean('inModal')) ? 'adminmodule::layouts.content-frame' : 'adminmodule::layouts.new-master')
 
 @section('title', translate('App_Custom_Request_Details'))
 
@@ -43,9 +43,11 @@
                             {{ translate('Delete') }}
                         </button>
                     @endcan
-                    <a href="{{ route('admin.booking.app-custom-requests.index') }}" class="btn btn--secondary">
-                        {{ translate('Back') }}
-                    </a>
+                    @unless(request()->boolean('in_modal') || request()->boolean('inModal'))
+                        <a href="{{ route('admin.booking.app-custom-requests.index') }}" class="btn btn--secondary">
+                            {{ translate('Back') }}
+                        </a>
+                    @endunless
                 </div>
             </div>
 

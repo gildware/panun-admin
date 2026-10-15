@@ -175,7 +175,7 @@
             var totalUnread = externalUnread + internalUnread;
 
             if (!skipSound && totalUnread > 0) {
-                var prevKey = 'admin_notification_unread_count';
+                var prevKey = 'admin_notification_unread_count:' + (data.notification_workspace || 'workspace');
                 var prevRaw = sessionStorage.getItem(prevKey);
                 if (prevRaw !== null && prevRaw !== '') {
                     var prev = parseInt(prevRaw, 10) || 0;
@@ -185,7 +185,7 @@
                 }
                 sessionStorage.setItem(prevKey, String(totalUnread));
             } else if (skipSound) {
-                sessionStorage.setItem('admin_notification_unread_count', String(totalUnread));
+                sessionStorage.setItem('admin_notification_unread_count:' + (data.notification_workspace || 'workspace'), String(totalUnread));
             }
 
             var alerts = data.new_notification_alerts || [];

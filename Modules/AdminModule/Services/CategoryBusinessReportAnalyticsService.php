@@ -306,6 +306,7 @@ class CategoryBusinessReportAnalyticsService
                 'provider' => $leadTypeCounts[Lead::TYPE_PROVIDER],
                 'invalid' => $leadTypeCounts[Lead::TYPE_INVALID],
                 'future_customer' => $leadTypeCounts[Lead::TYPE_FUTURE_CUSTOMER],
+                'future_provider' => $leadTypeCounts[Lead::TYPE_FUTURE_PROVIDER],
                 'pending' => $customerStatusCounts['pending'],
                 'hold' => $customerStatusCounts['hold'],
                 'booked' => $customerStatusCounts['booked'],
@@ -335,6 +336,7 @@ class CategoryBusinessReportAnalyticsService
                 ['key' => Lead::TYPE_PROVIDER, 'label' => translate('Provider'), 'total' => $leadTypeCounts[Lead::TYPE_PROVIDER], 'color' => '#36b9cc'],
                 ['key' => Lead::TYPE_INVALID, 'label' => translate('Invalid'), 'total' => $leadTypeCounts[Lead::TYPE_INVALID], 'color' => '#e74a3b'],
                 ['key' => Lead::TYPE_FUTURE_CUSTOMER, 'label' => translate('Future_Customer'), 'total' => $leadTypeCounts[Lead::TYPE_FUTURE_CUSTOMER], 'color' => '#6f42c1'],
+                ['key' => Lead::TYPE_FUTURE_PROVIDER, 'label' => translate('Future_Provider'), 'total' => $leadTypeCounts[Lead::TYPE_FUTURE_PROVIDER], 'color' => '#fd7e14'],
             ]),
             'booking_status_breakdown' => $this->bookingStatusChart($bookingStatusCounts),
             'daily' => [

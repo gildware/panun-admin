@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Collection;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use MatanYadaev\EloquentSpatial\Objects\Point;
@@ -33,11 +34,56 @@ class Zone extends Model
     protected $fillable = [
         'coordinates',
         'description',
+        'ward_number',
+        'areas_encompassed',
+        'boundary_demarcation',
     ];
 
     public function scopeOfStatus($query, $status)
     {
         $query->where('is_active', '=', $status);
+    }
+
+    /**
+     * Listing columns. The polygon is omitted so ORDER BY does not filesort multi‑megabyte rows
+     * (MySQL error 1038: out of sort memory).
+     *
+     * @return list<string>
+     */
+    public static function adminListColumns(): array
+    {
+        return [
+            'id',
+            'name',
+            'ward_number',
+            'description',
+            'areas_encompassed',
+            'boundary_demarcation',
+            'parent_id',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
+    public function scopeForAdminList(Builder $query): Builder
+    {
+        return $query->select(static::adminListColumns());
+    }
+
+    /**
+     * Boundary demarcation used to be its own field. Keep that text with the description.
+     */
+    public static function descriptionIncludingBoundary(?string $description, ?string $boundary): ?string
+    {
+        $description = trim((string) $description);
+        $boundary = trim((string) $boundary);
+
+        if ($boundary !== '' && ($description === '' || ! str_contains($description, $boundary))) {
+            $description = $description === '' ? $boundary : $description."\n\n".$boundary;
+        }
+
+        return $description === '' ? null : $description;
     }
 
     public function providers()
@@ -53,6 +99,11 @@ class Zone extends Model
     public function childZones(): HasMany
     {
         return $this->hasMany(Zone::class, 'parent_id');
+    }
+
+    public function areas(): HasMany
+    {
+        return $this->hasMany(CustomerLeadArea::class, 'zone_id');
     }
 
     /**

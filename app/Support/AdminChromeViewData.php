@@ -30,15 +30,19 @@ final class AdminChromeViewData
         $notificationInternalReadCount = 0;
         $notificationExternalRecent = collect();
         $notificationInternalRecent = collect();
+        $workspace = AdminWorkspace::current();
+        if ($user && $workspace === AdminWorkspace::HR) {
+            app(\Modules\AdminModule\Services\PeopleWorkspace::class)->notifyOutstandingApprovals();
+        }
         if ($user) {
             $inboxService = app(AdminInboxNotificationService::class);
             $userId = (string) $user->id;
-            $notificationExternalUnreadCount = (int) $inboxService->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL);
-            $notificationInternalUnreadCount = (int) $inboxService->unreadCount($userId, UserNotification::CATEGORY_INTERNAL);
-            $notificationExternalReadCount = (int) $inboxService->readCount($userId, UserNotification::CATEGORY_EXTERNAL);
-            $notificationInternalReadCount = (int) $inboxService->readCount($userId, UserNotification::CATEGORY_INTERNAL);
-            $notificationExternalRecent = $inboxService->recent($userId, 10, UserNotification::CATEGORY_EXTERNAL);
-            $notificationInternalRecent = $inboxService->recent($userId, 10, UserNotification::CATEGORY_INTERNAL);
+            $notificationExternalUnreadCount = (int) $inboxService->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL, $workspace);
+            $notificationInternalUnreadCount = (int) $inboxService->unreadCount($userId, UserNotification::CATEGORY_INTERNAL, $workspace);
+            $notificationExternalReadCount = (int) $inboxService->readCount($userId, UserNotification::CATEGORY_EXTERNAL, $workspace);
+            $notificationInternalReadCount = (int) $inboxService->readCount($userId, UserNotification::CATEGORY_INTERNAL, $workspace);
+            $notificationExternalRecent = $inboxService->recent($userId, 10, UserNotification::CATEGORY_EXTERNAL, $workspace);
+            $notificationInternalRecent = $inboxService->recent($userId, 10, UserNotification::CATEGORY_INTERNAL, $workspace);
         }
         $notificationUnreadCount = $notificationExternalUnreadCount + $notificationInternalUnreadCount;
 

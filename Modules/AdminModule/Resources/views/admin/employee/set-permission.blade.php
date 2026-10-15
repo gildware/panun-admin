@@ -94,19 +94,6 @@
                                                             </select>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-6 mb-30">
-                                                        <div class="input-wrap">
-                                                            <select class="zone-select theme-input-style"
-                                                                    name="zone_ids[]" id="zone_selector__select"
-                                                                    multiple required>
-                                                                <option value="all">{{translate('Select All')}}</option>
-                                                                @foreach($zones as $zone)
-                                                                    <option
-                                                                        value="{{$zone->id}}" {{in_array($zone->id,$employee->zones->pluck('id')->toArray())?'selected':''}}>{{$zone->name}}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </div>
-                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="col-lg-4">
@@ -310,14 +297,6 @@
     <script src="{{asset('assets/admin-module')}}/js/spartan-multi-image-picker.js"></script>
     <script>
         "use strict";
-
-        $('#zone_selector__select').on('change', function () {
-            var selectedValues = $(this).val();
-            if (selectedValues !== null && selectedValues.includes('all')) {
-                $(this).find('option').not(':disabled').prop('selected', 'selected');
-                $(this).find('option[value="all"]').prop('selected', false);
-            }
-        });
 
         const identificationImageCount = {{ count($employee->identification_image) }};
         let maxCount;

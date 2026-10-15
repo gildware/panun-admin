@@ -3,15 +3,19 @@
     $isCustomerTab = isset($tab) && $tab === 'customer';
     $isInvalidTab = isset($tab) && $tab === 'invalid';
     $isFutureCustomerTab = isset($tab) && $tab === 'future_customer';
-    $isReasonTab = $isInvalidTab || $isFutureCustomerTab;
+    $isFutureProviderTab = isset($tab) && $tab === 'future_provider';
+    $isReasonTab = $isInvalidTab || $isFutureCustomerTab || $isFutureProviderTab;
     $providerLeadData = $providerLeadData ?? [];
     $customerLeadData = $customerLeadData ?? [];
     $reasonLeadData = $reasonLeadData ?? [];
     $followupListMeta = $followupListMeta ?? [];
+    $showsTemperature = in_array($tab ?? 'all', ['all', 'customer', 'provider'], true);
     $emptyColspan = match (true) {
-        $isProviderTab => 14,
-        $isCustomerTab => 16,
+        $isProviderTab => 15,
+        $isCustomerTab => 17,
         $isFutureCustomerTab => 10,
+        ($tab ?? 'all') === 'all' => 10,
+        $isFutureProviderTab => 9,
         $isInvalidTab => 9,
         default => 9,
     };
@@ -25,6 +29,9 @@
                 <th>{{ translate('ID') }}</th>
                 <th>{{ translate('Name') }}</th>
                 <th>{{ translate('Phone') }}</th>
+                @if($showsTemperature)
+                    <th>{{ translate('Lead_Temperature') }}</th>
+                @endif
                 @if($isProviderTab)
                     <th>{{ translate('Status') }}</th>
                     <th>{{ translate('Is_Added_in_Panel') }}</th>
@@ -68,6 +75,11 @@
                         <td class="link-primary">{{ $lead->id }}</td>
                         <td>{{ $lead->name ?? '—' }}</td>
                         <td>{{ $lead->phone_number }}</td>
+                        @if($showsTemperature)
+                            <td>
+                                @include('leadmanagement::admin.leads.partials._lead-temperature-badge', ['temperature' => $lead->lead_temperature])
+                            </td>
+                        @endif
                         @if($isProviderTab)
                             @php $pd = $providerLeadData[$lead->id] ?? []; @endphp
                             <td>
@@ -125,6 +137,7 @@
                                         \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER => 'bg-success',
                                         \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER => 'bg-primary',
                                         \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER => 'bg-info',
+                                        \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_PROVIDER => 'bg-secondary',
                                         default => 'bg-warning',
                                     };
                                 @endphp
@@ -183,9 +196,7 @@
                             <a href="{{ $leadDetailUrl }}"
                                class="btn btn-sm btn--primary btn-lead-view"
                                data-lead-url="{{ $leadDetailUrl }}"
-                               data-turbo="false"
-                               target="_blank"
-                               rel="noopener noreferrer">
+                               data-turbo="false">
                                 {{ translate('view') }}
                             </a>
                         </td>

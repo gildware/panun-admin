@@ -11,15 +11,13 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $site_direction }}">
 
 <head>
-    <title>@yield('title')</title>
+    @include('adminmodule::layouts.partials._document-head')
 
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
     <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @php($favIcon = getBusinessSettingsImageFullPath(key: 'business_favicon', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/placeholder.png'))
-    <link rel="shortcut icon" href="{{ $favIcon }}"/>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -92,7 +90,7 @@
 <script src="{{ asset('assets/admin-module') }}/js/admin-image-fallback.js?v={{ $adminAssetVersion }}"></script>
 <script src="{{ asset('assets/admin-module') }}/js/helper.js"></script>
 <script src="{{ asset('assets/common') }}/js/common.js"></script>
-<script src="{{ asset('assets/common') }}/js/form-submit-once.js"></script>
+<script src="{{ asset('assets/common/js/form-submit-once.js') }}?v={{ @filemtime(public_path('assets/common/js/form-submit-once.js')) }}"></script>
 
 <script src="{{ asset('assets/admin-module') }}/plugins/select2/select2.min.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/sweet_alert.js"></script>

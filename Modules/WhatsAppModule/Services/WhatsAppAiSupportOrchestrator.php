@@ -40,6 +40,7 @@ class WhatsAppAiSupportOrchestrator
         protected WhatsAppAiCustomerMessageLocalizationService $templateLocalization,
         protected WhatsAppAiSupportKnowledgeService $supportKnowledge,
         protected WhatsAppAiDraftPersistService $draftPersist,
+        protected WhatsAppLeadTemperatureService $leadTemperature,
     ) {}
 
     public function handleInboundMessageId(int $messageId, WhatsAppAiExecutionRecorder $recorder): void
@@ -551,6 +552,19 @@ class WhatsAppAiSupportOrchestrator
         }
 
         $this->draftPersist->persistIfNeeded($phone, $recorder);
+
+        try {
+            $appliedTemperatures = $this->leadTemperature->applyFromDiscussion($phone);
+            if ($appliedTemperatures !== []) {
+                $recorder->step('lead.temperature', 'Lead temperature from chat', 'ok', [
+                    'applied' => $appliedTemperatures,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            $recorder->step('lead.temperature', 'Lead temperature from chat failed', 'fail', [
+                'error' => mb_substr($e->getMessage(), 0, 240),
+            ]);
+        }
 
         if (
             $pendingBookingRequestId !== null

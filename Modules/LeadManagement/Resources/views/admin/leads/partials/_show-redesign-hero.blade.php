@@ -32,6 +32,9 @@
                                 <span class="material-icons" aria-hidden="true">edit</span>
                             </button>
                         @endcan
+                        @if(in_array($lead->lead_type, [\Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER, \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER], true))
+                            @include('leadmanagement::admin.leads.partials._lead-temperature-control', ['lead' => $lead])
+                        @endif
                     </h1>
                 </div>
                 @can('lead_update')
@@ -86,6 +89,9 @@
             <span class="chip chip--{{ !empty($leadOpenStatus) ? 'danger' : 'success' }}">
                 {{ !empty($leadOpenStatus) ? translate('Open') : translate('Closed') }}
             </span>
+            @if($lead->isNonResponsive())
+                <span class="chip chip--warning">{{ translate('Non_Responsive') }}</span>
+            @endif
             @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER && !empty($typeHistoryDisplay['header_status']))
                 <div id="provider-header-status-view" class="lead-badges__status-control">
                     <span class="chip chip--status"
@@ -155,16 +161,92 @@
     </div>
 
     @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)
+        @if($lead->isNonResponsive())
+            <div class="alert alert-secondary py-2 px-3 mt-2 mb-0">
+                <strong>{{ translate('Non_Responsive') }}</strong>
+                — {{ translate('Unknown_lead_closed_as_non_responsive') }}
+                @if($lead->non_responsive_at)
+                    <span class="d-block small mt-1">{{ translate('Closed_on') }} {{ $lead->non_responsive_at->format('d M Y, h:i A') }}</span>
+                @endif
+                @if(trim((string) $lead->non_responsive_remarks) !== '')
+                    <span class="d-block small">{{ $lead->non_responsive_remarks }}</span>
+                @endif
+            </div>
+        @endif
         <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top lead-hero__type-actions">
+            @can('lead_update')
+                @if($lead->isNonResponsive())
+                    <form method="POST" action="{{ route('admin.lead.non-responsive.reopen', $lead->id) }}" class="m-0">
+                        @csrf
+                        @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                        <button type="submit" class="ld-btn ld-btn-outline">{{ translate('Reopen_Lead') }}</button>
+                    </form>
+                @else
+                    <button type="button" class="ld-btn ld-btn-outline text-secondary border-secondary btn-lead-type-non-responsive" data-bs-toggle="modal" data-bs-target="#leadNonResponsiveModal">{{ translate('Mark_as_Non_Responsive') }}</button>
+                @endif
+            @endcan
             <button type="button" class="ld-btn ld-btn-outline text-danger border-danger btn-lead-type-invalid" data-bs-toggle="modal" data-bs-target="#leadInvalidModal">{{ translate('Mark_as_Invalid_Lead') }}</button>
             <button type="button" class="ld-btn ld-btn-outline text-info border-info btn-lead-type-future" data-bs-toggle="modal" data-bs-target="#leadFutureCustomerModal">{{ translate('Mark_as_Future_Customer_Lead') }}</button>
+            <button type="button" class="ld-btn ld-btn-outline text-secondary border-secondary btn-lead-type-future-provider" data-bs-toggle="modal" data-bs-target="#leadFutureProviderModal">{{ translate('Mark_as_Future_Provider_Lead') }}</button>
             <button type="button" class="ld-btn ld-btn-outline text-success border-success btn-lead-type-customer" data-bs-toggle="modal" data-bs-target="#leadCustomerModal">{{ translate('Mark_as_Customer_Lead') }}</button>
             <button type="button" class="ld-btn ld-btn-outline text-primary border-primary btn-lead-type-provider" data-bs-toggle="modal" data-bs-target="#leadProviderModal">{{ translate('Mark_as_Provider_Lead') }}</button>
         </div>
+    @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && ($lead->isNonResponsive() || !empty($leadOpenStatus)))
+        @if($lead->isNonResponsive())
+            <div class="alert alert-secondary py-2 px-3 mt-2 mb-0">
+                <strong>{{ translate('Non_Responsive') }}</strong>
+                — {{ translate('Customer_lead_closed_as_non_responsive') }}
+                @if($lead->non_responsive_at)
+                    <span class="d-block small mt-1">{{ translate('Closed_on') }} {{ $lead->non_responsive_at->format('d M Y, h:i A') }}</span>
+                @endif
+                @if(trim((string) $lead->non_responsive_remarks) !== '')
+                    <span class="d-block small">{{ $lead->non_responsive_remarks }}</span>
+                @endif
+            </div>
+        @endif
+        @can('lead_update')
+            <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top lead-hero__type-actions">
+                @if($lead->isNonResponsive())
+                    <form method="POST" action="{{ route('admin.lead.non-responsive.reopen', $lead->id) }}" class="m-0">
+                        @csrf
+                        @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                        <button type="submit" class="ld-btn ld-btn-outline">{{ translate('Reopen_Lead') }}</button>
+                    </form>
+                @else
+                    <button type="button" class="ld-btn ld-btn-outline text-secondary border-secondary btn-lead-type-non-responsive" data-bs-toggle="modal" data-bs-target="#leadNonResponsiveModal">{{ translate('Mark_as_Non_Responsive') }}</button>
+                @endif
+            </div>
+        @endcan
+    @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER && ($lead->isNonResponsive() || !empty($leadOpenStatus)))
+        @if($lead->isNonResponsive())
+            <div class="alert alert-secondary py-2 px-3 mt-2 mb-0">
+                <strong>{{ translate('Non_Responsive') }}</strong>
+                — {{ translate('Provider_lead_closed_as_non_responsive') }}
+                @if($lead->non_responsive_at)
+                    <span class="d-block small mt-1">{{ translate('Closed_on') }} {{ $lead->non_responsive_at->format('d M Y, h:i A') }}</span>
+                @endif
+                @if(trim((string) $lead->non_responsive_remarks) !== '')
+                    <span class="d-block small">{{ $lead->non_responsive_remarks }}</span>
+                @endif
+            </div>
+        @endif
+        @can('lead_update')
+            <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top lead-hero__type-actions">
+                @if($lead->isNonResponsive())
+                    <form method="POST" action="{{ route('admin.lead.non-responsive.reopen', $lead->id) }}" class="m-0">
+                        @csrf
+                        @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                        <button type="submit" class="ld-btn ld-btn-outline">{{ translate('Reopen_Lead') }}</button>
+                    </form>
+                @else
+                    <button type="button" class="ld-btn ld-btn-outline text-secondary border-secondary btn-lead-type-non-responsive" data-bs-toggle="modal" data-bs-target="#leadNonResponsiveModal">{{ translate('Mark_as_Non_Responsive') }}</button>
+                @endif
+            </div>
+        @endcan
     @endif
 </section>
 
-@if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
+@if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && ! $lead->isNonResponsive())
     @php
         $huntingChecklist = $huntingChecklist ?? ['subcategory' => false, 'zone' => false, 'area' => false, 'datetime' => false, 'job_text' => false];
         $huntingIsReady = $huntingIsReady ?? false;

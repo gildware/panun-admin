@@ -69,7 +69,20 @@
 </div>
 
 @push('script')
+    @php
+        $bsrStatusLabels = [
+            'pending' => translate('Pending'),
+            'accepted' => translate('Accepted'),
+            'ongoing' => translate('Ongoing'),
+            'on_hold' => translate('On_hold'),
+            'completed' => translate('Completed'),
+            'canceled' => translate('Canceled'),
+            'cancelled' => translate('Canceled'),
+            'hold_after_visit' => translate('Hold_after_visit'),
+        ];
+    @endphp
     <script>
+        window.__bsrStatusLabels = @json($bsrStatusLabels);
         (function () {
             const bsrStatusUpdateUrl = @json(route('admin.booking.status_update', [$booking->id]));
             const bsrCsrf = $('meta[name="csrf-token"]').attr('content');
@@ -87,9 +100,66 @@
                 $select.empty();
                 $select.append($('<option>', { value: '', text: placeholder || '{{ translate('Select') }}' }));
                 (items || []).forEach(function (row) {
-                    $select.append($('<option>', { value: String(row.id), text: row.name }));
+                    $select.append($('<option>', {
+                        value: String(row.id),
+                        text: row.name,
+                        'data-responsible': row.responsible || ''
+                    }));
                 });
             }
+
+            function bsrVisibleModal() {
+                var shown = document.querySelector('#bookingStatusReasonModal.show');
+                var el = shown || document.getElementById('bookingStatusReasonModal');
+                return el ? $(el) : $();
+            }
+
+            function bsrResolveHoldSelection($select) {
+                var id = String($select.val() || '').trim();
+                var $opt = $select.find('option:selected');
+                var text = String($opt.text() || '').trim();
+                var rows = bsrHoldReasonsFlat || [];
+                var row = null;
+                if (id) {
+                    row = rows.find(function (item) { return String(item.id) === id; }) || null;
+                }
+                if (!row && text) {
+                    row = rows.find(function (item) { return String(item.name || '').trim() === text; }) || null;
+                }
+                var responsible = String(
+                    $opt.attr('data-responsible')
+                    || (row && row.responsible)
+                    || (id && bsrHoldReasonResponsible[id])
+                    || ''
+                );
+                return {
+                    reasonId: row ? String(row.id) : id,
+                    responsible: responsible
+                };
+            }
+
+            window.bookingAdminPaintStatus = function (status, previousStatus) {
+                var key = String(status || '');
+                var from = String(previousStatus || '');
+                var labels = window.__bsrStatusLabels || {};
+                var label = (key === 'on_hold' && from === 'ongoing')
+                    ? labels.hold_after_visit
+                    : (labels[key] || key.replace(/_/g, ' '));
+                document.querySelectorAll('.booking-status-badge').forEach(function (el) {
+                    el.textContent = label;
+                    el.setAttribute('data-status', key === 'cancelled' ? 'canceled' : key);
+                });
+                var select = document.getElementById('booking_status');
+                if (select) {
+                    select.setAttribute('data-current', key);
+                }
+                var actions = document.getElementById('booking-status-overview-actions');
+                if (actions) {
+                    actions.setAttribute('aria-busy', 'true');
+                    actions.style.pointerEvents = 'none';
+                    actions.style.opacity = '0.55';
+                }
+            };
 
             window.bookingAdminStatusNeedsReason = function (toStatus, fromStatus) {
                 const to = String(toStatus);
@@ -166,13 +236,14 @@
                 });
 
                 $('#bsr-confirm-btn').off('click.bsrConfirm').on('click.bsrConfirm', function () {
-                    const to = $('#bsr-target-status').val();
-                    const from = $('#bsr-previous-status').val();
-                    let resp = String($('#bsr-responsible').val() || '');
+                    const $modal = bsrVisibleModal();
+                    const to = String($modal.find('#bsr-target-status').val() || '');
+                    let resp = String($modal.find('#bsr-responsible').val() || '');
+                    let holdSelection = null;
                     if (to === 'on_hold') {
-                        const reasonId = String($('#bsr-hold-reason-id').val() || '');
-                        resp = reasonId ? (bsrHoldReasonResponsible[reasonId] || '') : '';
-                        $('#bsr-hold-reason-responsible').val(resp);
+                        holdSelection = bsrResolveHoldSelection($modal.find('#bsr-hold-reason-id'));
+                        resp = holdSelection.responsible;
+                        $modal.find('#bsr-hold-reason-responsible').val(resp);
                     }
                     if (!resp) {
                         toastr.error(to === 'on_hold'
@@ -184,22 +255,22 @@
                         _token: bsrCsrf,
                         booking_status: to,
                         reason_responsible: resp,
-                        status_change_remarks: $('#bsr-remarks').val() || ''
+                        status_change_remarks: $modal.find('#bsr-remarks').val() || ''
                     };
                     if (to === 'on_hold') {
-                        data.booking_hold_reopen_reason_id = $('#bsr-hold-reason-id').val();
+                        data.booking_hold_reopen_reason_id = holdSelection ? holdSelection.reasonId : '';
                         if (!data.booking_hold_reopen_reason_id) {
                             toastr.error('{{ translate('Booking_hold_reasons') }} {{ translate('is_required') }}');
                             return;
                         }
-                        data.hold_estimated_service_schedule = $('#bsr-hold-estimated-schedule').val();
+                        data.hold_estimated_service_schedule = $modal.find('#bsr-hold-estimated-schedule').val();
                         if (!data.hold_estimated_service_schedule) {
                             toastr.error('{{ translate('Hold_estimated_service_schedule') }} {{ translate('is_required') }}');
                             return;
                         }
                     }
                     if (to === 'canceled') {
-                        data.booking_cancellation_reason_id = $('#bsr-cancel-reason-id').val();
+                        data.booking_cancellation_reason_id = $modal.find('#bsr-cancel-reason-id').val();
                         if (!data.booking_cancellation_reason_id) {
                             toastr.error('{{ translate('Booking_cancellation_reasons') }} {{ translate('is_required') }}');
                             return;
@@ -215,7 +286,10 @@
                         data: data,
                         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
                     }).done(function (res) {
-                        const modalEl = document.getElementById('bookingStatusReasonModal');
+                        if (typeof window.bookingAdminPaintStatus === 'function') {
+                            window.bookingAdminPaintStatus(to, $modal.find('#bsr-previous-status').val() || '');
+                        }
+                        const modalEl = $modal.get(0) || document.getElementById('bookingStatusReasonModal');
                         if (modalEl && bootstrap.Modal) {
                             bootstrap.Modal.getInstance(modalEl)?.hide();
                         }

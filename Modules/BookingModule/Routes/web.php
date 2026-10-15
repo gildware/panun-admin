@@ -62,6 +62,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('{booking}/call-logs/{followup}', [BookingController::class, 'updateCallLog'])->middleware(['can:booking_view'])->name('call-logs.update');
         Route::delete('{booking}/call-logs/{followup}', [BookingController::class, 'destroyCallLog'])->middleware(['can:booking_view'])->name('call-logs.destroy');
         Route::post('followup/{id}/{followupId}/transcribe', [BookingController::class, 'transcribeFollowupRecording'])->middleware(['can:booking_view'])->name('followup.transcribe');
+        Route::post('{id}/customer-non-responsive', [BookingController::class, 'markCustomerNonResponsive'])->middleware(['can:booking_view'])->name('customer_non_responsive.mark');
+        Route::post('{id}/customer-non-responsive/reopen', [BookingController::class, 'reopenCustomerNonResponsive'])->middleware(['can:booking_view'])->name('customer_non_responsive.reopen');
         Route::get('repeat-details/{id}', [BookingController::class, 'repeatDetails'])->name('repeat_details');
         Route::get('repeat-single-details/{id}', [BookingController::class, 'repeatSingleDetails'])->name('repeat_single_details');
         Route::match(['get', 'post'], 'status-update/{id}', [BookingController::class, 'statusUpdate'])->name('status_update');
@@ -112,6 +114,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('refund/{id}', [BookingController::class, 'refund'])->name('refund');
         Route::post('refund-to-wallet/{id}', [BookingController::class, 'refundToWallet'])->name('refund_to_wallet');
         Route::post('refund-to-wallet/{id}/revert', [BookingController::class, 'revertWalletRefund'])->name('refund_to_wallet.revert');
+        Route::post('refund/{id}/revert', [BookingController::class, 'revertTransferRefund'])->name('refund.revert');
         Route::post('compensation/{id}', [BookingController::class, 'addCompensation'])->name('compensation');
         Route::post('reopen/{id}', [BookingController::class, 'reopenFromCompleted'])->name('reopen');
         Route::post('reopen-resolve/{id}', [BookingController::class, 'resolveReopenTicket'])->name('reopen-resolve');

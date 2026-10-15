@@ -229,6 +229,9 @@ class WhatsAppFollowupContextBuilder
                     $out['lead_status'] = (string) $status->name;
                 }
             }
+            if ($lead->isNonResponsive()) {
+                $out['lead_status'] = trim(($out['lead_status'] ?? 'Customer').' (Non Responsive)');
+            }
 
             $categoryId = $data['service_category'] ?? null;
             if ($categoryId) {
@@ -286,6 +289,9 @@ class WhatsAppFollowupContextBuilder
                     $out['lead_status'] = (string) $status->name;
                 }
             }
+            if ($lead->isNonResponsive()) {
+                $out['lead_status'] = trim(($out['lead_status'] ?? 'Provider').' (Non Responsive)');
+            }
 
             if (!empty($data['district_id'])) {
                 $district = District::query()->find($data['district_id']);
@@ -304,7 +310,7 @@ class WhatsAppFollowupContextBuilder
         }
 
         if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
-            $out['lead_status'] = 'Unknown';
+            $out['lead_status'] = $lead->isNonResponsive() ? 'Unknown (Non Responsive)' : 'Unknown';
         }
 
         $tags = $lead->customerLeadTags()->pluck('name')->filter()->implode(', ');

@@ -7,6 +7,7 @@
     const ZONES = payload.zones || [];
     const PROVIDERS = payload.providers || [];
     const SUBCATEGORIES = payload.subcategories || [];
+    const SERVICES = payload.services || [];
     const DEFAULT_ZONE_ID = payload.defaultZoneId || '';
     const CAL_FROM_DT = payload.calendarFromDt || '';
     const CAL_TO_DT = payload.calendarToDt || '';
@@ -34,6 +35,7 @@
     const zoneEl = document.getElementById('plc-zone');
     const catEl = document.getElementById('plc-cat');
     const subEl = document.getElementById('plc-sub');
+    const expertEl = document.getElementById('plc-expert');
     const listEl = document.getElementById('plc-list');
     const calEl = document.getElementById('plc-cal');
     if (!fromEl || !toEl || !listEl || !calEl) {
@@ -130,6 +132,56 @@
             return '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.name) + '</option>';
         }).join('');
         selectEl.value = '';
+    }
+    function fillExpertiseSelect(selectEl, subId) {
+        if (!selectEl) {
+            return;
+        }
+        const enabled = !!subId;
+        const placeholder = selectEl.getAttribute(enabled ? 'data-placeholder-on' : 'data-placeholder-off')
+            || (enabled ? 'Any' : 'Select a subcategory');
+        const anyExpert = selectEl.getAttribute('data-label-any-expert') || 'Any expert in this subcategory';
+        const allServices = selectEl.getAttribute('data-label-all') || 'Expert in all services';
+        const servicePrefix = selectEl.getAttribute('data-label-service') || 'Expert';
+        const rows = enabled
+            ? SERVICES.filter(function (s) { return s.sub_category_id === subId; })
+            : [];
+        let html = '<option value="">' + escapeHtml(placeholder) + '</option>';
+        if (enabled) {
+            html += '<option value="any-expert">' + escapeHtml(anyExpert) + '</option>';
+            html += '<option value="all-services">' + escapeHtml(allServices) + '</option>';
+            rows.forEach(function (s) {
+                html += '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(servicePrefix + ': ' + s.name) + '</option>';
+            });
+        }
+        selectEl.disabled = !enabled;
+        selectEl.innerHTML = html;
+        selectEl.value = '';
+    }
+    function expertiseHits(p, subId, expertValue) {
+        if (!expertValue || !subId) {
+            return true;
+        }
+        const rows = (p.expertise || []).filter(function (e) { return e.sub_category_id === subId; });
+        if (expertValue === 'any-expert') {
+            return rows.length > 0;
+        }
+        if (expertValue === 'all-services') {
+            return rows.some(function (e) { return e.scope === 'sub_category'; });
+        }
+        return rows.some(function (e) {
+            return e.scope === 'sub_category' || e.service_id === expertValue;
+        });
+    }
+    function expertiseChips(p) {
+        const rows = p.expertise || [];
+        if (!rows.length) {
+            return '';
+        }
+        return rows.slice(0, 2).map(function (e) {
+            const label = e.scope === 'sub_category' ? e.name + ' · all' : e.name;
+            return '<span class="provider-live-chip provider-live-chip--expert">' + escapeHtml(label) + '</span>';
+        }).join('');
     }
     function serviceChips(p) {
         const subs = p.subcategories || [];
@@ -292,7 +344,8 @@
         }).join(' ');
         const catNames = (p.categories || []).map(function (c) { return c.name; }).join(' ');
         const subNames = (p.subcategories || []).map(function (c) { return c.name; }).join(' ');
-        return [p.name, p.address, p.phone, zoneNames, catNames, subNames].join(' ').toLowerCase();
+        const expertNames = (p.expertise || []).map(function (e) { return e.name; }).join(' ');
+        return [p.name, p.address, p.phone, zoneNames, catNames, subNames, expertNames].join(' ').toLowerCase();
     }
     function baseMatch(p) {
         if (!zoneHits(p, zoneEl.value)) {
@@ -302,6 +355,9 @@
             return false;
         }
         if (subEl && subEl.value && !(p.subcategories || []).some(function (c) { return c.id === subEl.value; })) {
+            return false;
+        }
+        if (!expertiseHits(p, subEl ? subEl.value : '', expertEl ? expertEl.value : '')) {
             return false;
         }
         const query = (q.value || '').trim().toLowerCase();
@@ -392,6 +448,7 @@
                     '<div class="provider-live-name">' + escapeHtml(p.name) + '</div>' +
                     '<div class="provider-live-meta">' + escapeHtml(primaryServiceName(p)) +
                     ' · ' + escapeHtml(hrs.start) + '–' + escapeHtml(hrs.end) + '</div>' +
+                    (expertiseChips(p) ? '<div class="provider-live-chips">' + expertiseChips(p) + '</div>' : '') +
                     '</div><span class="provider-live-status ' + v + '">' + compactVerdict(v) + '</span></div>';
             }).join('');
             listEl.querySelectorAll('.provider-live-row').forEach(function (row) {
@@ -489,7 +546,7 @@
         });
     });
     ['input', 'change'].forEach(function (evt) {
-        [fromEl, toEl, zoneEl, catEl, subEl].forEach(function (el) {
+        [fromEl, toEl, zoneEl, catEl, subEl, expertEl].forEach(function (el) {
             if (el) {
                 el.addEventListener(evt, function () {
                     if (el === fromEl) {
@@ -498,6 +555,10 @@
                     }
                     if (el === catEl) {
                         fillSubSelect(subEl, catEl.value);
+                        fillExpertiseSelect(expertEl, '');
+                    }
+                    if (el === subEl) {
+                        fillExpertiseSelect(expertEl, subEl.value);
                     }
                     render();
                 });
@@ -519,6 +580,7 @@
             if (catEl) catEl.value = '';
         }
         fillSubSelect(subEl, '');
+        fillExpertiseSelect(expertEl, '');
         clearListFind();
         applyStartCap();
         applyEndCap();
@@ -536,6 +598,7 @@
     }
 
     fillSubSelect(subEl, catEl ? catEl.value : '');
+    fillExpertiseSelect(expertEl, subEl ? subEl.value : '');
     applyStartCap();
     applyEndCap();
     window.plvRenderCalendar = render;
