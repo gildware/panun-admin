@@ -58,6 +58,8 @@ Route::group([
         Route::delete('comments/{comment}', [LeadCommentController::class, 'destroy'])->middleware(['can:lead_update'])->name('comments.destroy');
 
         Route::post('{id}/type', [LeadController::class, 'updateType'])->middleware(['can:lead_update'])->name('type.update');
+        Route::post('{id}/non-responsive', [LeadController::class, 'markNonResponsive'])->middleware(['can:lead_update'])->name('non-responsive.mark');
+        Route::post('{id}/non-responsive/reopen', [LeadController::class, 'reopenNonResponsive'])->middleware(['can:lead_update'])->name('non-responsive.reopen');
         Route::post('{lead}/followups', [LeadController::class, 'storeFollowup'])->middleware(['can:lead_update'])->name('followups.store');
         Route::put('{lead}/followups/{followup}/details', [LeadController::class, 'editFollowup'])->middleware(['can:lead_update'])->name('followups.edit');
         Route::delete('{lead}/followups/{followup}', [LeadController::class, 'destroyFollowup'])->middleware(['can:lead_update'])->name('followups.destroy');

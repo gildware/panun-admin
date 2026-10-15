@@ -338,6 +338,7 @@
                                 <th class="text-end">{{ translate('Provider') }}</th>
                                 <th class="text-end">{{ translate('Invalid') }}</th>
                                 <th class="text-end">{{ translate('Future_Customer') }}</th>
+                                <th class="text-end">{{ translate('Future_Provider') }}</th>
                                 <th class="text-end">{{ translate('Pending') }}</th>
                                 <th class="text-end">{{ translate('Hold') }}</th>
                                 <th class="text-end">{{ translate('Booked') }}</th>
@@ -359,6 +360,7 @@
                                     <td class="text-end">{{ $row['provider'] ?? 0 }}</td>
                                     <td class="text-end">{{ $row['invalid'] ?? 0 }}</td>
                                     <td class="text-end">{{ $row['future_customer'] ?? 0 }}</td>
+                                    <td class="text-end">{{ $row['future_provider'] ?? 0 }}</td>
                                     <td class="text-end">{{ $row['pending'] ?? 0 }}</td>
                                     <td class="text-end">{{ $row['hold'] ?? 0 }}</td>
                                     <td class="text-end">{{ $row['booked'] ?? 0 }}</td>
@@ -368,7 +370,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ $view === 'subcategory' ? 14 : 13 }}" class="text-center text-muted py-4">{{ translate('No_data_available') }}</td>
+                                    <td colspan="{{ $view === 'subcategory' ? 15 : 14 }}" class="text-center text-muted py-4">{{ translate('No_data_available') }}</td>
                                 </tr>
                             @endforelse
                             </tbody>

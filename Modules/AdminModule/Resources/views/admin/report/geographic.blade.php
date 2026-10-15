@@ -882,7 +882,8 @@
                 { key: 'customer', name: @json(translate('Customer')), color: '#4e73df' },
                 { key: 'provider', name: @json(translate('Provider')), color: '#36b9cc' },
                 { key: 'invalid', name: @json(translate('Invalid')), color: '#e74a3b' },
-                { key: 'future_customer', name: @json(translate('Future_Customer')), color: '#6f42c1' }
+                { key: 'future_customer', name: @json(translate('Future_Customer')), color: '#6f42c1' },
+                { key: 'future_provider', name: @json(translate('Future_Provider')), color: '#fd7e14' }
             ], 'leads');
             renderStackedShare(document.querySelector('#geo-customer-share-chart'), document.querySelector('#geo-customer-share-legend'), geoRows, [
                 { key: 'pending', name: @json(translate('Pending')), color: '#f6c23e' },

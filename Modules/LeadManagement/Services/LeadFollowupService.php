@@ -73,7 +73,7 @@ class LeadFollowupService
 
     public function leadTypeRequiresMandatoryFollowup(string $leadType): bool
     {
-        return ! in_array($leadType, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true);
+        return ! in_array($leadType, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true);
     }
 
     /**

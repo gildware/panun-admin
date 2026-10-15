@@ -214,12 +214,35 @@
         document.dispatchEvent(new CustomEvent('admin:page-loaded', { detail: { root: root } }));
     }
 
+    function syncWorkspaceClass(doc) {
+        if (!doc || !doc.body) {
+            return;
+        }
+
+        var match = (doc.body.className || '').match(/\bworkspace-[\w-]+\b/);
+        if (!match) {
+            return;
+        }
+
+        document.body.classList.remove(
+            'workspace-operations',
+            'workspace-hr',
+            'workspace-training',
+            'workspace-marketing',
+            'workspace-settings',
+            'workspace-accounts',
+            'workspace-choosing'
+        );
+        document.body.classList.add(match[0]);
+    }
+
     function syncChromeFromHtml(html) {
         if (!html) {
             return;
         }
 
         var doc = new DOMParser().parseFromString(html, 'text/html');
+        syncWorkspaceClass(doc);
         var title = doc.querySelector('title');
         if (title && title.textContent) {
             document.title = title.textContent.trim();
@@ -328,6 +351,16 @@
 
         if (absoluteSrc && absoluteSrc.indexOf('fullcalendar.js') !== -1) {
             return typeof window.FullCalendar === 'undefined';
+        }
+
+        // These plugins replace themselves on a second run and drop methods
+        // registered by the page (provider create Submit/Proceed then does nothing).
+        if (absoluteSrc && absoluteSrc.indexOf('jquery.validate.min.js') !== -1) {
+            return !(window.jQuery && window.jQuery.fn && typeof window.jQuery.fn.validate === 'function');
+        }
+
+        if (absoluteSrc && absoluteSrc.indexOf('jquery.steps.min.js') !== -1) {
+            return !(window.jQuery && window.jQuery.fn && typeof window.jQuery.fn.steps === 'function');
         }
 
         return !scriptSrcIsLoaded(src, oldScript);
@@ -506,7 +539,7 @@
         try {
             return !!link.sheet;
         } catch (e) {
-            return false;
+            return true;
         }
     }
 
@@ -553,12 +586,19 @@
             link.rel = 'stylesheet';
             link.href = absoluteHref;
             link.setAttribute('data-admin-partial-style', '1');
-            link.addEventListener('load', function () {
-                waitForStylesheetApplied(link).then(resolve);
-            }, { once: true });
-            link.addEventListener('error', function () {
+            var settled = false;
+            function finish() {
+                if (settled) {
+                    return;
+                }
+                settled = true;
                 resolve();
+            }
+            window.setTimeout(finish, 1500);
+            link.addEventListener('load', function () {
+                waitForStylesheetApplied(link).then(finish);
             }, { once: true });
+            link.addEventListener('error', finish, { once: true });
             document.head.appendChild(link);
         });
     }
@@ -651,7 +691,7 @@
     }
 
     function waitForDocumentStyles(maxMs) {
-        maxMs = maxMs || 8000;
+        maxMs = maxMs || 1200;
 
         return new Promise(function (resolve) {
             var settled = false;
@@ -736,20 +776,13 @@
             return;
         }
 
-        var revealTimer = window.setTimeout(function () {
-            setFrameLoading(frame, false);
-            revealAdminShell();
-        }, 10000);
-
-        setFrameLoading(frame, true);
         try {
             if (frame.querySelector('link[rel="stylesheet"], style')) {
                 frame.innerHTML = await prepareFrameContent(document, frame);
             }
-            await waitForDocumentStyles();
+            await waitForDocumentStyles(400);
         } catch (e) {
         } finally {
-            window.clearTimeout(revealTimer);
             setFrameLoading(frame, false);
             revealAdminShell();
         }
@@ -828,21 +861,24 @@
             syncChromeFromHtml(html);
             runFlashToastsFromHtml(html);
 
-            setFrameLoading(frame, true);
             var frameHtml = await prepareFrameContent(parsed.doc, parsed.frame);
             frame.innerHTML = frameHtml;
-            await waitForDocumentStyles();
+            await waitForDocumentStyles(400);
             setFrameLoading(frame, false);
             revealAdminShell();
+
+            // Update the address before page scripts run. Those scripts read
+            // window.location on startup; if it still points at the previous
+            // screen they switch the new page back, and a refresh follows.
+            if (options.advance !== false) {
+                window.history.pushState({ adminPartialNav: true }, '', url);
+            }
+
             await activateScripts(frame);
             initPageWidgets(frame);
             markFullPageLinks();
             markPartialNavLinks(frame);
             scheduleEnsureZoneMap();
-
-            if (options.advance !== false) {
-                window.history.pushState({ adminPartialNav: true }, '', url);
-            }
 
             hideProgressSoon();
             window.scrollTo({ top: 0, behavior: 'smooth' });

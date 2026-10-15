@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Passport\Passport;
+use Modules\AdminModule\Services\PeopleWorkspace;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -496,6 +497,12 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('lead_report_export', fn () => $this->checkAccess('lead_report', 'can_export'));
 
         Gate::define('ledger_view', fn () => $this->checkAccess('ledger', 'can_view'));
+
+        Gate::define('people_hr', function () {
+            $user = auth()->user();
+
+            return $user && app(PeopleWorkspace::class)->isHr($user);
+        });
     }
 
     private function checkAccess($sectionName, $action): bool
@@ -506,25 +513,32 @@ class AuthServiceProvider extends ServiceProvider
             return true;
         }
 
-        $role = $user->roles->first();
-        $roleId = $role->pivot->role_id ?? null;
-        if (!$roleId) {
+        $roles = $user->roles;
+        if ($roles->isEmpty()) {
             return false;
         }
 
-        // Prefer employee-level access (if explicitly set), otherwise fall back to role-level access.
-        $employeeAccess = $user->module_access
-            ->where('role_id', $roleId)
-            ->where('section_name', $sectionName)
-            ->first();
+        foreach ($roles as $role) {
+            $roleId = $role->pivot->role_id ?? $role->id;
+            if (! $roleId) {
+                continue;
+            }
 
-        $roleAccess = \Modules\UserManagement\Entities\RoleAccess::query()
-            ->where('role_id', $roleId)
-            ->where('section_name', $sectionName)
-            ->first();
+            $employeeAccess = $user->module_access
+                ->where('role_id', $roleId)
+                ->where('section_name', $sectionName)
+                ->first();
 
-        // Role permission should grant access to all employees of that role.
-        // Employee-level access remains supported, but it can only extend, not revoke, role permission.
-        return (bool) ($employeeAccess?->$action || $roleAccess?->$action);
+            $roleAccess = \Modules\UserManagement\Entities\RoleAccess::query()
+                ->where('role_id', $roleId)
+                ->where('section_name', $sectionName)
+                ->first();
+
+            if ($employeeAccess?->$action || $roleAccess?->$action) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

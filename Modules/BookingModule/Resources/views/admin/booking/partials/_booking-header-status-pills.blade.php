@@ -1,6 +1,7 @@
 @can('booking_can_manage_status')
     @if($bookingStatusChangeable ?? !$bookingNotEditable)
         <div class="booking-header__status-actions" id="booking-status-overview-actions">
+            @include('bookingmodule::admin.booking.partials._booking-customer-non-responsive-action', ['booking' => $booking])
             @forelse ($__adminNextStatuses as $__nextSt)
                 @php
                     $__cashBlockTargets = ['pending', 'ongoing', 'completed'];
@@ -87,6 +88,7 @@
         </div>
     @elseif($__overviewShowReopenInCard ?? false)
         <div class="booking-header__status-actions" id="booking-status-overview-actions">
+            @include('bookingmodule::admin.booking.partials._booking-customer-non-responsive-action', ['booking' => $booking])
             <button type="button" class="status-pill status-pill--warning" data-bs-toggle="modal"
                 data-bs-target="#bookingReopenModal--{{ $booking->id }}">
                 {{ translate('Reopen_Booking') }}

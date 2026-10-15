@@ -54,7 +54,7 @@ Route::get('/image-proxy', function () {
 });
 
 Route::get('lang/{locale}', [LandingController::class, 'lang'])->name('lang');
-Route::get('/', [LandingController::class, 'home'])->name('home');
+Route::redirect('/', '/admin/auth/login')->name('home');
 Route::get('page/contact-us', [LandingController::class, 'contactUs'])->name('page.contact-us');
 
 Route::get('business-page/{slug}', [LandingController::class, 'dynamicPage'])->name('business.page.dynamic');

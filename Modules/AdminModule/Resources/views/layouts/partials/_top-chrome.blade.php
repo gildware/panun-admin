@@ -64,6 +64,7 @@
                 <span class="material-icons top-chrome-mode-icon" aria-hidden="true">push_pin</span>
                 <span class="top-chrome-mode-label d-none d-md-inline">{{ translate('Unpin') }}</span>
             </button>
+            @include('adminmodule::layouts.partials._workspace-switcher')
         </div>
         <div class="top-utility-scroll">
             @if(is_admin_employee())
@@ -116,6 +117,7 @@
                 <span class="top-utility-search-kbd d-none d-md-inline">Ctrl+K</span>
             </button>
 
+            @if(admin_workspace() === 'operations')
             <a href="{{ route('admin.chat.staff') }}"
                class="top-utility-action-btn top-utility-action-btn--inline-count position-relative"
                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
@@ -151,11 +153,14 @@
                     @include('adminmodule::layouts.partials._header-unread-badge', ['id' => 'whatsapp_unread_count', 'count' => $whatsappUnreadCount ?? 0, 'alwaysShowNumber' => true])
                 </a>
             @endcan
+            @endif
 
+            @if(\Modules\AdminModule\Entities\UserNotification::typesForWorkspace(admin_workspace(), \Modules\AdminModule\Entities\UserNotification::CATEGORY_EXTERNAL) !== [])
             @include('adminmodule::layouts.partials._notification-dropdown', [
                 'category' => \Modules\AdminModule\Entities\UserNotification::CATEGORY_EXTERNAL,
                 'isTopChrome' => true,
             ])
+            @endif
 
             @include('adminmodule::layouts.partials._notification-dropdown', [
                 'category' => \Modules\AdminModule\Entities\UserNotification::CATEGORY_INTERNAL,
@@ -180,8 +185,7 @@
                     <span class="top-utility-profile-name d-none d-md-inline">{{ Str::limit($profileName, 20) }}</span>
                 </button>
                 <div class="dropdown-menu dropdown-menu-end">
-                    <a href="{{ route('admin.profile_update') }}" class="dropdown-item-text media gap-3 align-items-center text-decoration-none"
-                       @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                    <div class="dropdown-item-text media gap-3 align-items-center">
                         <div class="avatar">
                             <img class="avatar-img rounded-circle aspect-square object-fit-cover js-nav-img-fallback" width="50" height="50"
                                  src="{{ $profileImage }}"
@@ -193,11 +197,7 @@
                             <h5 class="card-title mb-0">{{ Str::limit(auth()->user()?->first_name, 20) }}</h5>
                             <span class="card-text">{{ Str::limit(auth()->user()?->email, 20) }}</span>
                         </div>
-                    </a>
-                    <a class="dropdown-item" href="{{ route('admin.profile_update') }}"
-                       @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
-                        <span class="text-truncate" title="{{ translate('Settings') }}">{{ translate('Settings') }}</span>
-                    </a>
+                    </div>
                     <a class="dropdown-item admin-logout" data-turbo="false">
                         <span class="text-truncate cursor-pointer" title="{{ translate('Sign Out') }}">{{ translate('Sign_Out') }}</span>
                     </a>
@@ -211,9 +211,6 @@
             <div class="top-nav-scroll">
                 @include('adminmodule::layouts.partials._top-nav-menu')
             </div>
-            @if(! is_admin_employee())
-                @include('adminmodule::layouts.partials.top-nav.group-admin-module-links')
-            @endif
         </div>
     </nav>
 

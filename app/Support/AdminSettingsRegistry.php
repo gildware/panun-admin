@@ -51,10 +51,6 @@ final class AdminSettingsRegistry
                 self::item(translate('Message_templates'), route('admin.whatsapp.booking-templates.edit', ['channel' => 'whatsapp']), ['admin/social-inbox/*/booking-message-templates*'], [], 'whatsapp_message_template_view'),
                 self::item(__('whatsapp_ai.page_title'), route('admin.whatsapp.ai-settings.edit', ['channel' => 'whatsapp']), ['admin/social-inbox/*/ai-support*'], [], 'whatsapp_chat_view'),
                 self::item(translate('Meta_CAPI_Events'), route('admin.whatsapp.meta-capi-events.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/meta-capi-events*'], [], 'whatsapp_chat_view'),
-                self::item(translate('Send_Bulk_Message'), route('admin.whatsapp.marketing.bulk.create', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/send'], [], 'whatsapp_marketing_bulk_view'),
-                self::item(translate('campaigns'), route('admin.whatsapp.marketing.campaigns.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/campaigns*'], [], 'whatsapp_marketing_campaign_view'),
-                self::item(translate('Templates'), route('admin.whatsapp.marketing.templates.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/templates*'], [], 'whatsapp_marketing_template_view'),
-                self::item(translate('Reports'), route('admin.whatsapp.marketing.reports.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/reports*'], [], 'whatsapp_marketing_report_view'),
             ]),
             self::section('customers', translate('Customers'), 'groups', [
                 self::item(translate('Welcome_Bonus_Settings'), route('admin.customer.settings', ['web_page' => 'welcome_bonus']), ['admin/customer/settings'], [], 'welcome_bonus_view'),
@@ -66,11 +62,6 @@ final class AdminSettingsRegistry
             ]),
             self::section('catalog', translate('Catalog'), 'category', [
                 self::item(translate('service_overview_defaults'), route('admin.service-overview.defaults'), ['admin/service-overview/*'], [], 'service_update'),
-            ]),
-            self::section('team', translate('Team'), 'badge', [
-                self::item(translate('Employee Role Setup'), route('admin.role.index'), ['admin/role/*'], ['admin.role.index'], ['role_view', 'role_add']),
-                self::item(translate('employee_list'), route('admin.employee.index'), ['admin/employee/list', 'admin/employee/edit/*'], ['admin.employee.index'], 'employee_view'),
-                self::item(translate('add_new_employee'), route('admin.employee.create'), ['admin/employee/create'], ['admin.employee.create'], 'employee_add'),
             ]),
             self::section('marketing', translate('Marketing'), 'campaign', [
                 self::item(translate('Push Notification'), route('admin.configuration.get-notification-setting', ['type' => 'customers']), ['admin/configuration/get-notification-setting*'], [], ['notification_message_view', 'notification_message_add', 'notification_message_update']),
@@ -112,7 +103,6 @@ final class AdminSettingsRegistry
                 self::item(translate('Data_Transfer'), route('admin.data-transfer.index'), ['admin/data-transfer*'], ['admin.data-transfer.index'], ['service_view', 'category_view', 'customer_view', 'provider_view', 'lead_view', 'booking_view', 'business_view']),
                 self::item(translate('system_addons'), route('admin.addon.index'), ['admin/addon*'], [], ['addon_view', 'addon_add']),
                 self::item(translate('Add-on Activation'), route('admin.add-on-activation.index'), ['admin/add-on-activation/index'], [], ['addon_view', 'addon_update']),
-                self::item(translate('profile'), route('admin.profile_update'), ['admin/profile-update*'], ['admin.profile_update'], null),
             ]),
         ];
 

@@ -209,6 +209,11 @@ class Provider extends Model
         return $this->hasMany(SubscribedService::class, 'provider_id')->where('is_subscribed', 1);
     }
 
+    public function expertise(): HasMany
+    {
+        return $this->hasMany(ProviderExpertise::class, 'provider_id');
+    }
+
     public function servicemen(): HasMany
     {
         return $this->hasMany(Serviceman::class, 'provider_id');

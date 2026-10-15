@@ -1,7 +1,8 @@
 <div class="people-date-pop" id="people-date-pop" hidden>
     <div class="people-date-pop-bar">
         <button type="button" data-date-nav="-1" aria-label="Previous month">‹</button>
-        <strong data-date-label></strong>
+        <select data-date-month aria-label="Month"></select>
+        <select data-date-year aria-label="Year"></select>
         <button type="button" data-date-nav="1" aria-label="Next month">›</button>
     </div>
     <div class="people-date-week" aria-hidden="true"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
@@ -13,17 +14,33 @@
         if (!pop || pop.dataset.ready) return;
         pop.dataset.ready = '1';
         document.body.appendChild(pop);
-        var label = pop.querySelector('[data-date-label]');
+        var monthSelect = pop.querySelector('[data-date-month]');
+        var yearSelect = pop.querySelector('[data-date-year]');
         var grid = pop.querySelector('[data-date-grid]');
         var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         var view = new Date();
         var active = null;
+        var thisYear = new Date().getFullYear();
+
+        months.forEach(function (name, index) {
+            var option = document.createElement('option');
+            option.value = String(index);
+            option.textContent = name;
+            monthSelect.appendChild(option);
+        });
+        for (var year = thisYear + 5; year >= 1940; year--) {
+            var option = document.createElement('option');
+            option.value = String(year);
+            option.textContent = String(year);
+            yearSelect.appendChild(option);
+        }
 
         function iso(year, month, day) {
             return year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
         }
 
         function place() {
+            if (!active) return;
             var rect = active.getBoundingClientRect();
             pop.hidden = false;
             var top = rect.bottom + 6;
@@ -37,7 +54,14 @@
         function render() {
             var year = view.getFullYear();
             var month = view.getMonth();
-            label.textContent = months[month] + ' ' + year;
+            if (![...yearSelect.options].some(function (option) { return option.value === String(year); })) {
+                var extra = document.createElement('option');
+                extra.value = String(year);
+                extra.textContent = String(year);
+                yearSelect.appendChild(extra);
+            }
+            monthSelect.value = String(month);
+            yearSelect.value = String(year);
             grid.replaceChildren();
             var start = (new Date(year, month, 1).getDay() + 6) % 7;
             var days = new Date(year, month + 1, 0).getDate();
@@ -52,6 +76,14 @@
                 button.dataset.value = value;
                 if (value === selected) button.className = 'is-selected';
                 if (value === today) button.classList.add('is-today');
+                var reason = active && typeof window.peopleDateBlockReason === 'function'
+                    ? (window.peopleDateBlockReason(active, value) || '')
+                    : '';
+                if (reason) {
+                    button.disabled = true;
+                    button.title = reason;
+                    button.classList.add('is-disabled');
+                }
                 grid.appendChild(button);
             }
         }
@@ -78,6 +110,7 @@
         });
 
         pop.addEventListener('click', function (event) {
+            event.stopPropagation();
             var nav = event.target.closest('[data-date-nav]');
             if (nav) {
                 view = new Date(view.getFullYear(), view.getMonth() + Number(nav.dataset.dateNav), 1);
@@ -86,10 +119,24 @@
                 return;
             }
             var day = event.target.closest('[data-value]');
-            if (!day || !active) return;
-            active.value = day.dataset.value;
+            if (!day || !active || day.disabled) return;
+            var input = active;
+            input.value = day.dataset.value;
             pop.hidden = true;
             active = null;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        pop.addEventListener('change', function (event) {
+            if (event.target === monthSelect || event.target === yearSelect) {
+                view = new Date(Number(yearSelect.value), Number(monthSelect.value), 1);
+                render();
+                place();
+            }
+        });
+
+        pop.addEventListener('mousedown', function (event) {
+            event.stopPropagation();
         });
 
         document.addEventListener('mousedown', function (event) {
@@ -98,5 +145,13 @@
             pop.hidden = true;
             active = null;
         });
+
+        window.addEventListener('resize', function () {
+            if (!pop.hidden) place();
+        });
+
+        window.peopleDateRefresh = function () {
+            if (!pop.hidden && active) render();
+        };
     })();
 </script>

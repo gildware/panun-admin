@@ -20,6 +20,7 @@ class PeopleTimesheet extends Model
         'status',
         'decided_by',
         'decided_at',
+        'decision_note',
     ];
 
     protected $casts = [

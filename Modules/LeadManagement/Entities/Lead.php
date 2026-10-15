@@ -18,6 +18,8 @@ class Lead extends Model
     public const TYPE_INVALID = 'invalid';
     public const TYPE_FUTURE_CUSTOMER = 'future_customer';
 
+    public const TYPE_FUTURE_PROVIDER = 'future_provider';
+
     /** Stored in `handled_by` when the WhatsApp / AI pipeline owns the thread (not an employee). */
     public const HANDLED_BY_AI = 'AI';
 
@@ -43,6 +45,7 @@ class Lead extends Model
             self::TYPE_PROVIDER => 'Provider',
             self::TYPE_INVALID => 'Invalid',
             self::TYPE_FUTURE_CUSTOMER => 'Future Customer',
+            self::TYPE_FUTURE_PROVIDER => 'Future Provider',
         ];
     }
 
@@ -63,6 +66,9 @@ class Lead extends Model
         'initial_call_recording_summary',
         'initial_call_recording_transcribed_at',
         'next_followup_at',
+        'non_responsive_at',
+        'non_responsive_by',
+        'non_responsive_remarks',
         'hunting_status',
         'hunting_started_at',
         'hunting_started_by',
@@ -76,6 +82,7 @@ class Lead extends Model
     protected $casts = [
         'date_time_of_lead_received' => 'datetime',
         'next_followup_at' => 'datetime',
+        'non_responsive_at' => 'datetime',
         'hunting_started_at' => 'datetime',
         'hunting_unpublished_at' => 'datetime',
         'initial_call_recording_transcribed_at' => 'datetime',
@@ -184,14 +191,31 @@ class Lead extends Model
     }
 
     /**
-     * Computed status flag: a lead is considered "open"
-     * when its type is unknown or customer.
+     * Unknown, customer, and provider leads can be closed as non-responsive without changing type.
+     */
+    public function supportsNonResponsiveClose(): bool
+    {
+        return in_array($this->lead_type, [self::TYPE_UNKNOWN, self::TYPE_CUSTOMER, self::TYPE_PROVIDER], true);
+    }
+
+    /**
+     * Closed because nobody responded. The lead type stays unknown, customer, or provider.
+     */
+    public function isNonResponsive(): bool
+    {
+        return $this->supportsNonResponsiveClose() && $this->non_responsive_at !== null;
+    }
+
+    /**
+     * Simplified flag for unknown and customer leads: open unless closed as non-responsive.
+     * Provider open/closed state is decided from the provider status plus this close.
      */
     public function getIsOpenAttribute(): bool
     {
-        return in_array($this->lead_type, [
-            self::TYPE_UNKNOWN,
-            self::TYPE_CUSTOMER,
-        ], true);
+        if (in_array($this->lead_type, [self::TYPE_UNKNOWN, self::TYPE_CUSTOMER], true)) {
+            return ! $this->isNonResponsive();
+        }
+
+        return false;
     }
 }

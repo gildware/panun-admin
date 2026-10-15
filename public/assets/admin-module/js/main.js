@@ -289,16 +289,19 @@ We may release future updates so it will overwrite this file. it's better and sa
     /*==================================
   04: togglePassword
   ====================================*/
-    $(document).ready(function () {
-        $(".togglePassword").on("click", function (e) {
-            const password = $(this).siblings(".form-control");
-            password.attr("type") === "password"
-                ? $(this).html("visibility")
-                : $(this).html("visibility_off");
-            const type =
-                password.attr("type") === "password" ? "text" : "password";
-            password.attr("type", type);
-        });
+    $(document).on("click", ".togglePassword", function (e) {
+        e.preventDefault();
+        const $icon = $(this);
+        let $password = $icon.siblings("input.form-control, input[type='password'], input[type='text']").first();
+        if (!$password.length) {
+            $password = $icon.closest(".form-floating, .input-wrap").find("input").first();
+        }
+        if (!$password.length) {
+            return;
+        }
+        const show = $password.attr("type") === "password";
+        $password.attr("type", show ? "text" : "password");
+        $icon.text(show ? "visibility" : "visibility_off");
     });
 
     /*==================================

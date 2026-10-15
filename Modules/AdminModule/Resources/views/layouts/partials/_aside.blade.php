@@ -47,20 +47,20 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </a>
             </li>
             <li>
-                <a href="{{ route('admin.people.index') }}" class="{{ request()->is('admin/people*') ? 'active-menu' : '' }}">
-                    <span class="material-icons" title="My workspace">badge</span>
-                    <span class="link-title">My workspace</span>
+                <a href="{{ route('admin.people.index') }}" class="{{ request()->is('admin/people') || request()->is('admin/people/team*') ? 'active-menu' : '' }}">
+                    <span class="material-icons" title="Workspace">badge</span>
+                    <span class="link-title">Workspace</span>
                 </a>
             </li>
-            @if(! is_admin_employee())
+            @if(auth()->user() && \Illuminate\Support\Facades\Schema::hasTable('people_profiles') && app(\Modules\AdminModule\Services\PeopleWorkspace::class)->canReviewApprovals(auth()->user()))
             <li>
-                <a href="{{ route('admin.dashboard.operating-system') }}"
-                   class="{{ request()->is('admin/dashboard/operating-system*') ? 'active-menu' : '' }}"
-                   data-turbo="false">
-                    <span class="material-icons" title="{{ translate('Operating_System') }}">account_tree</span>
-                    <span class="link-title">{{ translate('Operating_System') }}</span>
+                <a href="{{ route('admin.people.approvals') }}" class="{{ request()->routeIs('admin.people.approvals') ? 'active-menu' : '' }}">
+                    <span class="material-icons" title="Approval Request">fact_check</span>
+                    <span class="link-title">Approval Request</span>
                 </a>
             </li>
+            @endif
+            @if(! is_admin_employee())
             <li>
                 <a href="{{ route('admin.dashboard.business-system') }}"
                    class="{{ request()->is('admin/dashboard/business-system*') ? 'active-menu' : '' }}"
@@ -1030,33 +1030,24 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
-            @canany(['role_view', 'role_add', 'employee_add', 'employee_view'])
+            @canany(['role_view', 'role_add', 'employee_view'])
                 <li class="nav-category" title="{{translate('employee_management')}}">{{translate('employee_management')}}</li>
             @endcanany
 
-            @canany(['role_view', 'role_add'])
-                <li>
-                    <a href="{{route('admin.role.index')}}" class="{{request()->is('admin/role/*')?'active-menu':''}}">
-                        <span class="material-icons" title="Employee">settings</span>
-                        <span class="link-title">{{translate('Employee Role Setup')}}</span>
-                    </a>
-                </li>
-            @endcan
             @can('employee_view')
                 <li>
                     <a href="{{route('admin.employee.index')}}"
-                       class="{{request()->is('admin/employee/list') ||  request()->is('admin/employee/edit/*') ? 'active-menu':''}}">
-                        <span class="material-icons" title="{{translate('employee_list')}}">list</span>
-                        <span class="link-title">{{translate('employee_list')}}</span>
+                       class="{{request()->is('admin/employee*') ? 'active-menu':''}}">
+                        <span class="material-icons" title="Employee list">list</span>
+                        <span class="link-title">Employee list</span>
                     </a>
                 </li>
             @endcan
-            @can('employee_add')
+            @canany(['role_view', 'role_add'])
                 <li>
-                    <a href="{{route('admin.employee.create')}}"
-                       class="{{request()->is('admin/employee/create')?'active-menu':''}}">
-                        <span class="material-icons" title="{{translate('add_new_employee')}}">add</span>
-                        <span class="link-title">{{translate('add_new_employee')}}</span>
+                    <a href="{{route('admin.role.index')}}" class="{{request()->is('admin/role/*')?'active-menu':''}}">
+                        <span class="material-icons" title="Roles and Permission">admin_panel_settings</span>
+                        <span class="link-title">Roles and Permission</span>
                     </a>
                 </li>
             @endcan

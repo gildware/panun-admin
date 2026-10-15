@@ -11,6 +11,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderSetting;
+use Modules\ServiceManagement\Entities\Service;
 use Modules\ZoneManagement\Entities\Zone;
 
 class ProviderLiveViewController extends Controller
@@ -47,6 +48,8 @@ class ProviderLiveViewController extends Controller
                 },
                 'subscribed_services.category:id,name',
                 'subscribed_services.sub_category:id,name,parent_id',
+                'expertise.sub_category:id,name',
+                'expertise.service:id,name',
                 'storage',
             ])
             ->withCount([
@@ -78,6 +81,11 @@ class ProviderLiveViewController extends Controller
 
         $categories = Category::ofType('main')->ofStatus(1)->ordered()->get(['id', 'name']);
         $subcategories = Category::ofType('sub')->ofStatus(1)->ordered()->get(['id', 'name', 'parent_id']);
+        $services = Service::query()
+            ->where('is_active', 1)
+            ->whereNotNull('sub_category_id')
+            ->ordered()
+            ->get(['id', 'name', 'sub_category_id']);
 
         return view('providermanagement::admin.provider.live-view', [
             'zonesJson' => $zonePayload,
@@ -88,6 +96,11 @@ class ProviderLiveViewController extends Controller
                 'id' => (string) $cat->id,
                 'name' => (string) $cat->name,
                 'parent_id' => $cat->parent_id ? (string) $cat->parent_id : null,
+            ])->values()->all(),
+            'servicesJson' => $services->map(fn (Service $service) => [
+                'id' => (string) $service->id,
+                'name' => (string) $service->name,
+                'sub_category_id' => (string) $service->sub_category_id,
             ])->values()->all(),
             'categoriesJson' => $categories->map(fn (Category $cat) => [
                 'id' => (string) $cat->id,
@@ -152,6 +165,35 @@ class ProviderLiveViewController extends Controller
             ->values()
             ->all();
 
+        $subscribedSubIds = array_flip(array_column($subcategories, 'id'));
+        $expertise = $provider->expertise
+            ->filter(fn ($row) => isset($subscribedSubIds[(string) $row->sub_category_id]))
+            ->map(function ($row) {
+                if ($row->scope === 'sub_category' && $row->sub_category) {
+                    return [
+                        'scope' => 'sub_category',
+                        'category_id' => (string) $row->category_id,
+                        'sub_category_id' => (string) $row->sub_category_id,
+                        'service_id' => '',
+                        'name' => (string) $row->sub_category->name,
+                    ];
+                }
+                if ($row->scope === 'service' && $row->service) {
+                    return [
+                        'scope' => 'service',
+                        'category_id' => (string) $row->category_id,
+                        'sub_category_id' => (string) $row->sub_category_id,
+                        'service_id' => (string) $row->service_id,
+                        'name' => (string) $row->service->name,
+                    ];
+                }
+
+                return null;
+            })
+            ->filter()
+            ->values()
+            ->all();
+
         $availableForJobs = (int) $provider->is_active === 1
             && (int) ($provider->service_availability ?? 1) === 1
             && (int) ($provider->is_active_for_jobs ?? 1) === 1
@@ -183,6 +225,7 @@ class ProviderLiveViewController extends Controller
             'zone_ids' => $zoneIds,
             'categories' => $categories,
             'subcategories' => $subcategories,
+            'expertise' => $expertise,
             'details_url' => route('admin.provider.details', [$provider->id, 'web_page' => 'overview']),
             'appOn' => $availableForJobs,
             'hours' => $this->hoursFromSettings($settings),

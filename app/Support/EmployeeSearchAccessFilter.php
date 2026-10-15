@@ -74,9 +74,37 @@ class EmployeeSearchAccessFilter
     {
         return [
             [
+                'patterns' => ['admin/employee/create'],
+                'gates' => ['employee_add'],
+            ],
+            [
+                'patterns' => ['admin/employee/*'],
+                'gates' => ['employee_view', 'employee_update'],
+            ],
+            [
+                'patterns' => ['admin/role/*'],
+                'gates' => ['role_view', 'role_add', 'role_update'],
+            ],
+            [
                 'patterns' => [
-                    'admin/employee/*',
-                    'admin/role/*',
+                    'admin/hr*',
+                    'admin/people/holidays*',
+                    'admin/people/records*',
+                    'admin/dashboard/people',
+                    'admin/dashboard/hr',
+                ],
+                'gates' => ['people_hr'],
+            ],
+            [
+                'patterns' => ['admin/people', 'admin/people/*'],
+                'gates' => [],
+            ],
+            [
+                'patterns' => ['admin/accounts/payroll*'],
+                'gates' => ['ledger_view'],
+            ],
+            [
+                'patterns' => [
                     'admin/business-settings/*',
                     'admin/business-page-setup*',
                     'admin/social-media/*',

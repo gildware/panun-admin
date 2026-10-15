@@ -19,6 +19,9 @@ use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Services\LeadCtwaDisplayService;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
+use Modules\LeadManagement\Entities\LeadFutureCustomerReasonOption;
+use Modules\LeadManagement\Entities\LeadFutureProviderReason;
+use Modules\LeadManagement\Entities\LeadReasonFollowupOption;
 use Modules\LeadManagement\Entities\LeadCancellationReason;
 use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
@@ -56,7 +59,7 @@ class LeadController extends Controller
     public function index(Request $request): View|JsonResponse
     {
         $tab = $request->get('tab', 'all');
-        $validTabs = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
+        $validTabs = ['all', 'unknown', 'customer', 'future_customer', 'future_provider', 'provider', 'invalid'];
         if (!in_array($tab, $validTabs)) {
             $tab = 'all';
         }
@@ -451,7 +454,7 @@ class LeadController extends Controller
         }
 
         $reasonLeadData = [];
-        if (in_array($tab, ['invalid', 'future_customer'], true) && $leads->isNotEmpty()) {
+        if (in_array($tab, ['invalid', 'future_customer', 'future_provider'], true) && $leads->isNotEmpty()) {
             $leadIds = $leads->pluck('id')->all();
             $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
                 ->where('type', $tab)
@@ -460,19 +463,42 @@ class LeadController extends Controller
             $latestByLead = $histories->groupBy('lead_id')->map(fn ($group) => $group->first());
             if ($tab === 'invalid') {
                 $reasonIds = $latestByLead->map(fn ($h) => is_array($h->data ?? null) ? ($h->data['invalid_reason_id'] ?? null) : null)->filter()->unique()->values()->all();
+                $optionIds = $latestByLead->map(fn ($h) => is_array($h->data ?? null) ? ($h->data['invalid_reason_option_id'] ?? null) : null)->filter()->unique()->values()->all();
                 $reasons = LeadInvalidReason::whereIn('id', $reasonIds)->get()->keyBy('id');
+                $options = LeadReasonFollowupOption::where('reason_type', 'invalid_reason')->whereIn('id', $optionIds)->get()->keyBy('id');
                 foreach ($leadIds as $lid) {
                     $h = $latestByLead->get($lid);
                     $reasonId = ($h && is_array($h->data ?? null)) ? ($h->data['invalid_reason_id'] ?? null) : null;
-                    $reasonLeadData[$lid] = $reasonId ? ($reasons->get($reasonId)?->name ?? '—') : '—';
+                    $optionId = ($h && is_array($h->data ?? null)) ? ($h->data['invalid_reason_option_id'] ?? null) : null;
+                    $label = $reasonId ? ($reasons->get($reasonId)?->name ?? '—') : '—';
+                    $optionName = $optionId ? ($options->get($optionId)?->name) : null;
+                    $reasonLeadData[$lid] = $optionName ? ($label.' — '.$optionName) : $label;
+                }
+            } elseif ($tab === 'future_provider') {
+                $reasonIds = $latestByLead->map(fn ($h) => is_array($h->data ?? null) ? ($h->data['future_provider_reason_id'] ?? null) : null)->filter()->unique()->values()->all();
+                $optionIds = $latestByLead->map(fn ($h) => is_array($h->data ?? null) ? ($h->data['future_provider_reason_option_id'] ?? null) : null)->filter()->unique()->values()->all();
+                $reasons = LeadFutureProviderReason::whereIn('id', $reasonIds)->get()->keyBy('id');
+                $options = LeadReasonFollowupOption::where('reason_type', 'future_provider_reason')->whereIn('id', $optionIds)->get()->keyBy('id');
+                foreach ($leadIds as $lid) {
+                    $h = $latestByLead->get($lid);
+                    $reasonId = ($h && is_array($h->data ?? null)) ? ($h->data['future_provider_reason_id'] ?? null) : null;
+                    $optionId = ($h && is_array($h->data ?? null)) ? ($h->data['future_provider_reason_option_id'] ?? null) : null;
+                    $label = $reasonId ? ($reasons->get($reasonId)?->name ?? '—') : '—';
+                    $optionName = $optionId ? ($options->get($optionId)?->name) : null;
+                    $reasonLeadData[$lid] = $optionName ? ($label.' — '.$optionName) : $label;
                 }
             } else {
                 $reasonIds = $latestByLead->map(fn ($h) => is_array($h->data ?? null) ? ($h->data['future_customer_reason_id'] ?? null) : null)->filter()->unique()->values()->all();
+                $optionIds = $latestByLead->map(fn ($h) => is_array($h->data ?? null) ? ($h->data['future_customer_reason_option_id'] ?? null) : null)->filter()->unique()->values()->all();
                 $reasons = LeadFutureCustomerReason::whereIn('id', $reasonIds)->get()->keyBy('id');
+                $options = LeadFutureCustomerReasonOption::whereIn('id', $optionIds)->get()->keyBy('id');
                 foreach ($leadIds as $lid) {
                     $h = $latestByLead->get($lid);
                     $reasonId = ($h && is_array($h->data ?? null)) ? ($h->data['future_customer_reason_id'] ?? null) : null;
-                    $reasonLeadData[$lid] = $reasonId ? ($reasons->get($reasonId)?->name ?? '—') : '—';
+                    $optionId = ($h && is_array($h->data ?? null)) ? ($h->data['future_customer_reason_option_id'] ?? null) : null;
+                    $label = $reasonId ? ($reasons->get($reasonId)?->name ?? '—') : '—';
+                    $optionName = $optionId ? ($options->get($optionId)?->name) : null;
+                    $reasonLeadData[$lid] = $optionName ? ($label.' — '.$optionName) : $label;
                 }
             }
         }
@@ -516,8 +542,13 @@ class LeadController extends Controller
             ]);
         }
 
-        $invalidReasons = LeadInvalidReason::where('is_active', true)->orderBy('name')->get();
-        $futureCustomerReasons = LeadFutureCustomerReason::where('is_active', true)->orderBy('name')->get();
+        $activeFollowupOptions = fn ($q) => $q->where('is_active', true);
+        $invalidReasons = LeadInvalidReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
+        $futureCustomerReasons = LeadFutureCustomerReason::with(['options' => $activeFollowupOptions])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        $futureProviderReasons = LeadFutureProviderReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
 
         return view('leadmanagement::admin.leads.index', compact(
             'leads',
@@ -561,7 +592,8 @@ class LeadController extends Controller
             'outboundEnquiryFilter',
             'outboundEnquiryCount',
             'invalidReasons',
-            'futureCustomerReasons'
+            'futureCustomerReasons',
+            'futureProviderReasons'
         ));
     }
 
@@ -828,7 +860,7 @@ class LeadController extends Controller
         ?string $followupFrom = null,
         ?string $followupTo = null
     ): array {
-        $tabs = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
+        $tabs = ['all', 'unknown', 'customer', 'future_customer', 'future_provider', 'provider', 'invalid'];
         $out = [];
         foreach ($tabs as $scopeTab) {
             $q = $this->adminLeadListFilteredBaseQuery(
@@ -903,10 +935,15 @@ class LeadController extends Controller
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name', 'email']);
         $currentEmployeeId = Auth::id();
-        $invalidReasons = LeadInvalidReason::where('is_active', true)->orderBy('name')->get();
-        $futureCustomerReasons = LeadFutureCustomerReason::where('is_active', true)->orderBy('name')->get();
+        $activeFollowupOptions = fn ($q) => $q->where('is_active', true);
+        $invalidReasons = LeadInvalidReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
+        $futureCustomerReasons = LeadFutureCustomerReason::with(['options' => $activeFollowupOptions])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        $futureProviderReasons = LeadFutureProviderReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
 
-        return view('leadmanagement::admin.leads.create', compact('sources', 'adSources', 'employees', 'currentEmployeeId', 'invalidReasons', 'futureCustomerReasons'));
+        return view('leadmanagement::admin.leads.create', compact('sources', 'adSources', 'employees', 'currentEmployeeId', 'invalidReasons', 'futureCustomerReasons', 'futureProviderReasons'));
     }
 
     /**
@@ -966,27 +1003,38 @@ class LeadController extends Controller
             'name' => 'nullable|string|max:255',
             'phone_number' => 'required|string|max:32',
             'source_id' => 'nullable|exists:sources,id',
-            'lead_type' => 'required|in:unknown,customer,provider,invalid,future_customer',
+            'lead_type' => 'required|in:unknown,customer,provider,invalid,future_customer,future_provider',
             'date_time_of_lead_received' => 'nullable|date',
             'ad_source_id' => 'nullable|exists:adsources,id',
             'handled_by' => 'nullable|string|max:64',
             'remarks' => 'nullable|string|max:1000',
             'next_followup_at' => ['nullable', 'date', 'after:now'],
             'invalid_reason_id' => 'nullable|required_if:lead_type,invalid|exists:lead_invalid_reasons,id',
+            'invalid_reason_option_id' => 'nullable|integer',
             'invalid_remarks' => 'nullable|string|max:1000',
             'future_customer_reason_id' => 'nullable|required_if:lead_type,future_customer|exists:lead_future_customer_reasons,id',
+            'future_customer_reason_option_id' => 'nullable|string|max:255',
             'future_customer_remarks' => 'nullable|string|max:1000',
+            'future_provider_reason_id' => 'nullable|required_if:lead_type,future_provider|exists:lead_future_provider_reasons,id',
+            'future_provider_reason_option_id' => 'nullable|integer',
+            'future_provider_remarks' => 'nullable|string|max:1000',
         ]);
 
         $invalidHistoryData = null;
         if ($validated['lead_type'] === Lead::TYPE_INVALID) {
-            $invalidHistoryData = [
-                'invalid_reason_id' => $validated['invalid_reason_id'],
-                'invalid_remarks' => $validated['invalid_remarks'] ?? null,
-            ];
-            unset($validated['invalid_reason_id'], $validated['invalid_remarks']);
+            $invalidHistoryData = $this->applyFollowupOption(
+                [
+                    'invalid_reason_id' => $validated['invalid_reason_id'],
+                    'invalid_remarks' => $validated['invalid_remarks'] ?? null,
+                ],
+                'invalid_reason',
+                'invalid_reason_id',
+                'invalid_reason_option_id',
+                $validated['invalid_reason_option_id'] ?? null
+            );
+            unset($validated['invalid_reason_id'], $validated['invalid_reason_option_id'], $validated['invalid_remarks']);
         } else {
-            unset($validated['invalid_reason_id'], $validated['invalid_remarks']);
+            unset($validated['invalid_reason_id'], $validated['invalid_reason_option_id'], $validated['invalid_remarks']);
         }
 
         $futureCustomerHistoryData = null;
@@ -995,9 +1043,33 @@ class LeadController extends Controller
                 'future_customer_reason_id' => $validated['future_customer_reason_id'],
                 'future_customer_remarks' => $validated['future_customer_remarks'] ?? null,
             ];
-            unset($validated['future_customer_reason_id'], $validated['future_customer_remarks']);
+            $optionId = $this->resolveFutureCustomerOptionId(
+                (int) $validated['future_customer_reason_id'],
+                $validated['future_customer_reason_option_id'] ?? null
+            );
+            if ($optionId) {
+                $futureCustomerHistoryData['future_customer_reason_option_id'] = $optionId;
+            }
+            unset($validated['future_customer_reason_id'], $validated['future_customer_reason_option_id'], $validated['future_customer_remarks']);
         } else {
-            unset($validated['future_customer_reason_id'], $validated['future_customer_remarks']);
+            unset($validated['future_customer_reason_id'], $validated['future_customer_reason_option_id'], $validated['future_customer_remarks']);
+        }
+
+        $futureProviderHistoryData = null;
+        if ($validated['lead_type'] === Lead::TYPE_FUTURE_PROVIDER) {
+            $futureProviderHistoryData = $this->applyFollowupOption(
+                [
+                    'future_provider_reason_id' => $validated['future_provider_reason_id'],
+                    'future_provider_remarks' => $validated['future_provider_remarks'] ?? null,
+                ],
+                'future_provider_reason',
+                'future_provider_reason_id',
+                'future_provider_reason_option_id',
+                $validated['future_provider_reason_option_id'] ?? null
+            );
+            unset($validated['future_provider_reason_id'], $validated['future_provider_reason_option_id'], $validated['future_provider_remarks']);
+        } else {
+            unset($validated['future_provider_reason_id'], $validated['future_provider_reason_option_id'], $validated['future_provider_remarks']);
         }
 
         $followupService = app(LeadFollowupService::class);
@@ -1043,6 +1115,13 @@ class LeadController extends Controller
                 'lead_id' => $lead->id,
                 'type' => Lead::TYPE_FUTURE_CUSTOMER,
                 'data' => $futureCustomerHistoryData,
+                'created_by' => Auth::id(),
+            ]);
+        } elseif ($lead->lead_type === Lead::TYPE_FUTURE_PROVIDER && $futureProviderHistoryData !== null) {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_FUTURE_PROVIDER,
+                'data' => $futureProviderHistoryData,
                 'created_by' => Auth::id(),
             ]);
         }
@@ -1094,7 +1173,7 @@ class LeadController extends Controller
             'name' => 'sometimes|nullable|string|max:255',
             'phone_number' => 'sometimes|required|string|max:32',
             'source_id' => 'sometimes|nullable|exists:sources,id',
-            'lead_type' => 'sometimes|required|in:unknown,customer,provider,invalid,future_customer',
+            'lead_type' => 'sometimes|required|in:unknown,customer,provider,invalid,future_customer,future_provider',
             'date_time_of_lead_received' => 'sometimes|nullable|date',
             'ad_source_id' => 'sometimes|nullable|exists:adsources,id',
             'handled_by' => 'sometimes|nullable|string|max:64',
@@ -1310,6 +1389,99 @@ class LeadController extends Controller
         return (string) $value;
     }
 
+    /**
+     * Choose an existing follow-up answer, or save a newly typed answer into configuration.
+     */
+    protected function resolveFutureCustomerOptionId(int $reasonId, mixed $raw): ?int
+    {
+        $reason = LeadFutureCustomerReason::query()->find($reasonId);
+        $options = LeadFutureCustomerReasonOption::query()
+            ->where('lead_future_customer_reason_id', $reasonId)
+            ->get();
+        $needsAnswer = filled($reason?->followup_label)
+            || $options->contains(fn ($option) => (bool) $option->is_active);
+        $value = trim((string) ($raw ?? ''));
+
+        if ($value === '') {
+            if ($needsAnswer) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'future_customer_reason_option_id' => translate('Select_the_follow_up_for_this_reason'),
+                ]);
+            }
+
+            return null;
+        }
+
+        if (ctype_digit($value)) {
+            $byId = $options->first(fn ($option) => (int) $option->id === (int) $value);
+            if ($byId) {
+                if (! $byId->is_active) {
+                    $byId->is_active = true;
+                    $byId->save();
+                }
+
+                return (int) $byId->id;
+            }
+        }
+
+        $needle = mb_strtolower($value);
+        $byName = $options->first(fn ($option) => mb_strtolower(trim((string) $option->name)) === $needle);
+        if ($byName) {
+            if (! $byName->is_active) {
+                $byName->is_active = true;
+                $byName->save();
+            }
+
+            return (int) $byName->id;
+        }
+
+        $created = LeadFutureCustomerReasonOption::create([
+            'lead_future_customer_reason_id' => $reasonId,
+            'name' => $value,
+            'is_active' => true,
+        ]);
+
+        return (int) $created->id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function applyFollowupOption(array $data, string $reasonType, string $reasonKey, string $optionKey, mixed $rawOptionId): array
+    {
+        $reasonId = (int) ($data[$reasonKey] ?? 0);
+        if ($reasonId <= 0) {
+            unset($data[$optionKey]);
+
+            return $data;
+        }
+
+        $activeIds = LeadReasonFollowupOption::query()
+            ->where('reason_type', $reasonType)
+            ->where('reason_id', $reasonId)
+            ->where('is_active', true)
+            ->pluck('id');
+
+        $activeIds = $activeIds->map(fn ($id) => (int) $id)->all();
+        if ($activeIds === []) {
+            unset($data[$optionKey]);
+
+            return $data;
+        }
+
+        $optionId = (int) $rawOptionId;
+        if (! in_array($optionId, $activeIds, true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                $optionKey => translate('Select_the_follow_up_for_this_reason'),
+            ]);
+        }
+
+        $data[$optionKey] = $optionId;
+
+        return $data;
+    }
+
     public function updateType(Request $request, int $id): RedirectResponse
     {
         $lead = Lead::findOrFail($id);
@@ -1318,7 +1490,7 @@ class LeadController extends Controller
         $leadType = $request->input('lead_type');
         $typeHistoryChanges = [];
 
-        if (!in_array($leadType, ['customer', 'provider', 'invalid', 'future_customer'], true)) {
+        if (!in_array($leadType, ['customer', 'provider', 'invalid', 'future_customer', 'future_provider'], true)) {
             abort(400, 'Invalid lead type');
         }
 
@@ -1337,9 +1509,17 @@ class LeadController extends Controller
         if ($leadType === 'invalid') {
             $data = $request->validate([
                 'invalid_reason_id' => 'required|exists:lead_invalid_reasons,id',
+                'invalid_reason_option_id' => 'nullable|integer',
                 'invalid_remarks' => 'nullable|string|max:1000',
                 'area_id' => 'nullable|string|max:255',
             ]);
+            $data = $this->applyFollowupOption(
+                $data,
+                'invalid_reason',
+                'invalid_reason_id',
+                'invalid_reason_option_id',
+                $data['invalid_reason_option_id'] ?? null
+            );
             $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
 
             $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_INVALID, [], $data);
@@ -1353,16 +1533,49 @@ class LeadController extends Controller
         } elseif ($leadType === 'future_customer') {
             $data = $request->validate([
                 'future_customer_reason_id' => 'required|exists:lead_future_customer_reasons,id',
+                'future_customer_reason_option_id' => 'nullable|string|max:255',
                 'future_customer_remarks' => 'nullable|string|max:1000',
-                'area_id' => 'nullable|string|max:255',
             ]);
-            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
+            $optionId = $this->resolveFutureCustomerOptionId(
+                (int) $data['future_customer_reason_id'],
+                $data['future_customer_reason_option_id'] ?? null
+            );
+            if ($optionId) {
+                $data['future_customer_reason_option_id'] = $optionId;
+            } else {
+                unset($data['future_customer_reason_option_id']);
+            }
+            unset($data['area_id']);
 
             $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_FUTURE_CUSTOMER, [], $data);
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
                 'type' => 'future_customer',
+                'data' => $data,
+                'created_by' => Auth::id(),
+            ]);
+        } elseif ($leadType === 'future_provider') {
+            $data = $request->validate([
+                'future_provider_reason_id' => 'required|exists:lead_future_provider_reasons,id',
+                'future_provider_reason_option_id' => 'nullable|integer',
+                'future_provider_remarks' => 'nullable|string|max:1000',
+                'area_id' => 'nullable|string|max:255',
+            ]);
+            $data = $this->applyFollowupOption(
+                $data,
+                'future_provider_reason',
+                'future_provider_reason_id',
+                'future_provider_reason_option_id',
+                $data['future_provider_reason_option_id'] ?? null
+            );
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
+
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_FUTURE_PROVIDER, [], $data);
+
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => 'future_provider',
                 'data' => $data,
                 'created_by' => Auth::id(),
             ]);
@@ -1392,7 +1605,7 @@ class LeadController extends Controller
                 'area_id' => 'nullable|string|max:255',
             ]);
 
-            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null, $data['zone_id'] ?? null);
             $data['estimated_service_value'] = isset($data['estimated_service_value']) && is_numeric($data['estimated_service_value'])
                 ? round((float) $data['estimated_service_value'], 2)
                 : null;
@@ -1411,7 +1624,7 @@ class LeadController extends Controller
                 // Details form must not change status — keep current status/reason as-is.
                 $data['customer_lead_status_id'] = $existingCustomerData['customer_lead_status_id']
                     ?? CustomerLeadStatus::defaultPendingStatusId();
-                unset($data['cancellation_reason_id'], $data['cancellation_remarks']);
+                unset($data['cancellation_reason_id'], $data['cancellation_remarks'], $data['cancellation_reason_option_id']);
             } else {
                 if (empty($data['customer_lead_status_id'])) {
                     $data['customer_lead_status_id'] = CustomerLeadStatus::defaultPendingStatusId();
@@ -1426,7 +1639,9 @@ class LeadController extends Controller
                     $existingCustomerData,
                     $resolvedCustomerStatus?->base_type,
                     'cancellation_reason_id',
-                    'cancellation_remarks'
+                    'cancellation_remarks',
+                    'cancellation_reason_option_id',
+                    'cancellation_reason'
                 );
                 if ($data === null) {
                     toastr()->error(translate('Customer_cancellation_reasons') . ' ' . translate('is_required'));
@@ -1452,7 +1667,7 @@ class LeadController extends Controller
                     ? CustomerLeadStatus::find($data['customer_lead_status_id'])
                     : null;
                 if (($newCustomerStatus?->base_type ?? null) !== 'cancel') {
-                    unset($payload['cancellation_reason_id'], $payload['cancellation_remarks']);
+                    unset($payload['cancellation_reason_id'], $payload['cancellation_remarks'], $payload['cancellation_reason_option_id']);
                 }
 
                 $changeLogService->record(
@@ -1510,8 +1725,8 @@ class LeadController extends Controller
                 'provider_service_details' => 'nullable|string|max:1000',
                 'area_id' => 'nullable|string|max:255',
             ]);
-            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
             $zoneIds = array_values(array_unique(array_filter((array) ($data['zone_ids'] ?? []))));
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null, $zoneIds[0] ?? null);
             $data['zone_ids'] = $zoneIds;
             $data['zone_id'] = $zoneIds[0] ?? null;
 
@@ -1528,7 +1743,7 @@ class LeadController extends Controller
             if ($isUpdateProvider) {
                 $data['provider_lead_status_id'] = $existingProviderData['provider_lead_status_id']
                     ?? ProviderLeadStatus::defaultPendingStatusId();
-                unset($data['provider_cancellation_reason_id'], $data['provider_cancellation_remarks']);
+                unset($data['provider_cancellation_reason_id'], $data['provider_cancellation_remarks'], $data['provider_cancellation_reason_option_id']);
             } else {
                 if (empty($data['provider_lead_status_id'])) {
                     $data['provider_lead_status_id'] = ProviderLeadStatus::defaultPendingStatusId();
@@ -1543,7 +1758,9 @@ class LeadController extends Controller
                     $existingProviderData,
                     $resolvedProviderStatus?->base_type,
                     'provider_cancellation_reason_id',
-                    'provider_cancellation_remarks'
+                    'provider_cancellation_remarks',
+                    'provider_cancellation_reason_option_id',
+                    'provider_cancellation_reason'
                 );
                 if ($data === null) {
                     toastr()->error(translate('Provider_cancellation_reasons') . ' ' . translate('is_required'));
@@ -1563,7 +1780,7 @@ class LeadController extends Controller
                     ? ProviderLeadStatus::find($data['provider_lead_status_id'])
                     : null;
                 if (($newProviderStatus?->base_type ?? null) !== 'cancel') {
-                    unset($payload['provider_cancellation_reason_id'], $payload['provider_cancellation_remarks']);
+                    unset($payload['provider_cancellation_reason_id'], $payload['provider_cancellation_remarks'], $payload['provider_cancellation_reason_option_id']);
                 }
 
                 $changeLogService->record(
@@ -1602,6 +1819,15 @@ class LeadController extends Controller
         }
 
         $oldType = $lead->lead_type;
+        $wasNonResponsive = $lead->isNonResponsive();
+        if ($wasNonResponsive) {
+            $lead->non_responsive_at = null;
+            $lead->non_responsive_by = null;
+            $lead->non_responsive_remarks = null;
+            if ($this->leadTypeRequiresMandatoryFollowup($leadType) && $lead->next_followup_at === null) {
+                $lead->next_followup_at = app(LeadFollowupService::class)->defaultNextFollowupAt();
+            }
+        }
         $lead->lead_type = $leadType;
         $lead->save();
 
@@ -1616,6 +1842,13 @@ class LeadController extends Controller
                 'label' => 'Lead_Type',
                 'old' => $this->leadChangeDisplayValue('lead_type', $oldType),
                 'new' => $this->leadChangeDisplayValue('lead_type', $leadType),
+            ];
+        }
+        if ($wasNonResponsive) {
+            $changes['non_responsive'] = [
+                'label' => 'Non_Responsive',
+                'old' => 'Closed as non-responsive',
+                'new' => 'Reopened',
             ];
         }
         $changeLogService->record($lead->id, $changes);
@@ -1642,6 +1875,101 @@ class LeadController extends Controller
         return redirect($url);
     }
 
+    public function markNonResponsive(Request $request, int $id): RedirectResponse
+    {
+        $lead = Lead::findOrFail($id);
+        if (! $lead->supportsNonResponsiveClose()) {
+            abort(400, 'Only unknown, customer, and provider leads can be marked non-responsive');
+        }
+
+        if (in_array($lead->lead_type, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true) && ! $lead->isNonResponsive()) {
+            $typeHistory = LeadTypeHistory::where('lead_id', $lead->id)
+                ->where('type', $lead->lead_type)
+                ->latest()
+                ->first();
+            if (! $this->isLeadOpenByTypeHistory($lead, $typeHistory)) {
+                abort(400, 'Only open customer and provider leads can be marked non-responsive');
+            }
+        }
+
+        if ($lead->lead_type === Lead::TYPE_UNKNOWN && ! $request->boolean('workflow_confirmed')) {
+            $gate = app(\Modules\AdminModule\Services\WorkflowGate::class)
+                ->checkLeadAction($lead, \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE);
+            if (! $gate['allowed']) {
+                $request->merge(['mark_non_responsive' => '1']);
+
+                return back()
+                    ->withInput()
+                    ->with('workflow_gate', $gate)
+                    ->with('workflow_gate_action', \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE)
+                    ->with('error', $gate['message']);
+            }
+        }
+
+        $data = $request->validate([
+            'non_responsive_remarks' => 'nullable|string|max:1000',
+        ]);
+
+        if (! $lead->isNonResponsive()) {
+            $remarks = trim((string) ($data['non_responsive_remarks'] ?? ''));
+            $lead->non_responsive_at = now();
+            $lead->non_responsive_by = Auth::id() ? (string) Auth::id() : null;
+            $lead->non_responsive_remarks = $remarks !== '' ? $remarks : null;
+            $lead->next_followup_at = null;
+            $lead->save();
+
+            if ($lead->lead_type === Lead::TYPE_CUSTOMER && $lead->isHuntingPublished()) {
+                app(LeadHuntingBoardService::class)->unpublishIfPublished(
+                    $lead->fresh(),
+                    LeadHuntingBoardService::UNPUBLISH_CANCELLED,
+                    'Closed as non-responsive.'
+                );
+            }
+
+            app(LeadChangeLogService::class)->record($lead->id, [
+                'non_responsive' => [
+                    'label' => 'Non_Responsive',
+                    'old' => 'Open',
+                    'new' => $remarks !== '' ? 'Closed as non-responsive. '.$remarks : 'Closed as non-responsive',
+                ],
+            ]);
+
+            app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
+        }
+
+        toastr()->success(translate('Lead_marked_non_responsive'));
+
+        return $this->redirectToLeadShow($request, $lead->id);
+    }
+
+    public function reopenNonResponsive(Request $request, int $id): RedirectResponse
+    {
+        $lead = Lead::findOrFail($id);
+        if (! $lead->supportsNonResponsiveClose() || ! $lead->isNonResponsive()) {
+            abort(400, 'This lead is not closed as non-responsive');
+        }
+
+        $lead->non_responsive_at = null;
+        $lead->non_responsive_by = null;
+        $lead->non_responsive_remarks = null;
+        $lead->next_followup_at = app(LeadFollowupService::class)->defaultNextFollowupAt();
+        $lead->save();
+
+        app(LeadChangeLogService::class)->record($lead->id, [
+            'non_responsive' => [
+                'label' => 'Non_Responsive',
+                'old' => 'Closed as non-responsive',
+                'new' => 'Reopened',
+            ],
+        ]);
+
+        app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
+
+        toastr()->success(translate('Lead_reopened'));
+
+        return $this->redirectToLeadShow($request, $lead->id);
+    }
+
     public function show($id): View
     {
         $lead = Lead::with([
@@ -1661,14 +1989,19 @@ class LeadController extends Controller
             ->withCount('outboundEnquiries')
             ->findOrFail($id);
 
-        $invalidReasons = LeadInvalidReason::where('is_active', true)->orderBy('name')->get();
-        $futureCustomerReasons = LeadFutureCustomerReason::where('is_active', true)->orderBy('name')->get();
-        $cancellationReasons = LeadCancellationReason::where('is_active', true)->orderBy('name')->get();
+        $activeFollowupOptions = fn ($q) => $q->where('is_active', true);
+        $invalidReasons = LeadInvalidReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
+        $futureCustomerReasons = LeadFutureCustomerReason::with(['options' => $activeFollowupOptions])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        $futureProviderReasons = LeadFutureProviderReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
+        $cancellationReasons = LeadCancellationReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
         $customerLeadStatuses = CustomerLeadStatus::where('is_active', true)->orderBy('name')->get();
         $customerLeadAreas = CustomerLeadArea::where('is_active', true)->orderBy('name')->get();
         $customerLeadTags = CustomerLeadTag::where('is_active', true)->orderBy('name')->get();
         $providerLeadStatuses = ProviderLeadStatus::where('is_active', true)->orderBy('name')->get();
-        $providerCancellationReasons = ProviderCancellationReason::where('is_active', true)->orderBy('name')->get();
+        $providerCancellationReasons = ProviderCancellationReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
         $districts = District::where('is_active', true)->orderBy('name')->get();
         $zones = Zone::ofStatus(1)->orderBy('name')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
@@ -1842,6 +2175,7 @@ class LeadController extends Controller
             'addedByName',
             'invalidReasons',
             'futureCustomerReasons',
+            'futureProviderReasons',
             'cancellationReasons',
             'customerLeadStatuses',
             'customerLeadAreas',
@@ -1996,6 +2330,7 @@ class LeadController extends Controller
         $validated = $request->validate([
             'provider_lead_status_id' => 'nullable|exists:provider_lead_statuses,id',
             'provider_cancellation_reason_id' => 'nullable|exists:provider_cancellation_reasons,id',
+            'provider_cancellation_reason_option_id' => 'nullable|integer',
             'provider_cancellation_remarks' => 'nullable|string|max:1000',
         ]);
         $statusId = $validated['provider_lead_status_id'] ?? null;
@@ -2024,8 +2359,15 @@ class LeadController extends Controller
         if ($baseType === 'cancel') {
             $data['provider_cancellation_reason_id'] = $request->input('provider_cancellation_reason_id');
             $data['provider_cancellation_remarks'] = $request->input('provider_cancellation_remarks');
+            $data = $this->applyFollowupOption(
+                $data,
+                'provider_cancellation_reason',
+                'provider_cancellation_reason_id',
+                'provider_cancellation_reason_option_id',
+                $request->input('provider_cancellation_reason_option_id')
+            );
         } else {
-            unset($data['provider_cancellation_reason_id'], $data['provider_cancellation_remarks']);
+            unset($data['provider_cancellation_reason_id'], $data['provider_cancellation_reason_option_id'], $data['provider_cancellation_remarks']);
         }
 
         $changeLogService->record(
@@ -2046,6 +2388,22 @@ class LeadController extends Controller
 
         $statusName = $statusModel?->name ?? '—';
         $statusColor = $statusModel && !empty($statusModel->color) ? $statusModel->color : '#0d6efd';
+        if ($lead->isNonResponsive()) {
+            $lead->non_responsive_at = null;
+            $lead->non_responsive_by = null;
+            $lead->non_responsive_remarks = null;
+            if (! in_array($baseType, ['completed', 'cancel'], true)) {
+                $lead->next_followup_at = app(LeadFollowupService::class)->defaultNextFollowupAt();
+            }
+            $lead->save();
+            $changeLogService->record($lead->id, [
+                'non_responsive' => [
+                    'label' => 'Non_Responsive',
+                    'old' => 'Closed as non-responsive',
+                    'new' => 'Cleared when status changed',
+                ],
+            ]);
+        }
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         return response()->json(['success' => true, 'status_name' => $statusName, 'status_color' => $statusColor]);
@@ -2062,6 +2420,7 @@ class LeadController extends Controller
         $validated = $request->validate([
             'customer_lead_status_id' => 'nullable|exists:customer_lead_statuses,id',
             'cancellation_reason_id' => 'nullable|exists:lead_cancellation_reasons,id',
+            'cancellation_reason_option_id' => 'nullable|integer',
             'cancellation_remarks' => 'nullable|string|max:1000',
         ]);
         $statusId = $validated['customer_lead_status_id'] ?? null;
@@ -2101,8 +2460,15 @@ class LeadController extends Controller
         if ($baseType === 'cancel') {
             $data['cancellation_reason_id'] = $request->input('cancellation_reason_id');
             $data['cancellation_remarks'] = $request->input('cancellation_remarks');
+            $data = $this->applyFollowupOption(
+                $data,
+                'cancellation_reason',
+                'cancellation_reason_id',
+                'cancellation_reason_option_id',
+                $request->input('cancellation_reason_option_id')
+            );
         } else {
-            unset($data['cancellation_reason_id'], $data['cancellation_remarks']);
+            unset($data['cancellation_reason_id'], $data['cancellation_reason_option_id'], $data['cancellation_remarks']);
         }
 
         $changeLogService->record(
@@ -2123,6 +2489,23 @@ class LeadController extends Controller
 
         $statusName = $statusModel?->name ?? '—';
         $statusColor = $statusModel && !empty($statusModel->color) ? $statusModel->color : '#0d6efd';
+        if ($lead->isNonResponsive()) {
+            $lead->non_responsive_at = null;
+            $lead->non_responsive_by = null;
+            $lead->non_responsive_remarks = null;
+            if (! in_array($baseType, ['completed', 'cancel', 'booked'], true)) {
+                $lead->next_followup_at = app(LeadFollowupService::class)->defaultNextFollowupAt();
+            }
+            $lead->save();
+            $changeLogService->record($lead->id, [
+                'non_responsive' => [
+                    'label' => 'Non_Responsive',
+                    'old' => 'Closed as non-responsive',
+                    'new' => 'Cleared when status changed',
+                ],
+            ]);
+        }
+
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         try {
@@ -2195,20 +2578,9 @@ class LeadController extends Controller
     /**
      * Resolve an Area input (an existing id or a new free-typed name from Select2 tags) into an area id.
      */
-    protected function resolveAreaId($raw): ?int
+    protected function resolveAreaId($raw, ?string $zoneId = null): ?int
     {
-        $raw = trim((string) ($raw ?? ''));
-        if ($raw === '') {
-            return null;
-        }
-        if (ctype_digit($raw)) {
-            $existingId = CustomerLeadArea::whereKey($raw)->value('id');
-            if ($existingId !== null) {
-                return (int) $existingId;
-            }
-        }
-
-        return CustomerLeadArea::resolveByName($raw)?->id;
+        return CustomerLeadArea::resolveId($raw, $zoneId);
     }
 
     protected function redirectToLeadShow(Request $request, int $leadId)
@@ -2250,10 +2622,15 @@ class LeadController extends Controller
         array $existing,
         ?string $baseType,
         string $reasonKey,
-        string $remarksKey
+        string $remarksKey,
+        ?string $optionKey = null,
+        ?string $reasonType = null
     ): ?array {
         if ($baseType !== 'cancel') {
             unset($data[$reasonKey], $data[$remarksKey]);
+            if ($optionKey) {
+                unset($data[$optionKey]);
+            }
 
             return $data;
         }
@@ -2271,7 +2648,30 @@ class LeadController extends Controller
             $data[$remarksKey] = $existing[$remarksKey];
         }
 
+        if ($optionKey && $reasonType) {
+            $rawOptionId = $request->exists($optionKey)
+                ? $request->input($optionKey)
+                : ($existing[$optionKey] ?? null);
+            $data = $this->applyFollowupOption($data, $reasonType, $reasonKey, $optionKey, $rawOptionId);
+        }
+
         return $data;
+    }
+
+    /**
+     * @param  array<int, array{label: string, value: string}>  $rows
+     */
+    protected function appendReasonFollowupRow(array &$rows, mixed $reasonModel, mixed $optionId): void
+    {
+        if ($optionId === null || $optionId === '' || ! $reasonModel) {
+            return;
+        }
+
+        $option = $reasonModel->options?->first(fn ($option) => (int) $option->id === (int) $optionId);
+        $rows[] = [
+            'label' => $reasonModel->followup_label ?: translate('Details'),
+            'value' => $option?->name ?? '—',
+        ];
     }
 
     /**
@@ -2313,21 +2713,41 @@ class LeadController extends Controller
         $rows = [];
 
         if ($leadType === 'invalid') {
-            $reason = isset($data['invalid_reason_id'])
-                ? LeadInvalidReason::find($data['invalid_reason_id'])?->name
+            $reasonModel = isset($data['invalid_reason_id'])
+                ? LeadInvalidReason::with('options')->find($data['invalid_reason_id'])
                 : null;
             $invalidArea = isset($data['area_id']) ? CustomerLeadArea::find($data['area_id']) : null;
-            $rows[] = ['label' => translate('Reason'), 'value' => $reason ?? '—'];
+            $rows[] = ['label' => translate('Reason'), 'value' => $reasonModel?->name ?? '—'];
+            $this->appendReasonFollowupRow($rows, $reasonModel, $data['invalid_reason_option_id'] ?? null);
             $rows[] = ['label' => translate('Area'), 'value' => $invalidArea?->name ?? '—'];
             $rows[] = ['label' => translate('Remarks'), 'value' => $data['invalid_remarks'] ?? '—'];
         } elseif ($leadType === 'future_customer') {
-            $reason = isset($data['future_customer_reason_id'])
-                ? LeadFutureCustomerReason::find($data['future_customer_reason_id'])?->name
+            $reasonModel = isset($data['future_customer_reason_id'])
+                ? LeadFutureCustomerReason::with('options')->find($data['future_customer_reason_id'])
+                : null;
+            $rows[] = ['label' => translate('Reason'), 'value' => $reasonModel?->name ?? '—'];
+            if (! empty($data['future_customer_reason_option_id'])) {
+                $optionId = (int) $data['future_customer_reason_option_id'];
+                $option = $reasonModel?->options->first(fn ($option) => (int) $option->id === $optionId);
+                $rows[] = [
+                    'label' => $reasonModel?->followup_label ?: translate('Details'),
+                    'value' => $option?->name ?? '—',
+                ];
+            }
+            if (! empty($data['area_id'])) {
+                $futureArea = CustomerLeadArea::find($data['area_id']);
+                $rows[] = ['label' => translate('Area'), 'value' => $futureArea?->name ?? '—'];
+            }
+            $rows[] = ['label' => translate('Remarks'), 'value' => $data['future_customer_remarks'] ?? '—'];
+        } elseif ($leadType === 'future_provider') {
+            $reasonModel = isset($data['future_provider_reason_id'])
+                ? LeadFutureProviderReason::with('options')->find($data['future_provider_reason_id'])
                 : null;
             $futureArea = isset($data['area_id']) ? CustomerLeadArea::find($data['area_id']) : null;
-            $rows[] = ['label' => translate('Reason'), 'value' => $reason ?? '—'];
+            $rows[] = ['label' => translate('Reason'), 'value' => $reasonModel?->name ?? '—'];
+            $this->appendReasonFollowupRow($rows, $reasonModel, $data['future_provider_reason_option_id'] ?? null);
             $rows[] = ['label' => translate('Area'), 'value' => $futureArea?->name ?? '—'];
-            $rows[] = ['label' => translate('Remarks'), 'value' => $data['future_customer_remarks'] ?? '—'];
+            $rows[] = ['label' => translate('Remarks'), 'value' => $data['future_provider_remarks'] ?? '—'];
         } elseif ($leadType === 'customer') {
             $zone = isset($data['zone_id']) ? Zone::withoutGlobalScopes()->find($data['zone_id']) : null;
             $category = isset($data['service_category']) ? Category::withoutGlobalScopes()->find($data['service_category']) : null;
@@ -2355,8 +2775,9 @@ class LeadController extends Controller
             ];
             $rows[] = ['label' => translate('Customer_Lead_Status'), 'value' => $customerStatus?->name ?? '—'];
             if (!empty($data['cancellation_reason_id'])) {
-                $cancelReason = LeadCancellationReason::find($data['cancellation_reason_id']);
+                $cancelReason = LeadCancellationReason::with('options')->find($data['cancellation_reason_id']);
                 $rows[] = ['label' => translate('Customer_cancellation_reasons'), 'value' => $cancelReason?->name ?? '—'];
+                $this->appendReasonFollowupRow($rows, $cancelReason, $data['cancellation_reason_option_id'] ?? null);
             }
             if (!empty($data['cancellation_remarks'])) {
                 $rows[] = ['label' => translate('Cancellation_Remarks'), 'value' => $data['cancellation_remarks']];
@@ -2402,8 +2823,9 @@ class LeadController extends Controller
                 ['label' => translate('Service_Details'), 'value' => $data['provider_service_details'] ?? '—'],
             ];
             if (!empty($data['provider_cancellation_reason_id'])) {
-                $cancelReason = ProviderCancellationReason::find($data['provider_cancellation_reason_id']);
+                $cancelReason = ProviderCancellationReason::with('options')->find($data['provider_cancellation_reason_id']);
                 $service[] = ['label' => translate('Provider_cancellation_reasons'), 'value' => $cancelReason?->name ?? '—'];
+                $this->appendReasonFollowupRow($service, $cancelReason, $data['provider_cancellation_reason_option_id'] ?? null);
             }
             if (!empty($data['provider_cancellation_remarks'])) {
                 $service[] = ['label' => translate('Cancellation_Remarks'), 'value' => $data['provider_cancellation_remarks']];
@@ -3292,7 +3714,7 @@ class LeadController extends Controller
 
     protected function leadIndexTabForType(?string $leadType): string
     {
-        $validTabs = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
+        $validTabs = ['all', 'unknown', 'customer', 'future_customer', 'future_provider', 'provider', 'invalid'];
 
         return in_array($leadType, $validTabs, true) ? $leadType : 'all';
     }

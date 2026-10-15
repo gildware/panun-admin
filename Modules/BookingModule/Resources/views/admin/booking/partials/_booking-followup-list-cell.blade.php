@@ -12,8 +12,15 @@
             $booking->requiresMandatoryNextFollowup()
         );
     }
+    $isNonResponsive = ($cellMeta['status'] ?? '') === 'non_responsive';
 @endphp
-@if($followup && $followup->date)
+@if($isNonResponsive)
+    <div class="booking-followup-cell">
+        <span class="badge rounded-pill {{ $cellMeta['badge_class'] }} booking-followup-badge" title="{{ translate($cellMeta['label']) }}">
+            {{ translate($cellMeta['label']) }}
+        </span>
+    </div>
+@elseif($followup && $followup->date)
     <div class="booking-followup-cell {{ $cellMeta['cell_class'] ?? '' }}">
         <span class="booking-followup-cell__date {{ $cellMeta['date_class'] ?? '' }}">
             {{ \Carbon\Carbon::parse($followup->date)->format('d-M-Y') }}

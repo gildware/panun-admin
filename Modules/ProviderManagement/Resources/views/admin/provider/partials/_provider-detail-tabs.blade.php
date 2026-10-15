@@ -6,6 +6,12 @@
         <a class="nav-link {{ ($webPage ?? '') == 'subscribed_services' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=subscribed_services">{{ translate('Subscribed_Services') }}</a>
     </li>
     <li class="nav-item">
+        <a class="nav-link {{ ($webPage ?? '') == 'expertise' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=expertise">{{ translate('Expertise') }}</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{ ($webPage ?? '') == 'work_showcase' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=work_showcase">{{ translate('Work_Showcase') }}</a>
+    </li>
+    <li class="nav-item">
         <a class="nav-link {{ ($webPage ?? '') == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
     </li>
     <li class="nav-item">

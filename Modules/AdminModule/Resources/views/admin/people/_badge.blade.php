@@ -1,11 +1,12 @@
 @php
     $tone = match ($status ?? '') {
         'approved', 'published', 'verified' => 'is-good',
-        'pending' => 'is-wait',
+        'pending', 'unsubmitted' => 'is-wait',
         'sent_back', 'missing', 'rejected' => 'is-bad',
-        'cancelled', 'held' => 'is-draft',
-        'draft' => 'is-draft',
+        'submitted' => 'is-info',
+        'cancelled', 'held', 'draft', 'upcoming', 'week_off', 'before' => 'is-draft',
+        'holiday' => 'is-info',
         default => 'is-info',
     };
 @endphp
-<span class="people-ws-badge {{ $tone }}">{{ $workspace->statusLabel($status ?? '') }}</span>
+<span class="people-ws-badge {{ $tone }}">{{ $label ?? $workspace->statusLabel($status ?? '') }}</span>

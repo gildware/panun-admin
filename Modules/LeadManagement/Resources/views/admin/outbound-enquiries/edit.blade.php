@@ -1,4 +1,4 @@
-@extends('adminmodule::layouts.new-master')
+@extends((request()->boolean('in_modal') || request()->boolean('inModal')) ? 'adminmodule::layouts.content-frame' : 'adminmodule::layouts.new-master')
 
 @section('title', translate('Edit_Outbound_Enquiry'))
 
@@ -9,9 +9,11 @@
                 <div class="col-12">
                     <div class="page-title-wrap mb-3 d-flex justify-content-between flex-wrap align-items-center gap-3">
                         <h2 class="page-title">{{ translate('Edit_Outbound_Enquiry') }}</h2>
-                        <a href="{{ !empty($fromLead) && $enquiry->lead_id ? route('admin.lead.show', $enquiry->lead_id) : route('admin.lead.outbound-enquiry.index') }}" class="btn btn--secondary">
-                            {{ translate('Back') }}
-                        </a>
+                        @unless(request()->boolean('in_modal') || request()->boolean('inModal'))
+                            <a href="{{ !empty($fromLead) && $enquiry->lead_id ? route('admin.lead.show', $enquiry->lead_id) : route('admin.lead.outbound-enquiry.index') }}" class="btn btn--secondary">
+                                {{ translate('Back') }}
+                            </a>
+                        @endunless
                     </div>
 
                     <div class="card">
@@ -30,9 +32,11 @@
                                 ])
 
                                 <div class="d-flex justify-content-end gap-20 mt-4">
-                                    <a href="{{ !empty($fromLead) && $enquiry->lead_id ? route('admin.lead.show', $enquiry->lead_id) : route('admin.lead.outbound-enquiry.index') }}" class="btn btn--secondary">
-                                        {{ translate('Cancel') }}
-                                    </a>
+                                    @unless(request()->boolean('in_modal') || request()->boolean('inModal'))
+                                        <a href="{{ !empty($fromLead) && $enquiry->lead_id ? route('admin.lead.show', $enquiry->lead_id) : route('admin.lead.outbound-enquiry.index') }}" class="btn btn--secondary">
+                                            {{ translate('Cancel') }}
+                                        </a>
+                                    @endunless
                                     <button class="btn btn--primary" type="submit">
                                         {{ translate('Update') }}
                                     </button>

@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}?v={{ @filemtime(public_path('assets/admin-module/css/booking-detail-redesign.css')) }}">
     @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
     <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
     @include('bookingmodule::admin.booking.partials._booking-comments-styles')
@@ -3223,15 +3223,43 @@
             bootBookingDetailsStatusHandlers(document.getElementById('admin-main') || document);
         }, { once: true });
 
-        function bookingScheduleEnterEditMode() {
+        function bookingScheduleEnterEditMode(event) {
+            if (event) {
+                event.preventDefault();
+            }
+            var $row = $('#booking-overview-service-schedule-wrap').closest('.detail-kv__row');
+            $row.addClass('detail-kv__row--schedule-editing');
+            $row.closest('.party-card--schedule-location').addClass('is-schedule-editing');
             $('#booking-schedule-view-mode').addClass('d-none');
             $('#booking-schedule-edit-mode').removeClass('d-none');
-            setTimeout(function () {
-                $('#service_schedule').trigger('focus');
-            }, 0);
+            var input = document.getElementById('service_schedule');
+            if (!input) {
+                return;
+            }
+            input.focus();
+            if (typeof input.showPicker === 'function') {
+                try {
+                    input.showPicker();
+                } catch (e) {}
+            }
         }
 
-        $('#booking-schedule-edit-toggle, #booking-schedule-edit-toggle-side').on('click', bookingScheduleEnterEditMode);
+        $(document).on('click', '#booking-schedule-edit-toggle, #booking-schedule-edit-toggle-side', bookingScheduleEnterEditMode);
+        $(document).on('click', '#booking-schedule-save', function () {
+            service_schedule_update();
+        });
+        $(document).on('click', '#booking-schedule-cancel', function () {
+            bookingScheduleExitEditMode();
+        });
+        $(document).on('keydown', '#service_schedule', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                service_schedule_update();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                bookingScheduleExitEditMode();
+            }
+        });
 
         $(document).on('click', '.ac-charge-line-edit-btn', function () {
             $('.ac-charge-line-wrap').each(function () {
@@ -3265,10 +3293,12 @@
 
         function bookingScheduleExitEditMode() {
             var $in = $('#service_schedule');
-            if (!$in.length) {
-                return;
+            var $row = $('#booking-overview-service-schedule-wrap').closest('.detail-kv__row');
+            $row.removeClass('detail-kv__row--schedule-editing');
+            $row.closest('.party-card--schedule-location').removeClass('is-schedule-editing');
+            if ($in.length) {
+                $in.val($in.attr('data-original'));
             }
-            $in.val($in.data('original'));
             $('#booking-schedule-edit-mode').addClass('d-none');
             $('#booking-schedule-view-mode').removeClass('d-none');
         }
@@ -3285,14 +3315,19 @@
                 return;
             }
             var service_schedule = $input.val();
-            var original = $input.data('original');
+            var original = $input.attr('data-original');
 
             if (!service_schedule) {
                 $input.val(original);
                 return;
             }
 
-            var route = '{{ route('admin.booking.schedule_update', [$booking->id]) }}' + '?service_schedule=' + service_schedule;
+            if (String(service_schedule) === String(original || '')) {
+                bookingScheduleExitEditMode();
+                return;
+            }
+
+            var route = '{{ route('admin.booking.schedule_update', [$booking->id]) }}';
 
             update_booking_details(route, '{{ translate('want_to_update_the_booking_schedule') }}', 'service_schedule', service_schedule);
         }
@@ -3727,11 +3762,6 @@
                 confirmButtonText: '{{ translate('Yes') }}',
                 reverseButtons: true
             };
-            if (componentId === 'service_schedule') {
-                swalOpts.onClose = function () {
-                    bookingScheduleExitEditMode();
-                };
-            }
             Swal.fire(swalOpts).then((result) => {
                 var confirmed = result.value === true || result.isConfirmed === true;
                 if (confirmed) {
@@ -3741,6 +3771,9 @@
                         success: function(data) {
                             if (componentId === 'booking_status') {
                                 $("#booking_status").data('current', updatedValue);
+                                if (typeof window.bookingAdminPaintStatus === 'function') {
+                                    window.bookingAdminPaintStatus(updatedValue, revertValue);
+                                }
                             }
                             update_component(componentId, updatedValue);
                             toastr.success(data.message, {
@@ -3813,6 +3846,15 @@
                             _token: $('meta[name="csrf-token"]').attr('content'),
                             booking_status: updatedValue,
                             workflow_confirmed: (route.indexOf('workflow_confirmed=1') !== -1 || updatedValue === 'completed') ? 1 : 0
+                        };
+                        ajaxOpts.headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' };
+                        $.ajax(ajaxOpts);
+                    } else if (componentId === 'service_schedule') {
+                        ajaxOpts.url = route;
+                        ajaxOpts.method = 'POST';
+                        ajaxOpts.data = {
+                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            service_schedule: updatedValue
                         };
                         ajaxOpts.headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' };
                         $.ajax(ajaxOpts);

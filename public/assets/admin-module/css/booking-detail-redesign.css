@@ -493,6 +493,35 @@
 .booking-detail-v2 .detail-kv__edit .material-icons {
   font-size: 14px;
 }
+.booking-detail-v2 .party-card--schedule-location.is-schedule-editing,
+.booking-detail-v2 .party-card--schedule-location.is-schedule-editing .party-card__body {
+  overflow: visible;
+}
+.booking-detail-v2 .detail-kv__row--schedule-editing {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+.booking-detail-v2 .detail-kv__row--schedule-editing dd {
+  text-align: left;
+  word-break: normal;
+}
+.booking-detail-v2 #booking-schedule-edit-mode:not(.d-none) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: .35rem;
+  width: 100%;
+}
+.booking-detail-v2 #service_schedule {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.booking-detail-v2 .booking-schedule-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .35rem;
+}
 .booking-detail-v2 .detail-kv__hint {
   color: var(--bk-faint);
   font-weight: 500;
@@ -1176,6 +1205,7 @@
 .booking-detail-v2 .status-pill--success { color: #0f5132; border-color: #198754; background: rgba(25,135,84,.12); }
 .booking-detail-v2 .status-pill--primary { color: var(--bk-accent-dark); border-color: var(--bk-accent); background: var(--bk-accent-soft); }
 .booking-detail-v2 .status-pill--danger { color: #842029; border-color: #dc3545; background: rgba(220,53,69,.12); }
+.booking-detail-v2 .status-pill--muted { color: #495057; border-color: #adb5bd; background: #f8f9fa; }
 .booking-detail-v2 .btn-demo-accent {
   display: inline-flex;
   align-items: center;

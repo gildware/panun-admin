@@ -157,10 +157,6 @@
     @can('dashboard')
     <div class="main-content emp-dash">
         <div class="container-fluid">
-            <div class="emp-dash-topbar">
-                @include('adminmodule::partials._admin-dashboard-switcher', ['active' => 'finance'])
-            </div>
-
             @if(access_checker('dashboard'))
                 @include('adminmodule::partials._finance-kpi-sections')
                 @php

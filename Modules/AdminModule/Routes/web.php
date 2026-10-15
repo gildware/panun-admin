@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\AdminModule\Http\Controllers\Web\Admin\AccountsPayrollController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\AdminController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\EmployeeProgressReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\RoleController;
@@ -30,6 +31,12 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\ReportsHubController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\PeopleHrController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\PeopleWorkspaceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SettingsHubController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\WorkspaceController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\TrainingCallController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\TrainingController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\TrainingCurriculumController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\TrainingManageController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\WorkspaceDashboardController;
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
@@ -40,11 +47,21 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
     Route::get('dashboard/finance', [AdminController::class, 'financeDashboard'])->name('dashboard.finance');
+    Route::get('accounts/attendance', function () {
+        return redirect()->route('admin.hr.attendance', request()->query());
+    })->name('accounts.attendance');
+    Route::get('accounts/salary', [PeopleHrController::class, 'index'])->name('accounts.salary');
+    Route::get('accounts/payroll', [AccountsPayrollController::class, 'index'])->name('accounts.payroll');
+    Route::get('dashboard/people', [WorkspaceDashboardController::class, 'people'])->name('dashboard.people');
+    Route::get('dashboard/hr', [WorkspaceDashboardController::class, 'hr'])->name('dashboard.hr');
+    Route::get('dashboard/training', [WorkspaceDashboardController::class, 'training'])->name('dashboard.training');
     Route::get('dashboard/operations', [AdminController::class, 'operationsDashboard'])->name('dashboard.operations');
     Route::get('dashboard/operating-system', [AdminController::class, 'operatingSystem'])->name('dashboard.operating-system');
     Route::get('dashboard/business-system', [AdminController::class, 'businessSystem'])->name('dashboard.business-system');
     Route::get('dashboard/rank-marks-chart', [AdminController::class, 'rankMarksChart'])->name('dashboard.rank-marks-chart');
     Route::get('dashboard/progress-scope', [AdminController::class, 'progressScope'])->name('dashboard.progress-scope');
+    Route::get('workspace', [WorkspaceController::class, 'choose'])->name('workspace.choose');
+    Route::get('workspace/{workspace}', [WorkspaceController::class, 'enter'])->name('workspace.enter');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('settings/home-cache', [SettingsHubController::class, 'homeCache'])->name('settings.home-cache');
     Route::get('settings/{section?}', [SettingsHubController::class, 'index'])->name('settings.index');
@@ -59,6 +76,60 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::post('workflow/steps/toggle', [WorkflowStepController::class, 'toggle'])->name('workflow.steps.toggle');
     Route::post('workflow/steps/confirm-bulk', [WorkflowStepController::class, 'confirmBulk'])->name('workflow.steps.confirm-bulk');
     Route::post('workflow/check-gate', [WorkflowStepController::class, 'checkGate'])->name('workflow.check-gate');
+
+    Route::get('training', [TrainingController::class, 'index'])->name('training.index');
+    Route::get('training/manage', [TrainingManageController::class, 'index'])->name('training.manage');
+    Route::post('training/manage', [TrainingManageController::class, 'store'])->name('training.manage.store');
+    Route::get('training/manage/{program}/edit', [TrainingManageController::class, 'edit'])->name('training.manage.edit');
+    Route::put('training/manage/{program}', [TrainingManageController::class, 'update'])->name('training.manage.update');
+    Route::get('training/manage/{program}/curriculum', [TrainingCurriculumController::class, 'show'])->name('training.manage.curriculum');
+    Route::post('training/manage/{program}/sections', [TrainingCurriculumController::class, 'storeSection'])->name('training.manage.sections.store');
+    Route::put('training/manage/{program}/sections/{section}', [TrainingCurriculumController::class, 'updateSection'])->name('training.manage.sections.update');
+    Route::post('training/manage/{program}/sections/reorder', [TrainingCurriculumController::class, 'reorderSections'])->name('training.manage.sections.reorder');
+    Route::post('training/manage/{program}/sections/{section}/move/{direction}', [TrainingCurriculumController::class, 'moveSection'])->whereIn('direction', ['up', 'down'])->name('training.manage.sections.move');
+    Route::post('training/manage/{program}/sections/{section}/lessons/reorder', [TrainingCurriculumController::class, 'reorderLessons'])->name('training.manage.lessons.reorder');
+    Route::delete('training/manage/{program}/sections/{section}', [TrainingCurriculumController::class, 'destroySection'])->name('training.manage.sections.destroy');
+    Route::post('training/manage/{program}/sections/{section}/lessons', [TrainingCurriculumController::class, 'storeLesson'])->name('training.manage.lessons.store');
+    Route::put('training/manage/{program}/lessons/{lesson}', [TrainingCurriculumController::class, 'updateLesson'])->name('training.manage.lessons.update');
+    Route::delete('training/manage/{program}/lessons/{lesson}', [TrainingCurriculumController::class, 'destroyLesson'])->name('training.manage.lessons.destroy');
+    Route::post('training/manage/{program}/lessons/{lesson}/move/{direction}', [TrainingCurriculumController::class, 'moveLesson'])->whereIn('direction', ['up', 'down'])->name('training.manage.lessons.move');
+    Route::post('training/manage/{program}/lessons/{lesson}/generate-questions', [TrainingCurriculumController::class, 'generateQuestions'])->name('training.manage.lessons.generate');
+    Route::get('training/media/{lesson}', [TrainingController::class, 'media'])->name('training.media');
+    Route::post('training/{assignment}/lessons/{lesson}/seen', [TrainingController::class, 'markContentSeen'])->name('training.lesson.seen');
+    Route::post('training/{assignment}/lessons/{lesson}/done', [TrainingController::class, 'completeLesson'])->name('training.lesson.done');
+    Route::post('training/{assignment}/lessons/{lesson}/quiz', [TrainingController::class, 'submitLessonQuiz'])->name('training.lesson.quiz');
+    Route::post('training/{assignment}/lessons/{lesson}/ai', [TrainingController::class, 'submitLessonAi'])->name('training.lesson.ai');
+    Route::post('training/manage/{program}/publish', [TrainingManageController::class, 'publish'])->name('training.manage.publish');
+    Route::delete('training/manage/{program}/questions/{question}', [TrainingManageController::class, 'destroyQuestion'])->name('training.manage.questions.destroy');
+    Route::delete('training/manage/{program}/points/{point}', [TrainingManageController::class, 'destroyPoint'])->name('training.manage.points.destroy');
+    Route::get('training/assign', [TrainingManageController::class, 'assignForm'])->name('training.assign');
+    Route::post('training/assign', [TrainingManageController::class, 'assign'])->name('training.assign.store');
+    Route::get('training/live', [TrainingManageController::class, 'live'])->name('training.live');
+    Route::get('training/calls', [TrainingCallController::class, 'index'])->name('training.calls.index');
+    Route::get('training/calls/manage', [TrainingCallController::class, 'manage'])->name('training.calls.manage');
+    Route::get('training/calls/manage/create', [TrainingCallController::class, 'create'])->name('training.calls.manage.create');
+    Route::post('training/calls/manage', [TrainingCallController::class, 'store'])->name('training.calls.manage.store');
+    Route::get('training/calls/manage/{test}', [TrainingCallController::class, 'edit'])->name('training.calls.manage.edit');
+    Route::put('training/calls/manage/{test}', [TrainingCallController::class, 'update'])->name('training.calls.manage.update');
+    Route::post('training/calls/manage/{test}/publish', [TrainingCallController::class, 'publish'])->name('training.calls.manage.publish');
+    Route::get('training/calls/manage/{test}/assign', [TrainingCallController::class, 'assignForm'])->name('training.calls.manage.assign');
+    Route::post('training/calls/manage/{test}/assign', [TrainingCallController::class, 'assign'])->name('training.calls.manage.assign.store');
+    Route::get('training/calls/{assignment}', [TrainingCallController::class, 'show'])->name('training.calls.show');
+    Route::get('training/calls/{assignment}/room', [TrainingCallController::class, 'room'])->name('training.calls.room');
+    Route::post('training/calls/{assignment}/start', [TrainingCallController::class, 'start'])->name('training.calls.start');
+    Route::post('training/calls/{assignment}/turn', [TrainingCallController::class, 'turn'])->name('training.calls.turn');
+    Route::post('training/calls/{assignment}/voice', [TrainingCallController::class, 'voice'])->name('training.calls.voice');
+    Route::post('training/calls/{assignment}/finish', [TrainingCallController::class, 'finish'])->name('training.calls.finish');
+    Route::get('training/calls/{assignment}/result', [TrainingCallController::class, 'result'])->name('training.calls.result');
+    Route::post('training/{assignment}/restart', [TrainingController::class, 'restart'])->name('training.restart');
+    Route::get('training/{assignment}/attempts', [TrainingController::class, 'attempts'])->name('training.attempts');
+    Route::get('training/{assignment}', [TrainingController::class, 'content'])->name('training.content');
+    Route::post('training/{assignment}/content', [TrainingController::class, 'completeContent'])->name('training.content.done');
+    Route::get('training/{assignment}/questions', [TrainingController::class, 'questions'])->name('training.questions');
+    Route::post('training/{assignment}/questions', [TrainingController::class, 'submitQuestions'])->name('training.questions.submit');
+    Route::get('training/{assignment}/ai', [TrainingController::class, 'ai'])->name('training.ai');
+    Route::post('training/{assignment}/ai', [TrainingController::class, 'submitAi'])->name('training.ai.submit');
+    Route::get('training/{assignment}/certificate', [TrainingController::class, 'certificate'])->name('training.certificate');
 
     Route::get('process-guides', [ProcessGuideController::class, 'index'])->name('process-guides.index');
     Route::get('process-guides/board.json', [ProcessGuideController::class, 'board'])->name('process-guides.board');
@@ -131,6 +202,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('payslips/{payslip}/download', [PeopleWorkspaceController::class, 'downloadPayslip'])->name('payslips.download');
 
         Route::get('team', [PeopleWorkspaceController::class, 'team'])->name('team');
+        Route::get('approvals', [PeopleWorkspaceController::class, 'approvals'])->name('approvals');
         Route::post('team/leave/{leaveRequest}', [PeopleWorkspaceController::class, 'decideLeave'])->name('team.leave.decide');
         Route::post('team/timesheets/{timesheet}', [PeopleWorkspaceController::class, 'decideTimesheet'])->name('team.timesheet.decide');
 
@@ -147,7 +219,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     });
 
     Route::group(['prefix' => 'hr', 'as' => 'hr.'], function () {
-        Route::get('/', [PeopleHrController::class, 'index'])->name('index');
         Route::post('person', [PeopleHrController::class, 'updatePerson'])->name('person');
         Route::post('departments', [PeopleHrController::class, 'storeDepartment'])->name('departments.store');
         Route::post('departments/{department}', [PeopleHrController::class, 'updateDepartment'])->name('departments.update');
@@ -165,26 +236,37 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::delete('leave/policies/{policy}', [PeopleHrController::class, 'destroyLeavePolicy'])->name('leave.policies.destroy');
         Route::post('leave/assign', [PeopleHrController::class, 'assignLeavePolicy'])->name('leave.assign');
         Route::delete('leave/policies/{policy}/departments/{department}', [PeopleHrController::class, 'detachLeaveDepartment'])->name('leave.departments.detach');
+        Route::delete('leave/policies/{policy}/stages/{stage}', [PeopleHrController::class, 'detachLeaveStage'])->name('leave.stages.detach');
         Route::delete('leave/assignments/{assignment}', [PeopleHrController::class, 'unassignLeavePolicy'])->name('leave.assignments.destroy');
         Route::post('leave/grant', [PeopleHrController::class, 'grantLeave'])->name('leave.grant');
         Route::post('salary', [PeopleHrController::class, 'saveSalary'])->name('salary');
         Route::post('adjustment', [PeopleHrController::class, 'saveAdjustment'])->name('adjustment');
+        Route::get('attendance', [PeopleHrController::class, 'index'])->name('attendance');
         Route::post('attendance/lock', [PeopleHrController::class, 'lockAttendance'])->name('attendance.lock');
+        Route::post('attendance/unlock', [PeopleHrController::class, 'unlockAttendance'])->name('attendance.unlock');
+        Route::post('attendance/marks', [PeopleHrController::class, 'saveAttendanceMarks'])->name('attendance.marks');
         Route::post('payroll/build', [PeopleHrController::class, 'buildPayroll'])->name('payroll.build');
         Route::post('payroll/{payslip}/hold', [PeopleHrController::class, 'holdPayslip'])->name('payroll.hold');
+        Route::post('payroll/{payslip}/bonus', [PeopleHrController::class, 'addBonus'])->name('payroll.bonus');
+        Route::post('payroll/bonus/{adjustment}/remove', [PeopleHrController::class, 'removeBonus'])->name('payroll.bonus.remove');
         Route::post('payroll/publish', [PeopleHrController::class, 'publishPayroll'])->name('payroll.publish');
         Route::post('payroll/lock', [PeopleHrController::class, 'lockPayroll'])->name('payroll.lock');
-        Route::get('payroll/bank', [PeopleHrController::class, 'bankFile'])->name('bank');
+        Route::get('payroll/net', [PeopleHrController::class, 'netPayFile'])->name('payroll.net');
         Route::post('configuration', [PeopleHrController::class, 'saveTimesheetConfiguration'])->name('configuration');
         Route::post('configuration/tasks', [PeopleHrController::class, 'storeTimesheetTask'])->name('configuration.tasks.store');
         Route::post('configuration/tasks/{timesheetTask}', [PeopleHrController::class, 'updateTimesheetTask'])->name('configuration.tasks.update');
         Route::delete('configuration/tasks/{timesheetTask}', [PeopleHrController::class, 'destroyTimesheetTask'])->name('configuration.tasks.destroy');
+        Route::get('{section?}', [PeopleHrController::class, 'index'])
+            ->where('section', 'people|person|departments|leave|configuration|attendance|payroll|salary|home')
+            ->name('index');
     });
 
     Route::group(['prefix' => 'employee', 'as' => 'employee.'], function () {
         Route::any('list', [EmployeeController::class, 'index'])->name('index');
         Route::any('create', [EmployeeController::class, 'create'])->name('create');
         Route::post('store', [EmployeeController::class, 'store'])->name('store');
+        Route::get('profile/{id}', [EmployeeController::class, 'profile'])->name('profile');
+        Route::put('profile/{id}', [EmployeeController::class, 'updateProfile'])->name('profile.update');
         Route::get('edit/{id}', [EmployeeController::class, 'edit'])->name('edit');
         Route::get('set-permission/{id}', [EmployeeController::class, 'setPermission'])->name('set.permission');
         Route::put('update/{id}', [EmployeeController::class, 'update'])->name('update');

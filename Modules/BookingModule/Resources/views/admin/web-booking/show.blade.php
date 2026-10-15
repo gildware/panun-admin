@@ -1,4 +1,4 @@
-@extends('adminmodule::layouts.new-master')
+@extends((request()->boolean('in_modal') || request()->boolean('inModal')) ? 'adminmodule::layouts.content-frame' : 'adminmodule::layouts.new-master')
 
 @section('title', translate('Web_Booking_Details'))
 
@@ -29,9 +29,11 @@
                                     {{ translate('Delete') }}
                                 </button>
                             @endcan
-                            <a href="{{ route('admin.booking.web-bookings.index') }}" class="btn btn--secondary">
-                                {{ translate('Back') }}
-                            </a>
+                            @unless(request()->boolean('in_modal') || request()->boolean('inModal'))
+                                <a href="{{ route('admin.booking.web-bookings.index') }}" class="btn btn--secondary">
+                                    {{ translate('Back') }}
+                                </a>
+                            @endunless
                         </div>
                     </div>
 

@@ -857,20 +857,9 @@ class BookingController extends Controller
     /**
      * Resolve an Area input (an existing id or a new free-typed name from Select2 tags) into an area id.
      */
-    protected function resolveBookingAreaId($raw): ?int
+    protected function resolveBookingAreaId($raw, ?string $zoneId = null): ?int
     {
-        $raw = trim((string) ($raw ?? ''));
-        if ($raw === '') {
-            return null;
-        }
-        if (ctype_digit($raw)) {
-            $existingId = CustomerLeadArea::whereKey($raw)->value('id');
-            if ($existingId !== null) {
-                return (int) $existingId;
-            }
-        }
-
-        return CustomerLeadArea::resolveByName($raw)?->id;
+        return CustomerLeadArea::resolveId($raw, $zoneId);
     }
 
     /**
@@ -886,7 +875,22 @@ class BookingController extends Controller
     {
         $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name', 'parent_id', 'description')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
-        $customerLeadAreas = CustomerLeadArea::where('is_active', true)->orderBy('name')->get();
+        $selectedZoneId = trim((string) $request->input('zone_id', ''));
+        $selectedAreaId = $request->input('area_id');
+        $customerLeadAreas = CustomerLeadArea::query()
+            ->where('is_active', true)
+            ->where(function ($query) use ($selectedZoneId, $selectedAreaId) {
+                if ($selectedZoneId !== '') {
+                    $query->where('zone_id', $selectedZoneId);
+                } else {
+                    $query->whereRaw('0 = 1');
+                }
+                if (is_numeric($selectedAreaId)) {
+                    $query->orWhere('id', (int) $selectedAreaId);
+                }
+            })
+            ->orderBy('name')
+            ->get();
         // Categories/providers/servicemen load via AJAX on the create form — do not preload all rows.
         $customers = User::query()->inCustomerDirectory()
             ->orderByDesc('created_at')
@@ -1978,7 +1982,7 @@ class BookingController extends Controller
             $booking->customer_id = $data['customer_id'];
             $booking->provider_id = $data['provider_id'];
             $booking->zone_id = $data['zone_id'];
-            $booking->area_id = $this->resolveBookingAreaId($data['area_id'] ?? null);
+            $booking->area_id = $this->resolveBookingAreaId($data['area_id'] ?? null, $data['zone_id'] ?? null);
             $booking->category_id = $data['category_id'];
             $booking->sub_category_id = $data['sub_category_id'];
             $booking->booking_status = 'accepted';
@@ -3372,6 +3376,47 @@ class BookingController extends Controller
         }
 
         return $this->storeTakenBookingFollowup($request, $booking, $requiresNext);
+    }
+
+    public function markCustomerNonResponsive(Request $request, $id): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        if (! $booking->requiresMandatoryNextFollowup()) {
+            abort(400, 'Only open bookings can be marked non-responsive');
+        }
+
+        $data = $request->validate([
+            'customer_non_responsive_remarks' => 'nullable|string|max:1000',
+        ]);
+
+        app(BookingFollowupService::class)->markCustomerNonResponsive(
+            $booking,
+            trim((string) ($data['customer_non_responsive_remarks'] ?? '')),
+            auth()->id() ? (string) auth()->id() : null
+        );
+
+        Toastr::success(translate('Booking_customer_marked_non_responsive'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
+    public function reopenCustomerNonResponsive(Request $request, $id): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        if (! $booking->isCustomerNonResponsive() || ! $booking->requiresMandatoryNextFollowup()) {
+            abort(400, 'This booking customer follow-up is not closed as non-responsive');
+        }
+
+        app(BookingFollowupService::class)->reopenCustomerNonResponsive(
+            $booking,
+            auth()->id() ? (string) auth()->id() : null
+        );
+
+        Toastr::success(translate('Booking_customer_reopened'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
     }
 
     protected function storeTakenBookingFollowup(
@@ -5480,7 +5525,9 @@ class BookingController extends Controller
                         }
                         $parts[] = $promptSvc->compileStatusChangePrompt($fresh, $previousParentStatus);
                         $merged = $promptSvc->mergePromptCompilations(array_values(array_filter($parts)));
-                        $payload = $this->attachWhatsAppAdminPrompt($merged, $payload);
+                        if (is_array($merged) && $merged !== []) {
+                            session()->flash('whatsapp_admin_booking_prompt', $merged);
+                        }
                     }
                 }
             } catch (\Throwable $e) {
@@ -5592,7 +5639,9 @@ class BookingController extends Controller
                         }
 
                         $merged = $promptSvc->mergePromptCompilations(array_values(array_filter($parts)));
-                        $payload = $this->attachWhatsAppAdminPrompt($merged, $payload);
+                        if (is_array($merged) && $merged !== []) {
+                            session()->flash('whatsapp_admin_booking_prompt', $merged);
+                        }
                     }
                 }
             } catch (\Throwable $e) {
@@ -5939,20 +5988,30 @@ class BookingController extends Controller
     {
         $this->authorize('booking_can_manage_status');
 
-        Validator::make($request->all(), [
-            'service_schedule' => 'required',
-        ]);
+        $rawSchedule = trim((string) $request->input('service_schedule', ''));
+        try {
+            $scheduleAt = $rawSchedule !== '' ? Carbon::parse(str_replace('T', ' ', $rawSchedule)) : null;
+        } catch (\Throwable) {
+            $scheduleAt = null;
+        }
+        if (! $scheduleAt) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Please_enter_a_valid_service_schedule'),
+            ]), 422);
+        }
+        $scheduleAtString = $scheduleAt->toDateTimeString();
 
         $booking = $this->booking->where('id', $bookingId)->first();
         $bookingRepeat = $this->bookingRepeat->where('id', $bookingId)->first();
 
         if (isset($booking)) {
-            $booking->service_schedule = Carbon::parse($request->service_schedule)->toDateTimeString();
+            $booking->service_schedule = $scheduleAtString;
 
-            $bookingScheduleHistory = $this->bookingScheduleHistory;
+            $bookingScheduleHistory = new BookingScheduleHistory();
             $bookingScheduleHistory->booking_id = $bookingId;
             $bookingScheduleHistory->changed_by = $request->user()->id;
-            $bookingScheduleHistory->schedule = $request['service_schedule'];
+            $bookingScheduleHistory->schedule = $scheduleAtString;
 
             if ($booking->isDirty('service_schedule')) {
                 $previousSchedule = $booking->getOriginal('service_schedule');
@@ -5975,12 +6034,12 @@ class BookingController extends Controller
         }
 
         if (isset($bookingRepeat)) {
-            $bookingRepeat->service_schedule = Carbon::parse($request->service_schedule)->toDateTimeString();
+            $bookingRepeat->service_schedule = $scheduleAtString;
 
-            $bookingRepeatScheduleHistory = $this->bookingScheduleHistory;
+            $bookingRepeatScheduleHistory = new BookingScheduleHistory();
             $bookingRepeatScheduleHistory->booking_id = $bookingRepeat->booking_id;
             $bookingRepeatScheduleHistory->changed_by = $request->user()->id;
-            $bookingRepeatScheduleHistory->schedule = $request['service_schedule'];
+            $bookingRepeatScheduleHistory->schedule = $scheduleAtString;
             $bookingRepeatScheduleHistory->booking_repeat_id = $bookingId;
 
             if ($bookingRepeat->isDirty('service_schedule')) {
