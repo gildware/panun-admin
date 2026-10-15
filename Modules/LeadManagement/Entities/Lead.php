@@ -32,6 +32,21 @@ class Lead extends Model
 
     public const HUNTING_UNPUBLISHED = 'unpublished';
 
+    public const TEMPERATURE_HOTTER = 'hotter';
+
+    public const TEMPERATURE_HOT = 'hot';
+
+    public const TEMPERATURE_WARM = 'warm';
+
+    public const TEMPERATURE_COLD = 'cold';
+
+    public const TEMPERATURES = [
+        self::TEMPERATURE_HOTTER,
+        self::TEMPERATURE_HOT,
+        self::TEMPERATURE_WARM,
+        self::TEMPERATURE_COLD,
+    ];
+
     public static function assigneeIsHuman(?string $handledBy): bool
     {
         return $handledBy !== null && $handledBy !== '' && $handledBy !== self::HANDLED_BY_AI;
@@ -49,11 +64,58 @@ class Lead extends Model
         ];
     }
 
+    /**
+     * How ready a customer or provider lead is to convert.
+     *
+     * @return array<string, string>
+     */
+    public static function leadTemperatures(): array
+    {
+        return [
+            self::TEMPERATURE_HOTTER => 'Hotter_Lead',
+            self::TEMPERATURE_HOT => 'Hot_Lead',
+            self::TEMPERATURE_WARM => 'Warm_Lead',
+            self::TEMPERATURE_COLD => 'Cold_Lead',
+        ];
+    }
+
+    public static function leadTemperatureLabel(?string $temperature): string
+    {
+        if ($temperature === null || $temperature === '') {
+            return '—';
+        }
+
+        $key = self::leadTemperatures()[$temperature] ?? null;
+
+        return $key ? translate($key) : '—';
+    }
+
+    public static function leadTemperatureShortLabel(?string $temperature): string
+    {
+        return match ($temperature) {
+            self::TEMPERATURE_HOTTER => translate('Hotter'),
+            self::TEMPERATURE_HOT => translate('Hot'),
+            self::TEMPERATURE_COLD => translate('Cold'),
+            default => translate('Warm'),
+        };
+    }
+
+    public static function leadTemperatureIcon(?string $temperature): string
+    {
+        return match ($temperature) {
+            self::TEMPERATURE_HOTTER => 'local_fire_department',
+            self::TEMPERATURE_HOT => 'whatshot',
+            self::TEMPERATURE_COLD => 'ac_unit',
+            default => 'wb_sunny',
+        };
+    }
+
     protected $fillable = [
         'name',
         'phone_number',
         'source_id',
         'lead_type',
+        'lead_temperature',
         'date_time_of_lead_received',
         'ad_source_id',
         'handled_by',

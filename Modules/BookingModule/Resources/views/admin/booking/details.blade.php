@@ -1649,11 +1649,15 @@
                                             $showInstallmentPaymentDeleteColumn = $allowDeleteAdminBookingPartialPayments
                                                 && auth()->check()
                                                 && auth()->user()->can('booking_can_manage_status');
-                                            $showWalletRefundRevertColumn = auth()->check()
+                                            $showCustomerRefundActionColumn = auth()->check()
                                                 && auth()->user()->can('booking_can_manage_status')
                                                 && $refundLedgerRowsForPaymentModal->contains(function ($lt) {
-                                                    return function_exists('booking_wallet_refund_is_revertible')
+                                                    $wallet = function_exists('booking_wallet_refund_is_revertible')
                                                         && booking_wallet_refund_is_revertible($lt);
+                                                    $transfer = function_exists('booking_transfer_refund_is_revertible')
+                                                        && booking_transfer_refund_is_revertible($lt);
+
+                                                    return $wallet || $transfer;
                                                 });
                                         @endphp
                                         <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Installment_payments') }}</p>
@@ -1727,7 +1731,7 @@
                                                                 <th class="text-nowrap">{{ translate('Amount') }}</th>
                                                                 <th class="text-nowrap">{{ translate('transaction_id') }}</th>
                                                                 <th class="text-nowrap">{{ translate('Reference_Note') }}</th>
-                                                                @if($showWalletRefundRevertColumn)
+                                                                @if($showCustomerRefundActionColumn)
                                                                     <th class="text-nowrap text-end">{{ translate('Action') }}</th>
                                                                 @endif
                                                             </tr>
@@ -1737,6 +1741,8 @@
                                                                 @php
                                                                     $ltIsWalletRevertible = function_exists('booking_wallet_refund_is_revertible')
                                                                         && booking_wallet_refund_is_revertible($lt);
+                                                                    $ltIsTransferRevertible = function_exists('booking_transfer_refund_is_revertible')
+                                                                        && booking_transfer_refund_is_revertible($lt);
                                                                 @endphp
                                                                 <tr>
                                                                     <td>{{ $idx + 1 }}</td>
@@ -1744,7 +1750,7 @@
                                                                     <td class="text-end fw-medium text-danger">-{{ with_currency_symbol((float) ($lt->amount ?? 0)) }}</td>
                                                                     <td class="text-break">{{ $lt->transaction_id ? $lt->transaction_id : '—' }}</td>
                                                                     <td class="text-break">{{ filled($lt->reference_note) && $lt->reference_note !== 'wallet_refund' ? Str::limit((string) $lt->reference_note, 120) : '—' }}</td>
-                                                                    @if($showWalletRefundRevertColumn)
+                                                                    @if($showCustomerRefundActionColumn)
                                                                         <td class="text-end text-nowrap">
                                                                             @if($ltIsWalletRevertible)
                                                                                 <button type="button"
@@ -1754,6 +1760,14 @@
                                                                                     data-bs-target="#revertWalletRefundConfirm-{{ $booking->id }}"
                                                                                     data-ledger-id="{{ $lt->id }}"
                                                                                     data-amount-line="{{ e(translate('Refunded_to_wallet')) }}: {{ e(with_currency_symbol((float) ($lt->amount ?? 0))) }}">{{ translate('Revert_wallet_refund') }}</button>
+                                                                            @elseif($ltIsTransferRevertible)
+                                                                                <button type="button"
+                                                                                    class="btn btn-outline-danger btn-sm py-0 px-2 fz-11"
+                                                                                    title="{{ translate('Cancel_refund') }}"
+                                                                                    data-bs-toggle="modal"
+                                                                                    data-bs-target="#revertTransferRefundConfirm-{{ $booking->id }}"
+                                                                                    data-ledger-id="{{ $lt->id }}"
+                                                                                    data-amount-line="{{ e(translate('Refunded_via_transfer')) }}: {{ e(with_currency_symbol((float) ($lt->amount ?? 0))) }}">{{ translate('Cancel_refund') }}</button>
                                                                             @else
                                                                                 <span class="text-muted">—</span>
                                                                             @endif
@@ -1823,6 +1837,7 @@
                             </script>
                         @endif
                         @include('bookingmodule::admin.booking.partials._wallet-refund-revert-modal', ['booking' => $booking])
+                        @include('bookingmodule::admin.booking.partials._transfer-refund-revert-modal', ['booking' => $booking])
                 </div>{{-- col payment --}}
             </div>{{-- row overview trio --}}
 

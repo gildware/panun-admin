@@ -3650,6 +3650,59 @@ if (! function_exists('booking_revertible_wallet_refund_ledgers')) {
     }
 }
 
+if (! function_exists('booking_transfer_refund_is_revertible')) {
+    /**
+     * Admin can remove a recorded bank/UPI transfer refund. Wallet credits and dispute-pool legs are excluded.
+     */
+    function booking_transfer_refund_is_revertible(LedgerTransaction $entry): bool
+    {
+        if ((string) ($entry->reason ?? '') !== LedgerTransaction::REASON_REFUND) {
+            return false;
+        }
+        if ((string) ($entry->type ?? '') !== LedgerTransaction::TYPE_OUT) {
+            return false;
+        }
+        if (round((float) ($entry->amount ?? 0), 2) < 0.01) {
+            return false;
+        }
+        if (booking_refund_ledger_method_key($entry) !== 'transfer') {
+            return false;
+        }
+        $receivedBy = strtolower(trim((string) ($entry->received_by ?? '')));
+        if (in_array($receivedBy, [
+            LedgerTransaction::RECEIVED_BY_COMPANY,
+            LedgerTransaction::RECEIVED_BY_PROVIDER,
+        ], true)) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+if (! function_exists('booking_revertible_transfer_refund_ledgers')) {
+    /**
+     * @return \Illuminate\Support\Collection<int, LedgerTransaction>
+     */
+    function booking_revertible_transfer_refund_ledgers(Booking $booking): \Illuminate\Support\Collection
+    {
+        $bid = (string) ($booking->id ?? '');
+        if ($bid === '') {
+            return collect();
+        }
+
+        return LedgerTransaction::query()
+            ->where('booking_id', $bid)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn (LedgerTransaction $row) => booking_transfer_refund_is_revertible($row))
+            ->values();
+    }
+}
+
 if (! function_exists('booking_refund_ledger_row_payload')) {
     /**
      * @return array{serial: int, date: string|null, amount: float, transaction_id: string|null, reference_note: string|null, refund_method: string, refund_method_label: string}

@@ -107,6 +107,12 @@ class LeadController extends Controller
             || $customerHasBooking !== 'all'
         );
 
+        $leadTemperatures = array_values(array_unique(array_intersect(
+            array_map('strval', (array) $request->input('lead_temperature', [])),
+            Lead::TEMPERATURES
+        )));
+        $leadTemperatureScope = in_array($tab, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true) ? $tab : null;
+
         $outboundEnquiryFilter = (string) $request->get('outbound_enquiry_filter', 'all');
         if (!in_array($outboundEnquiryFilter, ['all', 'none', 'exact', 'min'], true)) {
             $outboundEnquiryFilter = 'all';
@@ -145,7 +151,9 @@ class LeadController extends Controller
             $outboundEnquiryFilter,
             $outboundEnquiryCount,
             $followupFrom,
-            $followupTo
+            $followupTo,
+            $leadTemperatures,
+            $leadTemperatureScope
         );
         $this->applyLeadOpenClosedFilterToQuery($query, $leadStatusFilter);
 
@@ -174,7 +182,9 @@ class LeadController extends Controller
             $outboundEnquiryFilter,
             $outboundEnquiryCount,
             $followupFrom,
-            $followupTo
+            $followupTo,
+            $leadTemperatures,
+            $leadTemperatureScope
         );
 
         $query->with($with)->latest('date_time_of_lead_received');
@@ -233,6 +243,9 @@ class LeadController extends Controller
             if ($customerHasBooking !== 'all') {
                 $queryParams['customer_has_booking'] = $customerHasBooking;
             }
+        }
+        if ($leadTemperatures !== [] && $leadTemperatureScope !== null) {
+            $queryParams['lead_temperature'] = $leadTemperatures;
         }
         if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
             $queryParams['outbound_enquiry_filter'] = $outboundEnquiryFilter;
@@ -522,10 +535,10 @@ class LeadController extends Controller
                 $filtersAppliedCount += 1;
             }
             if ($tab === 'provider') {
-                $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds);
+                $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds) + count($leadTemperatures);
             }
             if ($tab === 'customer') {
-                $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0);
+                $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0) + count($leadTemperatures);
                 if ($customerHasBooking !== 'all') {
                     $filtersAppliedCount += 1;
                 }
@@ -585,6 +598,7 @@ class LeadController extends Controller
             'estimatedDateFrom',
             'estimatedDateTo',
             'customerHasBooking',
+            'leadTemperatures',
             'dateFrom',
             'dateTo',
             'followupFrom',
@@ -627,7 +641,9 @@ class LeadController extends Controller
         string $outboundEnquiryFilter = 'all',
         ?int $outboundEnquiryCount = null,
         ?string $followupFrom = null,
-        ?string $followupTo = null
+        ?string $followupTo = null,
+        array $leadTemperatures = [],
+        ?string $leadTemperatureScope = null
     ): Builder {
         $query = Lead::query()
             ->ofType($scopeTab === 'all' ? null : $scopeTab)
@@ -682,6 +698,10 @@ class LeadController extends Controller
                     }
                 }
             );
+
+        if ($leadTemperatures !== [] && $leadTemperatureScope !== null && $scopeTab === $leadTemperatureScope) {
+            $query->whereIn('lead_temperature', $leadTemperatures);
+        }
 
         if ($hasProviderFilters && $scopeTab === 'provider') {
             $providerLeadIds = Lead::ofType('provider')->pluck('id')->all();
@@ -858,7 +878,9 @@ class LeadController extends Controller
         string $outboundEnquiryFilter = 'all',
         ?int $outboundEnquiryCount = null,
         ?string $followupFrom = null,
-        ?string $followupTo = null
+        ?string $followupTo = null,
+        array $leadTemperatures = [],
+        ?string $leadTemperatureScope = null
     ): array {
         $tabs = ['all', 'unknown', 'customer', 'future_customer', 'future_provider', 'provider', 'invalid'];
         $out = [];
@@ -888,7 +910,9 @@ class LeadController extends Controller
                 $outboundEnquiryFilter,
                 $outboundEnquiryCount,
                 $followupFrom,
-                $followupTo
+                $followupTo,
+                $leadTemperatures,
+                $leadTemperatureScope
             );
             $this->applyLeadOpenClosedFilterToQuery($q, $leadStatusFilter);
             $out[$scopeTab] = $q->count();
@@ -999,11 +1023,16 @@ class LeadController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (in_array($request->input('lead_type'), [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true) && ! $request->filled('lead_temperature')) {
+            $request->merge(['lead_temperature' => Lead::TEMPERATURE_WARM]);
+        }
+
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
             'phone_number' => 'required|string|max:32',
             'source_id' => 'nullable|exists:sources,id',
             'lead_type' => 'required|in:unknown,customer,provider,invalid,future_customer,future_provider',
+            'lead_temperature' => 'nullable|required_if:lead_type,customer,provider|in:'.implode(',', Lead::TEMPERATURES),
             'date_time_of_lead_received' => 'nullable|date',
             'ad_source_id' => 'nullable|exists:adsources,id',
             'handled_by' => 'nullable|string|max:64',
@@ -1081,6 +1110,9 @@ class LeadController extends Controller
 
         $name = isset($validated['name']) ? trim((string) $validated['name']) : '';
         $validated['name'] = $name !== '' ? $name : null;
+        if (! in_array($validated['lead_type'], [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
+            $validated['lead_temperature'] = null;
+        }
         $validated['created_by'] = Auth::id();
         $lead = Lead::create($validated);
 
@@ -1091,6 +1123,7 @@ class LeadController extends Controller
                 'data' => [
                     'customer_lead_status_id' => CustomerLeadStatus::defaultPendingStatusId(),
                     'booking_status' => 'pending',
+                    'lead_temperature' => $lead->lead_temperature,
                 ],
                 'created_by' => Auth::id(),
             ]);
@@ -1100,6 +1133,7 @@ class LeadController extends Controller
                 'type' => Lead::TYPE_PROVIDER,
                 'data' => [
                     'provider_lead_status_id' => ProviderLeadStatus::defaultPendingStatusId(),
+                    'lead_temperature' => $lead->lead_temperature,
                 ],
                 'created_by' => Auth::id(),
             ]);
@@ -1585,6 +1619,7 @@ class LeadController extends Controller
                 'service_category' => $request->input('service_category') ?: null,
                 'service_subcategory' => $request->input('service_subcategory') ?: null,
                 'service_name' => $request->input('service_name') ?: null,
+                'lead_temperature' => $request->input('lead_temperature') ?: Lead::TEMPERATURE_WARM,
                 'customer_lead_status_id' => $request->input('customer_lead_status_id') ?: null,
                 'estimated_service_value' => $request->filled('estimated_service_value')
                     ? $request->input('estimated_service_value')
@@ -1599,6 +1634,7 @@ class LeadController extends Controller
                 'service_description' => 'nullable|string|max:1000',
                 'estimated_service_at' => 'nullable|string|max:255',
                 'estimated_service_value' => 'nullable|numeric|min:0|max:99999999',
+                'lead_temperature' => 'required|in:'.implode(',', Lead::TEMPERATURES),
                 'customer_lead_status_id' => 'nullable|exists:customer_lead_statuses,id',
                 'cancellation_reason_id' => 'nullable|exists:lead_cancellation_reasons,id',
                 'cancellation_remarks' => 'nullable|string|max:1000',
@@ -1685,6 +1721,8 @@ class LeadController extends Controller
                         'created_by' => Auth::id(),
                     ]);
                 }
+                $lead->lead_temperature = $payload['lead_temperature'] ?? null;
+                $lead->save();
                 app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
                 toastr()->success(translate('Customer_lead_information_updated_successfully'));
@@ -1707,6 +1745,7 @@ class LeadController extends Controller
         } elseif ($leadType === 'provider') {
             $request->merge([
                 'district_id' => $request->input('district_id') ?: null,
+                'lead_temperature' => $request->input('lead_temperature') ?: Lead::TEMPERATURE_WARM,
                 'provider_lead_status_id' => $request->input('provider_lead_status_id') ?: null,
                 'provider_service_category' => $request->input('provider_service_category') ?: null,
                 'provider_service_subcategory' => $request->input('provider_service_subcategory') ?: null,
@@ -1715,6 +1754,7 @@ class LeadController extends Controller
                 'district_id' => 'nullable|exists:districts,id',
                 'full_address' => 'nullable|string|max:1000',
                 'service_areas' => 'nullable|string|max:1000',
+                'lead_temperature' => 'required|in:'.implode(',', Lead::TEMPERATURES),
                 'provider_lead_status_id' => 'nullable|exists:provider_lead_statuses,id',
                 'provider_cancellation_reason_id' => 'nullable|exists:provider_cancellation_reasons,id',
                 'provider_cancellation_remarks' => 'nullable|string|max:1000',
@@ -1798,6 +1838,8 @@ class LeadController extends Controller
                         'created_by' => Auth::id(),
                     ]);
                 }
+                $lead->lead_temperature = $payload['lead_temperature'] ?? null;
+                $lead->save();
                 app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
                 toastr()->success(translate('Provider_lead_information_updated_successfully'));
@@ -1819,6 +1861,12 @@ class LeadController extends Controller
         }
 
         $oldType = $lead->lead_type;
+        $previousTemperature = $lead->lead_temperature;
+        if (in_array($leadType, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
+            $lead->lead_temperature = $data['lead_temperature'] ?? null;
+        } else {
+            $lead->lead_temperature = null;
+        }
         $wasNonResponsive = $lead->isNonResponsive();
         if ($wasNonResponsive) {
             $lead->non_responsive_at = null;
@@ -1842,6 +1890,13 @@ class LeadController extends Controller
                 'label' => 'Lead_Type',
                 'old' => $this->leadChangeDisplayValue('lead_type', $oldType),
                 'new' => $this->leadChangeDisplayValue('lead_type', $leadType),
+            ];
+        }
+        if ($previousTemperature && $lead->lead_temperature === null) {
+            $changes['lead_temperature'] = [
+                'label' => 'Lead_Temperature',
+                'old' => Lead::leadTemperatureLabel($previousTemperature),
+                'new' => '—',
             ];
         }
         if ($wasNonResponsive) {
@@ -2039,7 +2094,7 @@ class LeadController extends Controller
             ->latest()
             ->first();
 
-        $typeHistoryDisplay = $this->resolveTypeHistoryDisplay($typeHistory, $lead->lead_type);
+        $typeHistoryDisplay = $this->resolveTypeHistoryDisplay($typeHistory, $lead->lead_type, $lead->lead_temperature);
         $leadOpenStatus = $this->isLeadOpenByTypeHistory($lead, $typeHistory);
 
         // Support both query params: in_modal=1 (legacy) and inModal=1 (some redirects)
@@ -2409,6 +2464,51 @@ class LeadController extends Controller
         return response()->json(['success' => true, 'status_name' => $statusName, 'status_color' => $statusColor]);
     }
 
+    public function updateTemperature(Request $request, int $id): JsonResponse
+    {
+        $lead = Lead::findOrFail($id);
+        if (! in_array($lead->lead_type, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
+            return response()->json(['message' => translate('Only_customer_and_provider_leads_have_a_temperature')], 422);
+        }
+
+        $validated = $request->validate([
+            'lead_temperature' => 'required|in:'.implode(',', Lead::TEMPERATURES),
+        ]);
+
+        $history = LeadTypeHistory::where('lead_id', $lead->id)
+            ->where('type', $lead->lead_type)
+            ->latest()
+            ->first();
+        $oldData = $history && is_array($history->data) ? $history->data : [];
+        $data = $oldData;
+        $data['lead_temperature'] = $validated['lead_temperature'];
+
+        $changeLogService = app(LeadChangeLogService::class);
+        $changeLogService->record(
+            $lead->id,
+            $changeLogService->buildTypeHistoryDiff($lead->lead_type, $oldData, $data)
+        );
+
+        if ($history) {
+            $history->update(['data' => $data]);
+        } else {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => $lead->lead_type,
+                'data' => $data,
+                'created_by' => Auth::id(),
+            ]);
+        }
+
+        $lead->lead_temperature = $validated['lead_temperature'];
+        $lead->save();
+
+        return response()->json([
+            'lead_temperature' => $lead->lead_temperature,
+            'label' => Lead::leadTemperatureLabel($lead->lead_temperature),
+        ]);
+    }
+
     public function updateCustomerStatus(Request $request, int $id): JsonResponse
     {
         $lead = Lead::findOrFail($id);
@@ -2703,7 +2803,7 @@ class LeadController extends Controller
     /**
      * @return array<int, array{label: string, value: string}>
      */
-    protected function resolveTypeHistoryDisplay(?LeadTypeHistory $typeHistory, string $leadType): array
+    protected function resolveTypeHistoryDisplay(?LeadTypeHistory $typeHistory, string $leadType, ?string $leadTemperature = null): array
     {
         if (!$typeHistory || !is_array($typeHistory->data)) {
             return [];
@@ -2756,6 +2856,7 @@ class LeadController extends Controller
             $customerStatus = isset($data['customer_lead_status_id']) ? CustomerLeadStatus::find($data['customer_lead_status_id']) : null;
 
             $area = isset($data['area_id']) ? CustomerLeadArea::find($data['area_id']) : null;
+            $rows[] = ['label' => translate('Lead_Temperature'), 'value' => Lead::leadTemperatureLabel($data['lead_temperature'] ?? $leadTemperature)];
             $rows[] = ['label' => translate('Zone'), 'value' => $zone?->name ?? ($data['zone_id'] ?? '—')];
             $rows[] = ['label' => translate('Area'), 'value' => $area?->name ?? '—'];
             $rows[] = ['label' => translate('Category'), 'value' => $category?->name ?? '—'];
@@ -2810,6 +2911,7 @@ class LeadController extends Controller
             $providerSubCategory = isset($data['provider_service_subcategory']) ? Category::withoutGlobalScopes()->find($data['provider_service_subcategory']) : null;
 
             $basic = [
+                ['label' => translate('Lead_Temperature'), 'value' => Lead::leadTemperatureLabel($data['lead_temperature'] ?? $leadTemperature)],
                 ['label' => translate('District'), 'value' => $district?->name ?? '—'],
                 ['label' => translate('Full_Address'), 'value' => $data['full_address'] ?? '—'],
                 ['label' => translate('Service_Areas'), 'value' => $data['service_areas'] ?? '—'],

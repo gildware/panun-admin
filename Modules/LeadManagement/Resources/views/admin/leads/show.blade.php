@@ -418,6 +418,11 @@
                                     @endif
                                     <div class="modal-body pt-0">
                                         <div class="row g-3">
+                                            <div class="col-md-6">
+                                                @include('leadmanagement::admin.leads.partials._lead-temperature-select', [
+                                                    'selected' => $lead->lead_temperature ?: ($customerEditData['lead_temperature'] ?? ''),
+                                                ])
+                                            </div>
                                             @if($lead->lead_type !== \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Customer_Lead_Status') }}</label>
@@ -554,6 +559,11 @@
                                     @endif
                                     <div class="modal-body pt-0">
                                         <div class="row g-3">
+                                            <div class="col-md-6">
+                                                @include('leadmanagement::admin.leads.partials._lead-temperature-select', [
+                                                    'selected' => $lead->lead_temperature ?: ($providerEditData['lead_temperature'] ?? ''),
+                                                ])
+                                            </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('District') }}</label>
                                                 <select name="district_id" class="form-select">
@@ -3859,6 +3869,7 @@
         })();
     </script>
     @include('leadmanagement::admin.leads.partials._lead-edit-followup-scripts')
+    @include('leadmanagement::admin.leads.partials._lead-temperature-script')
 @endpush
 
 @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)

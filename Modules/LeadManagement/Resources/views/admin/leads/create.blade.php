@@ -65,6 +65,20 @@
                                                 <div class="text-danger small mt-1">{{ $message }}</div>
                                             @enderror
                                         </div>
+
+                                        @php
+                                            $createShowsTemperature = in_array(old('lead_type', 'unknown'), [\Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER, \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER], true);
+                                        @endphp
+                                        @include('leadmanagement::admin.leads.partials._lead-temperature-select', [
+                                            'id' => 'lead-create-temperature',
+                                            'wrapId' => 'lead-create-temperature-wrap',
+                                            'wrapClass' => 'mb-30' . ($createShowsTemperature ? '' : ' d-none'),
+                                            'required' => $createShowsTemperature,
+                                            'disabled' => ! $createShowsTemperature,
+                                        ])
+                                        @error('lead_temperature')
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                        @enderror
                                     </div>
 
                                     <div class="col-lg-6">
@@ -243,6 +257,8 @@
             }
 
             const TYPE_INVALID = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
+            const TYPE_CUSTOMER = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER }}';
+            const TYPE_PROVIDER = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER }}';
             const TYPE_FUTURE = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER }}';
             const TYPE_FUTURE_PROVIDER = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_PROVIDER }}';
             const $typeSelect = $('#lead-create-type-select');
@@ -278,7 +294,11 @@
                 const isInvalid = t === TYPE_INVALID;
                 const isFuture = t === TYPE_FUTURE;
                 const isFutureProvider = t === TYPE_FUTURE_PROVIDER;
+                const needsTemperature = t === TYPE_CUSTOMER || t === TYPE_PROVIDER;
                 const hidesFollowup = isInvalid || isFuture || isFutureProvider;
+
+                $('#lead-create-temperature-wrap').toggleClass('d-none', !needsTemperature);
+                $('#lead-create-temperature').prop('disabled', !needsTemperature).prop('required', needsTemperature);
 
                 $followWrap.toggleClass('d-none', hidesFollowup);
                 $invalidBlock.toggleClass('d-none', !isInvalid);

@@ -917,6 +917,11 @@ class LeadSanityTestCommand extends Command
 
     private function createLeadViaStore(array $payload): Lead
     {
+        if (in_array($payload['lead_type'] ?? '', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)
+            && empty($payload['lead_temperature'])) {
+            $payload['lead_temperature'] = Lead::TEMPERATURE_WARM;
+        }
+
         app(LeadController::class)->store(Request::create('/', 'POST', $payload));
 
         $lead = Lead::query()
@@ -936,6 +941,10 @@ class LeadSanityTestCommand extends Command
     private function callUpdateType(int $leadId, array $payload): void
     {
         $payload['workflow_confirmed'] = $payload['workflow_confirmed'] ?? '1';
+        if (in_array($payload['lead_type'] ?? '', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)
+            && empty($payload['lead_temperature'])) {
+            $payload['lead_temperature'] = Lead::TEMPERATURE_WARM;
+        }
         app(LeadController::class)->updateType(Request::create('/', 'POST', $payload), $leadId);
     }
 

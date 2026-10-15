@@ -9669,6 +9669,58 @@ class BookingController extends Controller
     }
 
     /**
+     * Admin: remove one recorded customer transfer refund (UPI / bank). Does not move wallet balances.
+     */
+    public function revertTransferRefund(Request $request, string $id): JsonResponse|RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+        $validator = Validator::make($request->all(), [
+            'ledger_id' => 'required|uuid',
+        ]);
+        if ($validator->fails()) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+            }
+            Toastr::error(implode(' ', $validator->errors()->all()));
+
+            return back();
+        }
+
+        $booking = $this->booking->find($id);
+        if (! $booking) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_404, 'Booking not found'), 404);
+            }
+            Toastr::error(translate('Booking not found'));
+
+            return back();
+        }
+
+        try {
+            revertBookingTransferRefund($booking, (string) $request->input('ledger_id'));
+        } catch (\RuntimeException $e) {
+            $message = match ($e->getMessage()) {
+                'transfer_refund_not_found' => translate('Transfer_refund_not_found'),
+                'transfer_refund_not_revertible' => translate('Transfer_refund_not_revertible'),
+                default => translate('Transfer_refund_not_revertible'),
+            };
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['ledger_id' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
+        }
+        Toastr::success(translate('Cancel_refund_success'));
+
+        return back();
+    }
+
+    /**
      * Admin: add compensation to a terminal booking (completed, canceled, refunded), including special settlements and dispute-and-close.
      *
      * Types:

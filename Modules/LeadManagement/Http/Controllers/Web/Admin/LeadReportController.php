@@ -874,6 +874,9 @@ class LeadReportController extends Controller
                 'Name' => $lead->name ?? '',
                 'Phone' => $lead->phone_number,
                 'Lead Type' => Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type,
+                'Lead Temperature' => in_array($lead->lead_type, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)
+                    ? str_replace('_', ' ', Lead::leadTemperatures()[$lead->lead_temperature] ?? '')
+                    : '',
                 'Source' => $lead->source?->name ?? '',
                 'Ad Source' => $lead->adSource?->name ?? '',
                 'Handled By' => $this->resolveHandledByName($lead->handled_by),

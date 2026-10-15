@@ -2,6 +2,9 @@
     $__walletRefundLedgers = function_exists('booking_revertible_wallet_refund_ledgers')
         ? booking_revertible_wallet_refund_ledgers($booking)
         : collect();
+    $__transferRefundLedgers = function_exists('booking_revertible_transfer_refund_ledgers')
+        ? booking_revertible_transfer_refund_ledgers($booking)
+        : collect();
     $__showRefundActionsBox = auth()->check()
         && auth()->user()->can('booking_can_manage_status')
         && in_array($booking->booking_status, ['canceled', 'cancelled', 'refunded'], true)
@@ -10,7 +13,10 @@
     $__showWalletRefundRevertBox = auth()->check()
         && auth()->user()->can('booking_can_manage_status')
         && $__walletRefundLedgers->isNotEmpty();
-    $__showRefundColumn = $__showRefundActionsBox || $__showWalletRefundRevertBox;
+    $__showTransferRefundCancelBox = auth()->check()
+        && auth()->user()->can('booking_can_manage_status')
+        && $__transferRefundLedgers->isNotEmpty();
+    $__showRefundColumn = $__showRefundActionsBox || $__showWalletRefundRevertBox || $__showTransferRefundCancelBox;
     $__showCompensationBox = $booking->adminEligibleForCompensationRecording();
 @endphp
 @if($__showRefundColumn || $__showCompensationBox)
@@ -21,6 +27,7 @@
                     'booking' => $booking,
                     'maxRefundAmount' => $maxRefundAmount ?? 0,
                     'walletRefundLedgers' => $__walletRefundLedgers,
+                    'transferRefundLedgers' => $__transferRefundLedgers,
                     'showRefundProcessActions' => $__showRefundActionsBox,
                 ])
             @endif

@@ -32,6 +32,9 @@
                                 <span class="material-icons" aria-hidden="true">edit</span>
                             </button>
                         @endcan
+                        @if(in_array($lead->lead_type, [\Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER, \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER], true))
+                            @include('leadmanagement::admin.leads.partials._lead-temperature-control', ['lead' => $lead])
+                        @endif
                     </h1>
                 </div>
                 @can('lead_update')

@@ -80,6 +80,7 @@ Route::group([
         Route::put('{id}/checklist/{checklistItem}', [LeadController::class, 'updateProviderChecklist'])->middleware(['can:lead_update'])->name('checklist.update');
         Route::put('{id}/provider-status', [LeadController::class, 'updateProviderStatus'])->middleware(['can:lead_update'])->name('provider-status.update');
         Route::put('{id}/customer-status', [LeadController::class, 'updateCustomerStatus'])->middleware(['can:lead_update'])->name('customer-status.update');
+        Route::put('{id}/temperature', [LeadController::class, 'updateTemperature'])->middleware(['can:lead_update'])->name('temperature.update');
         Route::put('{id}/customer-tags', [LeadController::class, 'updateCustomerTags'])->middleware(['can:lead_update'])->name('customer-tags.update');
         Route::put('{id}/temporary-provider', [LeadController::class, 'updateTemporaryProvider'])->middleware(['can:lead_update'])->name('temporary-provider.update');
         Route::post('customer-tag', [LeadController::class, 'storeCustomerLeadTag'])->middleware(['can:lead_add'])->name('customer-tag.store');

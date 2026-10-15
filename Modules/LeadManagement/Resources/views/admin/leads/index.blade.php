@@ -16,7 +16,55 @@
 
         /* Table — between default and ultra-compact */
         .table-leads-card .card-body { padding: 1rem 1.25rem; }
-        .table-leads-fixed-layout { min-width: 1050px; font-size: 0.875rem; }
+        .table-leads-fixed-layout { min-width: 1180px; font-size: 0.875rem; }
+        .lead-temp-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.05rem;
+            height: 1.35rem;
+            padding: 0 0.28rem 0 0.22rem;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        .lead-temp-pill .material-icons {
+            font-size: 0.85rem;
+            width: 0.85rem;
+            height: 0.85rem;
+            line-height: 0.85rem;
+        }
+        .lead-temp-pill__text {
+            padding-right: 0.35rem;
+        }
+        .lead-temp-pill .lead-temperature-select {
+            appearance: none;
+            -webkit-appearance: none;
+            border: 0;
+            background-color: transparent;
+            color: inherit;
+            font: inherit;
+            font-weight: 700;
+            line-height: 1;
+            height: 1.35rem;
+            margin: 0;
+            padding: 0 0.8rem 0 0.05rem;
+            width: auto;
+            cursor: pointer;
+            box-shadow: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0 center;
+            background-size: 0.55rem;
+        }
+        .lead-temp-pill .lead-temperature-select:focus {
+            outline: none;
+        }
+        .lead-temp-pill--hotter { background: #ffe4e6; color: #9f1239; }
+        .lead-temp-pill--hot { background: #ffedd5; color: #c2410c; }
+        .lead-temp-pill--warm { background: #fef3c7; color: #92400e; }
+        .lead-temp-pill--cold { background: #e0f2fe; color: #0369a1; }
         .table-leads-fixed-layout th,
         .table-leads-fixed-layout td {
             white-space: nowrap;
@@ -223,11 +271,12 @@
                         if (in_array($tab, ['all', 'unknown', 'customer', 'provider'], true) && !empty($followupFrom) && !empty($followupTo)) {
                             $filtersAppliedCount += 1;
                         }
+                        $leadTemperatures = $leadTemperatures ?? [];
                         if ($tab === 'provider') {
-                            $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds);
+                            $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds) + count($leadTemperatures);
                         }
                         if ($tab === 'customer') {
-                            $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0);
+                            $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0) + count($leadTemperatures);
                             if (($customerHasBooking ?? 'all') !== 'all') {
                                 $filtersAppliedCount += 1;
                             }
@@ -336,6 +385,14 @@
                                     <h6 class="text-muted text-uppercase small fw-semibold mb-3 pb-2 border-bottom">{{ translate('Provider_Related_Filter') }}</h6>
                                     <div class="d-flex flex-column gap-3">
                                         <div>
+                                            <label class="form-label">{{ translate('Lead_Temperature') }}</label>
+                                            <select name="lead_temperature[]" class="form-select js-select-multi" multiple>
+                                                @foreach(\Modules\LeadManagement\Entities\Lead::leadTemperatures() as $value => $label)
+                                                    <option value="{{ $value }}" {{ in_array($value, $leadTemperatures ?? [], true) ? 'selected' : '' }}>{{ translate($label) }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label class="form-label">{{ translate('Status') }}</label>
                                             <select name="status_ids[]" class="form-select js-select-multi" multiple>
                                                 @foreach($filterProviderStatuses as $status)
@@ -375,6 +432,14 @@
                                 <div class="lead-filter-section mb-4">
                                     <h6 class="text-muted text-uppercase small fw-semibold mb-3 pb-2 border-bottom">{{ translate('Customer_Related_Filter') }}</h6>
                                     <div class="d-flex flex-column gap-3">
+                                        <div>
+                                            <label class="form-label">{{ translate('Lead_Temperature') }}</label>
+                                            <select name="lead_temperature[]" class="form-select js-select-multi" multiple>
+                                                @foreach(\Modules\LeadManagement\Entities\Lead::leadTemperatures() as $value => $label)
+                                                    <option value="{{ $value }}" {{ in_array($value, $leadTemperatures ?? [], true) ? 'selected' : '' }}>{{ translate($label) }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                         <div>
                                             <label class="form-label">{{ translate('Status') }}</label>
                                             <select name="customer_status_ids[]" class="form-select js-select-multi" multiple>
@@ -546,6 +611,14 @@
                                                         @endforeach
                                                     </select>
                                                 </div>
+
+                                                @include('leadmanagement::admin.leads.partials._lead-temperature-select', [
+                                                    'id' => 'lead-modal-create-temperature',
+                                                    'wrapId' => 'lead-modal-create-temperature-wrap',
+                                                    'wrapClass' => 'mb-30 d-none',
+                                                    'required' => false,
+                                                    'disabled' => true,
+                                                ])
                                             </div>
 
                                             <div class="col-lg-6">
@@ -1064,6 +1137,8 @@
             }
 
             const TYPE_INVALID_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
+            const TYPE_CUSTOMER_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER }}';
+            const TYPE_PROVIDER_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER }}';
             const TYPE_FUTURE_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER }}';
             const TYPE_FUTURE_PROVIDER_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_PROVIDER }}';
 
@@ -1092,7 +1167,11 @@
                 const isInvalid = t === TYPE_INVALID_MODAL;
                 const isFuture = t === TYPE_FUTURE_MODAL;
                 const isFutureProvider = t === TYPE_FUTURE_PROVIDER_MODAL;
+                const needsTemperature = t === TYPE_CUSTOMER_MODAL || t === TYPE_PROVIDER_MODAL;
                 const hidesFollowup = isInvalid || isFuture || isFutureProvider;
+
+                $('#lead-modal-create-temperature-wrap').toggleClass('d-none', !needsTemperature);
+                $('#lead-modal-create-temperature').prop('disabled', !needsTemperature).prop('required', needsTemperature);
 
                 $('#lead-modal-create-followup-wrap').toggleClass('d-none', hidesFollowup);
                 $('#lead-modal-create-invalid-fields').toggleClass('d-none', !isInvalid);

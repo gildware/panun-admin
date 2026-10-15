@@ -12,13 +12,18 @@
     $walletRefundLedgers = $walletRefundLedgers ?? (function_exists('booking_revertible_wallet_refund_ledgers')
         ? booking_revertible_wallet_refund_ledgers($booking)
         : collect());
+    $transferRefundLedgers = $transferRefundLedgers ?? (function_exists('booking_revertible_transfer_refund_ledgers')
+        ? booking_revertible_transfer_refund_ledgers($booking)
+        : collect());
     $showRefundProcessActions = $showRefundProcessActions ?? (round((float) $maxRefundAmount, 2) > 0);
     $canRevertWalletRefund = auth()->check() && auth()->user()->can('booking_can_manage_status');
+    $__listedTransferRefunded = round((float) $transferRefundLedgers->sum(fn ($row) => (float) ($row->amount ?? 0)), 2);
+    $__otherTransferRefunded = round($__adminRefundTransferRefunded - $__listedTransferRefunded, 2);
 @endphp
 <div class="card booking-refund-actions-card mb-0 h-100">
     <div class="card-body">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-bottom pb-2 mb-3">
-            <h4 class="mb-0">{{ $showRefundProcessActions ? translate('Process_refund') : translate('Wallet_refunds') }}</h4>
+            <h4 class="mb-0">{{ $showRefundProcessActions ? translate('Process_refund') : translate('Refunds_already_processed') }}</h4>
         </div>
         @if($showRefundProcessActions)
             <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 mb-3">
@@ -44,7 +49,7 @@
                     @endif
                 </div>
             @endif
-            @if($__adminRefundShowDeliveredBreakdown || $walletRefundLedgers->isNotEmpty())
+            @if($__adminRefundShowDeliveredBreakdown || $walletRefundLedgers->isNotEmpty() || $transferRefundLedgers->isNotEmpty())
                 <div class="border-bottom pb-2 mb-2">
                     <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Refunds_already_processed') }}</p>
                     @if($walletRefundLedgers->isNotEmpty())
@@ -74,10 +79,35 @@
                             <strong class="text-break text-success">-{{ with_currency_symbol($__adminRefundWalletRefunded) }}</strong>
                         </div>
                     @endif
-                    @if($__adminRefundTransferRefunded > 0.009)
+                    @if($transferRefundLedgers->isNotEmpty())
+                        @foreach($transferRefundLedgers as $transferRefundLedger)
+                            <div class="d-flex justify-content-between align-items-center gap-2 fz-12 mb-1">
+                                <span class="title-color">
+                                    {{ translate('Refunded_via_transfer') }}
+                                    <span class="text-muted">{{ $transferRefundLedger->created_at ? $transferRefundLedger->created_at->format('d M Y, H:i') : '' }}</span>
+                                    @if(filled($transferRefundLedger->transaction_id))
+                                        <span class="text-muted">{{ $transferRefundLedger->transaction_id }}</span>
+                                    @endif
+                                </span>
+                                <span class="d-flex align-items-center gap-2">
+                                    <strong class="text-break text-success">-{{ with_currency_symbol((float) $transferRefundLedger->amount) }}</strong>
+                                    @if($canRevertWalletRefund)
+                                        <button type="button"
+                                            class="btn btn-outline-danger btn-sm py-0 px-2 fz-11"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#revertTransferRefundConfirm-{{ $booking->id }}"
+                                            data-ledger-id="{{ $transferRefundLedger->id }}"
+                                            data-amount-line="{{ e(translate('Refunded_via_transfer')) }}: {{ e(with_currency_symbol((float) $transferRefundLedger->amount)) }}">{{ translate('Cancel_refund') }}</button>
+                                    @endif
+                                </span>
+                            </div>
+                        @endforeach
+                        <p class="text-muted fz-11 mb-1">{{ translate('Cancel_refund_hint') }}</p>
+                    @endif
+                    @if($__otherTransferRefunded > 0.009)
                         <div class="d-flex justify-content-between align-items-baseline gap-2 fz-12">
                             <span class="title-color">{{ translate('Refunded_via_transfer') }}</span>
-                            <strong class="text-break text-success">-{{ with_currency_symbol($__adminRefundTransferRefunded) }}</strong>
+                            <strong class="text-break text-success">-{{ with_currency_symbol($__otherTransferRefunded) }}</strong>
                         </div>
                     @endif
                 </div>
