@@ -50,7 +50,18 @@
 
             <div class="page-title-wrap mb-3 d-flex justify-content-between flex-wrap align-items-center gap-2">
                 <h2 class="page-title mb-1">{{ translate('Inbound_Lead_Reports') }}</h2>
-                <button type="button"
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    @can('lead_report_export')
+                        <a href="{{ route('admin.lead.reports.inbound.export', $queryParams ?? ['inbound_report' => $inboundReport ?? 'general']) }}"
+                           class="btn btn--primary d-inline-flex align-items-center gap-2"
+                           target="_blank"
+                           rel="noopener"
+                           data-turbo="false">
+                            <span class="material-icons">file_download</span>
+                            {{ translate('Export_Leads') }}
+                        </a>
+                    @endcan
+                    <button type="button"
                         class="btn btn-outline-primary d-inline-flex align-items-center gap-2 position-relative report-filter-btn report-filter-btn-margin"
                         data-bs-toggle="offcanvas"
                         data-bs-target="#reportFilterDrawer"
@@ -61,6 +72,7 @@
                         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="report-filter-count-badge">{{ $filtersAppliedCount }}</span>
                     @endif
                 </button>
+                </div>
             </div>
 
             <div class="offcanvas offcanvas-end report-filter-offcanvas" tabindex="-1" id="reportFilterDrawer" aria-labelledby="reportFilterDrawerLabel" data-select-placeholder="{{ translate('All') }}" style="width: 560px; max-width: 95vw;">
@@ -417,26 +429,18 @@
                         @endswitch
                         — {{ translate('Leads') }}
                     </h4>
-                    <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between mb-3">
-                        <div></div>
-                        <div class="d-flex flex-wrap align-items-center gap-3">
-                            <div class="dropdown">
-                                <button type="button"
-                                        class="btn btn--secondary text-capitalize dropdown-toggle"
-                                        data-bs-toggle="dropdown">
-                                    <span class="material-icons">file_download</span> {{ translate('download') }}
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-                                    <li>
-                                        <a class="dropdown-item"
-                                           href="{{ route('admin.lead.reports.download') . '?' . http_build_query($queryParams) }}">
-                                            {{ translate('Excel') }}
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
+                    @can('lead_report_export')
+                    <div class="data-table-top d-flex flex-wrap gap-10 justify-content-end mb-3">
+                        <a href="{{ route('admin.lead.reports.inbound.export', $queryParams ?? []) }}"
+                           class="btn btn--secondary d-inline-flex align-items-center gap-2"
+                           target="_blank"
+                           rel="noopener"
+                           data-turbo="false">
+                            <span class="material-icons">file_download</span>
+                            {{ translate('Export_Leads') }}
+                        </a>
                     </div>
+                    @endcan
 
                     <div class="table-responsive">
                         <table class="table align-middle">

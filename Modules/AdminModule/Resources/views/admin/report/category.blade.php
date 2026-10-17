@@ -637,6 +637,10 @@
 
             function bindChart(el, options) {
                 if (!el) return;
+                if (el._apexChart && typeof el._apexChart.destroy === 'function') {
+                    try { el._apexChart.destroy(); } catch (e) {}
+                    el._apexChart = null;
+                }
                 el.innerHTML = '';
                 new ApexCharts(el, options).render();
             }

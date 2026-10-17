@@ -753,6 +753,11 @@
         clone.querySelectorAll('link[rel="stylesheet"], style').forEach(function (el) {
             el.remove();
         });
+        // The live frame may already contain charts from the first script run.
+        // Drop those mounts so the re-run below does not draw a second donut.
+        clone.querySelectorAll('.apexcharts-canvas').forEach(function (el) {
+            el.remove();
+        });
         return clone.innerHTML;
     }
 
@@ -773,12 +778,14 @@
     async function hoistInitialFrameStyles(frame) {
         if (!frame) {
             revealAdminShell();
-            return;
+            return false;
         }
 
+        var replaced = false;
         try {
             if (frame.querySelector('link[rel="stylesheet"], style')) {
                 frame.innerHTML = await prepareFrameContent(document, frame);
+                replaced = true;
             }
             await waitForDocumentStyles(400);
         } catch (e) {
@@ -786,6 +793,8 @@
             setFrameLoading(frame, false);
             revealAdminShell();
         }
+
+        return replaced;
     }
 
     function isPartialNavLink(link) {
@@ -1011,8 +1020,13 @@
 
     var initialFrame = document.getElementById(FRAME_ID);
     if (initialFrame) {
-        hoistInitialFrameStyles(initialFrame).finally(function () {
-            activateScripts(initialFrame).finally(function () {
+        hoistInitialFrameStyles(initialFrame).then(function (replaced) {
+            // Scripts inside the frame already ran during HTML parse.
+            // Running them again mounts ApexCharts a second time (stacked
+            // legends and donuts). Re-run only after innerHTML replacement,
+            // because that clone does not execute its script tags.
+            var pending = replaced ? activateScripts(initialFrame) : Promise.resolve();
+            pending.finally(function () {
                 markPartialNavLinks(initialFrame);
                 initPageWidgets(initialFrame);
                 scheduleEnsureZoneMap();

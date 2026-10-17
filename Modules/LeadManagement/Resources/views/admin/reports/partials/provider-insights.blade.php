@@ -163,6 +163,13 @@
                     'colClass' => 'col-lg-6',
                     'chartHeight' => 300,
                 ])
+                @include('leadmanagement::admin.reports.partials._donut-chart-card', [
+                    'chartId' => 'provider-area-chart',
+                    'title' => translate('Area_Wise'),
+                    'subtitle' => translate('Geographic_share'),
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
+                ])
             </div>
         </div>
     </div>
@@ -210,6 +217,12 @@
                     'chartHeight' => 300,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
+                    'chartId' => 'provider-completed-area-chart',
+                    'title' => translate('Area_Wise'),
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
+                ])
+                @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-completed-subcategory-chart',
                     'title' => translate('Sub_Category'),
                     'colClass' => 'col-lg-6',
@@ -222,7 +235,7 @@
         'title' => translate('Completed_Leads'),
         'subtitle' => translate('Completed_leads_table_help'),
         'rows' => $a['leads_by_tab']['completed'] ?? [],
-        'columns' => ['id', 'name', 'phone', 'category', 'subcategory', 'zone', 'handled_by', 'source', 'received_at', 'followups', 'first_contact'],
+        'columns' => ['id', 'name', 'phone', 'category', 'subcategory', 'zone', 'area', 'handled_by', 'source', 'received_at', 'followups', 'first_contact'],
     ])
 
     @elseif($activeTab === 'cancelled')
@@ -240,6 +253,12 @@
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-cancelled-zone-chart',
                     'title' => translate('Zone_Wise'),
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
+                ])
+                @include('leadmanagement::admin.reports.partials._donut-chart-card', [
+                    'chartId' => 'provider-cancelled-area-chart',
+                    'title' => translate('Area_Wise'),
                     'colClass' => 'col-lg-6',
                     'chartHeight' => 300,
                 ])
@@ -320,7 +339,7 @@
         'title' => translate('All_Cancelled_Leads'),
         'subtitle' => translate('Cancelled_leads_table_help'),
         'rows' => $a['leads_by_tab']['cancelled'] ?? [],
-        'columns' => ['id', 'name', 'phone', 'category', 'zone', 'reason', 'remarks', 'handled_by', 'source', 'received_at', 'followups', 'first_contact'],
+        'columns' => ['id', 'name', 'phone', 'category', 'zone', 'area', 'reason', 'remarks', 'handled_by', 'source', 'received_at', 'followups', 'first_contact'],
     ])
 
     @elseif($activeTab === 'hold')
@@ -332,19 +351,25 @@
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-hold-category-chart',
                     'title' => translate('Category_Wise'),
-                    'colClass' => 'col-lg-4',
+                    'colClass' => 'col-lg-6',
                     'chartHeight' => 260,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-hold-zone-chart',
                     'title' => translate('Zone_Wise'),
-                    'colClass' => 'col-lg-4',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 260,
+                ])
+                @include('leadmanagement::admin.reports.partials._donut-chart-card', [
+                    'chartId' => 'provider-hold-area-chart',
+                    'title' => translate('Area_Wise'),
+                    'colClass' => 'col-lg-6',
                     'chartHeight' => 260,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-hold-reason-chart',
                     'title' => translate('Hold_Reasons'),
-                    'colClass' => 'col-lg-4',
+                    'colClass' => 'col-lg-6',
                     'chartHeight' => 260,
                 ])
             </div>
@@ -363,7 +388,7 @@
         'title' => translate('All_Hold_Leads'),
         'subtitle' => translate('Hold_leads_full_table_help'),
         'rows' => $a['hold_deep']['rows'] ?? [],
-        'columns' => ['id', 'name', 'phone', 'category', 'zone', 'hold_reason', 'status_remarks', 'handled_by', 'source', 'received_at', 'next_followup', 'followups', 'first_contact'],
+        'columns' => ['id', 'name', 'phone', 'category', 'zone', 'area', 'hold_reason', 'status_remarks', 'handled_by', 'source', 'received_at', 'next_followup', 'followups', 'first_contact'],
     ])
 
     @elseif($activeTab === 'pending')
@@ -375,19 +400,25 @@
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-pending-category-chart',
                     'title' => translate('Category_Wise'),
-                    'colClass' => 'col-lg-4',
+                    'colClass' => 'col-lg-6',
                     'chartHeight' => 260,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-pending-zone-chart',
                     'title' => translate('Zone_Wise'),
-                    'colClass' => 'col-lg-4',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 260,
+                ])
+                @include('leadmanagement::admin.reports.partials._donut-chart-card', [
+                    'chartId' => 'provider-pending-area-chart',
+                    'title' => translate('Area_Wise'),
+                    'colClass' => 'col-lg-6',
                     'chartHeight' => 260,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-pending-reason-chart',
                     'title' => translate('Pending_Reasons'),
-                    'colClass' => 'col-lg-4',
+                    'colClass' => 'col-lg-6',
                     'chartHeight' => 260,
                 ])
             </div>
@@ -406,7 +437,7 @@
         'title' => translate('All_Pending_Leads'),
         'subtitle' => translate('Pending_leads_full_table_help'),
         'rows' => $a['pending_deep']['rows'] ?? [],
-        'columns' => ['id', 'name', 'phone', 'category', 'zone', 'pending_reason', 'status_remarks', 'handled_by', 'source', 'received_at', 'next_followup', 'followups', 'first_contact'],
+        'columns' => ['id', 'name', 'phone', 'category', 'zone', 'area', 'pending_reason', 'status_remarks', 'handled_by', 'source', 'received_at', 'next_followup', 'followups', 'first_contact'],
     ])
     @endif
 
@@ -466,6 +497,42 @@
                     </thead>
                     <tbody>
                     @forelse($a['zone_wise'] ?? [] as $row)
+                        <tr>
+                            <td>{{ $row['label'] }}</td>
+                            <td class="text-end">{{ $row['total'] }}</td>
+                            <td class="text-end text-success">{{ $row['completed'] }}</td>
+                            <td class="text-end text-danger">{{ $row['cancelled'] }}</td>
+                            <td class="text-end text-warning">{{ $row['pending'] }}</td>
+                            <td class="text-end">{{ $row['completion_rate'] }}%</td>
+                            <td class="text-end">{{ $row['share_percent'] }}%</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" class="text-center text-muted py-3">{{ translate('Data_not_available') }}</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3 border-0 shadow-sm">
+        <div class="card-body">
+            <p class="text-muted fz-12 mb-3">{{ translate('Provider_area_matrix_help') }}</p>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>{{ translate('Area') }}</th>
+                        <th class="text-end">{{ translate('Total') }}</th>
+                        <th class="text-end">{{ translate('completed') }}</th>
+                        <th class="text-end">{{ translate('Cancelled') }}</th>
+                        <th class="text-end">{{ translate('Pending') }}</th>
+                        <th class="text-end">{{ translate('completion_rate') }} %</th>
+                        <th class="text-end">{{ translate('Share') }} %</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @forelse($a['area_wise'] ?? [] as $row)
                         <tr>
                             <td>{{ $row['label'] }}</td>
                             <td class="text-end">{{ $row['total'] }}</td>

@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
@@ -44,6 +45,7 @@ class ProviderLeadReportAnalyticsService
 
         $statusIds = [];
         $zoneIds = [];
+        $areaIds = [];
         $categoryIds = [];
         $subCategoryIds = [];
         $cancelReasonIds = [];
@@ -55,6 +57,9 @@ class ProviderLeadReportAnalyticsService
             }
             foreach ($this->zoneIdsFromData($data) as $zid) {
                 $zoneIds[] = $zid;
+            }
+            if ($id = $this->normalizeReferenceId($data['area_id'] ?? null)) {
+                $areaIds[] = $id;
             }
             if ($id = $this->normalizeReferenceId($data['provider_service_category'] ?? null)) {
                 $categoryIds[] = $id;
@@ -73,6 +78,9 @@ class ProviderLeadReportAnalyticsService
         $zones = $zoneIds !== []
             ? Zone::withoutGlobalScopes()->whereIn('id', array_unique($zoneIds))->get()->keyBy(fn ($row) => (string) $row->id)
             : collect();
+        $areas = $areaIds !== []
+            ? CustomerLeadArea::query()->whereIn('id', array_unique($areaIds))->get(['id', 'name'])->keyBy(fn ($row) => (string) $row->id)
+            : collect();
         $categories = $categoryIds !== []
             ? Category::withoutGlobalScopes()->whereIn('id', array_unique($categoryIds))->get()->keyBy(fn ($row) => (string) $row->id)
             : collect();
@@ -87,22 +95,32 @@ class ProviderLeadReportAnalyticsService
         $overall = array_fill_keys($bucketKeys, 0);
         $categoryBuckets = [];
         $zoneBuckets = [];
+        $areaBuckets = [];
         $subCategoryBuckets = [];
         $completedCategory = [];
         $completedZone = [];
+        $completedArea = [];
         $completedSubCategory = [];
         $cancelledCategory = [];
         $cancelledZone = [];
+        $cancelledArea = [];
+        $holdArea = [];
+        $pendingArea = [];
         $cancelReasonCounts = [];
         $outcomeLeads = ['pending' => [], 'completed' => [], 'cancelled' => []];
         $categoryLeads = [];
         $zoneLeads = [];
+        $areaLeads = [];
         $subCategoryLeads = [];
         $completedCategoryLeads = [];
         $completedZoneLeads = [];
+        $completedAreaLeads = [];
         $completedSubCategoryLeads = [];
         $cancelledCategoryLeads = [];
         $cancelledZoneLeads = [];
+        $cancelledAreaLeads = [];
+        $holdAreaLeads = [];
+        $pendingAreaLeads = [];
         $cancelReasonLeads = [];
         $dayLeads = array_fill_keys(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []);
         $hourLeads = array_fill_keys(array_map('strval', range(0, 23)), []);
@@ -142,27 +160,33 @@ class ProviderLeadReportAnalyticsService
 
             $categoryDim = $this->resolveDimension($categoryId, $categories);
             $zoneDim = $this->resolveDimension($zoneId, $zones);
+            $areaDim = $this->resolveAreaDimension($data, $areas);
             $subCategoryDim = $this->resolveDimension($subCategoryId, $subCategories);
 
             $this->incrementBucket($categoryBuckets, $categoryDim['key'], $categoryDim['label'], $outcome);
             $this->incrementBucket($zoneBuckets, $zoneDim['key'], $zoneDim['label'], $outcome);
+            $this->incrementBucket($areaBuckets, $areaDim['key'], $areaDim['label'], $outcome);
             $this->incrementBucket($subCategoryBuckets, $subCategoryDim['key'], $subCategoryDim['label'], $outcome);
             $this->appendLeadId($categoryLeads, $categoryDim['key'], $leadId);
             $this->appendLeadId($zoneLeads, $zoneDim['key'], $leadId);
+            $this->appendLeadId($areaLeads, $areaDim['key'], $leadId);
             $this->appendLeadId($subCategoryLeads, $subCategoryDim['key'], $leadId);
 
             if ($outcome === 'completed') {
                 $this->incrementSimple($completedCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($completedZone, $zoneDim['key'], $zoneDim['label']);
+                $this->incrementSimple($completedArea, $areaDim['key'], $areaDim['label']);
                 $this->incrementSimple($completedSubCategory, $subCategoryDim['key'], $subCategoryDim['label']);
                 $this->appendLeadId($completedCategoryLeads, $categoryDim['key'], $leadId);
                 $this->appendLeadId($completedZoneLeads, $zoneDim['key'], $leadId);
+                $this->appendLeadId($completedAreaLeads, $areaDim['key'], $leadId);
                 $this->appendLeadId($completedSubCategoryLeads, $subCategoryDim['key'], $leadId);
                 $closedContext[] = [
                     'lead' => $lead,
                     'outcome' => 'completed',
                     'category' => $categoryDim,
                     'zone' => $zoneDim,
+                    'area' => $areaDim,
                     'subcategory' => $subCategoryDim,
                     'reason' => ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')],
                     'remarks' => '',
@@ -170,27 +194,39 @@ class ProviderLeadReportAnalyticsService
             } elseif ($outcome === 'cancelled') {
                 $this->incrementSimple($cancelledCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($cancelledZone, $zoneDim['key'], $zoneDim['label']);
+                $this->incrementSimple($cancelledArea, $areaDim['key'], $areaDim['label']);
                 $reasonId = $this->normalizeReferenceId($data['provider_cancellation_reason_id'] ?? null);
                 $reasonDim = $this->resolveDimension($reasonId, $cancelReasons);
                 $this->incrementSimple($cancelReasonCounts, $reasonDim['key'], $reasonDim['label']);
                 $this->appendLeadId($cancelledCategoryLeads, $categoryDim['key'], $leadId);
                 $this->appendLeadId($cancelledZoneLeads, $zoneDim['key'], $leadId);
+                $this->appendLeadId($cancelledAreaLeads, $areaDim['key'], $leadId);
                 $this->appendLeadId($cancelReasonLeads, $reasonDim['key'], $leadId);
                 $closedContext[] = [
                     'lead' => $lead,
                     'outcome' => 'cancelled',
                     'category' => $categoryDim,
                     'zone' => $zoneDim,
+                    'area' => $areaDim,
                     'subcategory' => $subCategoryDim,
                     'reason' => $reasonDim,
                     'remarks' => trim((string) ($data['provider_cancellation_remarks'] ?? '')),
                 ];
             } else {
+                $statusTab = app(LeadOpenStatusDeepBuilder::class)->isHold($lead, (string) ($status?->name ?? '')) ? 'hold' : 'pending';
+                if ($statusTab === 'hold') {
+                    $this->incrementSimple($holdArea, $areaDim['key'], $areaDim['label']);
+                    $this->appendLeadId($holdAreaLeads, $areaDim['key'], $leadId);
+                } else {
+                    $this->incrementSimple($pendingArea, $areaDim['key'], $areaDim['label']);
+                    $this->appendLeadId($pendingAreaLeads, $areaDim['key'], $leadId);
+                }
                 $openContext[] = [
                     'lead' => $lead,
-                    'status_tab' => app(LeadOpenStatusDeepBuilder::class)->isHold($lead, (string) ($status?->name ?? '')) ? 'hold' : 'pending',
+                    'status_tab' => $statusTab,
                     'category' => $categoryDim,
                     'zone' => $zoneDim,
+                    'area' => $areaDim,
                 ];
             }
 
@@ -213,6 +249,7 @@ class ProviderLeadReportAnalyticsService
 
         $categoryWise = $this->finalizeBuckets($categoryBuckets, $total);
         $zoneWise = $this->finalizeBuckets($zoneBuckets, $total);
+        $areaWise = $this->finalizeBuckets($areaBuckets, $total);
         $subCategoryWise = $this->finalizeBuckets($subCategoryBuckets, $total);
 
         $open = $this->buildOpenStatus($leads, $openContext);
@@ -254,25 +291,30 @@ class ProviderLeadReportAnalyticsService
             ],
             'category_wise' => $categoryWise,
             'zone_wise' => $zoneWise,
+            'area_wise' => $areaWise,
             'subcategory_wise' => $subCategoryWise,
             'completed' => [
                 'category_wise' => $this->finalizeSimple($completedCategory),
                 'zone_wise' => $this->finalizeSimple($completedZone),
+                'area_wise' => $this->finalizeSimple($completedArea),
                 'subcategory_wise' => $this->finalizeSimple($completedSubCategory),
             ],
             'cancelled' => [
                 'category_wise' => $this->finalizeSimple($cancelledCategory),
                 'zone_wise' => $this->finalizeSimple($cancelledZone),
+                'area_wise' => $this->finalizeSimple($cancelledArea),
                 'reasons' => $this->finalizeSimple($cancelReasonCounts),
             ],
             'hold' => [
                 'category_wise' => $open['hold']['categories'] ?? [],
                 'zone_wise' => $open['hold']['zones'] ?? [],
+                'area_wise' => $this->finalizeSimple($holdArea),
                 'reasons' => $open['hold']['reasons'] ?? [],
             ],
             'pending_open' => [
                 'category_wise' => $open['pending']['categories'] ?? [],
                 'zone_wise' => $open['pending']['zones'] ?? [],
+                'area_wise' => $this->finalizeSimple($pendingArea),
                 'reasons' => $open['pending']['reasons'] ?? [],
             ],
             'hold_deep' => $open['hold'],
@@ -294,27 +336,32 @@ class ProviderLeadReportAnalyticsService
                 'outcome' => $outcomeLeads,
                 'category_wise' => $categoryLeads,
                 'zone_wise' => $zoneLeads,
+                'area_wise' => $areaLeads,
                 'subcategory_wise' => $subCategoryLeads,
                 'lead_received_by_day' => $dayLeads,
                 'lead_received_by_hour' => $hourLeads,
                 'completed' => [
                     'category_wise' => $completedCategoryLeads,
                     'zone_wise' => $completedZoneLeads,
+                    'area_wise' => $completedAreaLeads,
                     'subcategory_wise' => $completedSubCategoryLeads,
                 ],
                 'cancelled' => [
                     'category_wise' => $cancelledCategoryLeads,
                     'zone_wise' => $cancelledZoneLeads,
+                    'area_wise' => $cancelledAreaLeads,
                     'reasons' => $cancelReasonLeads,
                 ],
                 'hold' => [
                     'category_wise' => $open['hold']['category_leads'] ?? [],
                     'zone_wise' => $open['hold']['zone_leads'] ?? [],
+                    'area_wise' => $holdAreaLeads,
                     'reasons' => $open['hold']['reason_leads'] ?? [],
                 ],
                 'pending_open' => [
                     'category_wise' => $open['pending']['category_leads'] ?? [],
                     'zone_wise' => $open['pending']['zone_leads'] ?? [],
+                    'area_wise' => $pendingAreaLeads,
                     'reasons' => $open['pending']['reason_leads'] ?? [],
                 ],
             ],
@@ -357,6 +404,7 @@ class ProviderLeadReportAnalyticsService
                 'status_tab' => $ctx['status_tab'],
                 'category' => $ctx['category'],
                 'zone' => $ctx['zone'],
+                'area' => $ctx['area'] ?? $ctx['zone'],
                 'followups' => $followupsByLead->get($lead->id, collect()),
                 'source' => $source?->name ?? '—',
             ];
@@ -439,6 +487,7 @@ class ProviderLeadReportAnalyticsService
                 'phone' => $lead->phone_number,
                 'category' => $category['label'],
                 'zone' => $zone['label'],
+                'area' => $ctx['area']['label'] ?? '—',
                 'subcategory' => $ctx['subcategory']['label'] ?? '—',
                 'cancel_reason' => ($ctx['outcome'] ?? '') === 'cancelled' ? $reason['label'] : '—',
                 'cancellation_remarks' => ($ctx['remarks'] ?? '') !== '' ? $ctx['remarks'] : '—',
@@ -597,6 +646,30 @@ class ProviderLeadReportAnalyticsService
         }
 
         return ['key' => $id, 'label' => $name];
+    }
+
+    /**
+     * Area dropdown id, or a free-text area name saved on the provider lead.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{key: string, label: string}
+     */
+    private function resolveAreaDimension(array $data, Collection $areas): array
+    {
+        $areaId = $this->normalizeReferenceId($data['area_id'] ?? null);
+        if ($areaId) {
+            $resolved = $this->resolveDimension($areaId, $areas);
+            if ($resolved['key'] !== self::UNSPECIFIED_KEY) {
+                return $resolved;
+            }
+        }
+
+        $name = trim((string) ($data['area_text'] ?? ''));
+        if ($name !== '') {
+            return ['key' => 'name:'.mb_strtolower($name), 'label' => $name];
+        }
+
+        return ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
     }
 
     /**
@@ -889,11 +962,12 @@ class ProviderLeadReportAnalyticsService
             'outcome_breakdown' => [],
             'category_wise' => [],
             'zone_wise' => [],
+            'area_wise' => [],
             'subcategory_wise' => [],
-            'completed' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
-            'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
-            'hold' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
-            'pending_open' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+            'completed' => ['category_wise' => [], 'zone_wise' => [], 'area_wise' => [], 'subcategory_wise' => []],
+            'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'area_wise' => [], 'reasons' => []],
+            'hold' => ['category_wise' => [], 'zone_wise' => [], 'area_wise' => [], 'reasons' => []],
+            'pending_open' => ['category_wise' => [], 'zone_wise' => [], 'area_wise' => [], 'reasons' => []],
             'hold_deep' => [],
             'pending_deep' => [],
             'cancelled_deep' => [
@@ -918,13 +992,14 @@ class ProviderLeadReportAnalyticsService
                 'outcome' => ['pending' => [], 'completed' => [], 'cancelled' => []],
                 'category_wise' => [],
                 'zone_wise' => [],
+                'area_wise' => [],
                 'subcategory_wise' => [],
                 'lead_received_by_day' => array_fill_keys(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []),
                 'lead_received_by_hour' => array_fill_keys(array_map('strval', range(0, 23)), []),
-                'completed' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
-                'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
-                'hold' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
-                'pending_open' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+                'completed' => ['category_wise' => [], 'zone_wise' => [], 'area_wise' => [], 'subcategory_wise' => []],
+                'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'area_wise' => [], 'reasons' => []],
+                'hold' => ['category_wise' => [], 'zone_wise' => [], 'area_wise' => [], 'reasons' => []],
+                'pending_open' => ['category_wise' => [], 'zone_wise' => [], 'area_wise' => [], 'reasons' => []],
             ],
             'lead_received_by_hour' => array_fill(0, 24, 0),
             'lead_received_by_hour_labels' => $this->hourLabels(),
