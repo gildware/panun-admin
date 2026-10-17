@@ -19,6 +19,10 @@
     function renderDonut(el, values, labels, colors, options) {
         options = options || {};
         if (!el) return null;
+        if (el._leadDonutChart && typeof el._leadDonutChart.destroy === 'function') {
+            try { el._leadDonutChart.destroy(); } catch (e) {}
+            el._leadDonutChart = null;
+        }
         values = values || [];
         if (!values.length || DD.sumValues(values) === 0) {
             DD.showEmpty(el);
@@ -35,6 +39,7 @@
             dataLabels: { enabled: false },
             stroke: { width: 1, colors: ['#fff'] },
         });
+        el._leadDonutChart = chart;
         chart.render().then(function () {
             if (options.idsBySlice && options.idsBySlice.length) {
                 DD.attachLegendViewButtons(el, labels, options.idsBySlice, showLead);

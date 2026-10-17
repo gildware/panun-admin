@@ -61,6 +61,7 @@ class LeadOpenStatusDeepBuilder
 
             $category = $item['category'] ?? ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
             $zone = $item['zone'] ?? ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
+            $area = is_array($item['area'] ?? null) ? $item['area'] : $zone;
             $holdReason = $this->holdReason($lead, $followups);
             $pendingReason = $this->pendingReason($lead, $followups);
             $reason = $tab === 'hold' ? $holdReason : $pendingReason;
@@ -153,7 +154,7 @@ class LeadOpenStatusDeepBuilder
                 'phone' => $lead->phone_number,
                 'category' => $category['label'],
                 'zone' => $zone['label'],
-                'area' => $zone['label'],
+                'area' => $area['label'] ?? $zone['label'],
                 'hold_reason' => $tab === 'hold' ? $holdReason['label'] : '—',
                 'pending_reason' => $tab === 'pending' ? $pendingReason['label'] : '—',
                 'status_remarks' => $remarkText !== '' ? $remarkText : '—',

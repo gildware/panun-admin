@@ -384,7 +384,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         @can('lead_report_view')
                             <li>
                                 <a href="{{ route('admin.lead.reports.inbound') }}"
-                                   class="{{ request()->routeIs('admin.lead.reports.inbound') || request()->routeIs('admin.lead.reports.index') ? 'active-menu' : '' }}">
+                                   class="{{ request()->routeIs('admin.lead.reports.inbound') || request()->routeIs('admin.lead.reports.inbound.export') || request()->routeIs('admin.lead.reports.index') ? 'active-menu' : '' }}">
                                     {{ translate('Inbound_Lead_Reports') }}
                                 </a>
                             </li>

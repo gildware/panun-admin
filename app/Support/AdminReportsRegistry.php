@@ -60,7 +60,7 @@ final class AdminReportsRegistry
                 ], ['admin.lead.reports.index'], 'lead_report_view'),
                 self::item(translate('Inbound_Lead_Reports'), route('admin.lead.reports.inbound'), [
                     'admin/lead/reports/inbound*',
-                ], ['admin.lead.reports.inbound'], 'lead_report_view'),
+                ], ['admin.lead.reports.inbound', 'admin.lead.reports.inbound.export', 'admin.lead.reports.inbound.export.download'], 'lead_report_view'),
                 self::item(translate('Outbound_Lead_Reports'), route('admin.lead.reports.outbound'), [
                     'admin/lead/reports/outbound*',
                 ], ['admin.lead.reports.outbound'], 'lead_report_view'),

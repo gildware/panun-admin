@@ -79,6 +79,7 @@
     <link rel="stylesheet" href="{{asset('assets/provider-module')}}/css/view-guideline.css"/>
 
     @stack('css_or_js')
+    @include('adminmodule::layouts.partials._apex-single-mount')
 </head>
 
 <body class="{{ $adminUsesTopNav ? 'nav-top' : '' }} {{ admin_workspace_body_class() }}"
@@ -135,7 +136,7 @@
                 @yield('content')
             </div>
         </div>
-    @elseif(admin_in_reports_module() && ! request()->routeIs('admin.reports.index'))
+    @elseif(admin_in_reports_module() && ! request()->routeIs('admin.reports.index', 'admin.lead.reports.inbound.export'))
         <div class="settings-module settings-module--embedded">
             @include('adminmodule::reports.partials._sidebar')
             <div class="settings-module-main settings-module-main--embedded">
@@ -146,7 +147,9 @@
         @yield('content')
     @endif
 
-    @include('adminmodule::layouts.partials._footer')
+    @unless(request()->routeIs('admin.lead.reports.inbound.export'))
+        @include('adminmodule::layouts.partials._footer')
+    @endunless
 
     @if(env('APP_ENV') == 'demo')
         <div class="alert alert--message-2 alert-dismissible fade show" id="demo-reset-warning">

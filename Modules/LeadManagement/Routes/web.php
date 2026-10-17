@@ -44,6 +44,8 @@ Route::group([
         // Reports routes should come before parameterized {id} routes
         Route::get('reports/user', [LeadReportController::class, 'userReport'])->middleware(['can:lead_report_view'])->name('reports.user');
         Route::get('reports/inbound', [LeadReportController::class, 'inbound'])->middleware(['can:lead_report_view'])->name('reports.inbound');
+        Route::get('reports/inbound/export', [LeadReportController::class, 'export'])->middleware(['can:lead_report_export'])->name('reports.inbound.export');
+        Route::post('reports/inbound/export', [LeadReportController::class, 'exportDownload'])->middleware(['can:lead_report_export'])->name('reports.inbound.export.download');
         Route::get('reports/outbound', [LeadReportController::class, 'outbound'])->middleware(['can:lead_report_view'])->name('reports.outbound');
         Route::get('reports', [LeadReportController::class, 'index'])->middleware(['can:lead_report_view'])->name('reports.index');
         Route::post('reports/drilldown', [LeadReportController::class, 'getLeadReportDrilldown'])->middleware(['can:lead_report_view'])->name('reports.drilldown');

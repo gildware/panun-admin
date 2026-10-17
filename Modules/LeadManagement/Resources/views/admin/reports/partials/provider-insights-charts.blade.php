@@ -17,6 +17,10 @@
     function renderDonut(el, values, labels, colors, options) {
         options = options || {};
         if (!el) return null;
+        if (el._leadDonutChart && typeof el._leadDonutChart.destroy === 'function') {
+            try { el._leadDonutChart.destroy(); } catch (e) {}
+            el._leadDonutChart = null;
+        }
         values = values || [];
         if (!values.length || DD.sumValues(values) === 0) {
             DD.showEmpty(el);
@@ -57,6 +61,7 @@
                 },
             },
         });
+        el._leadDonutChart = chart;
         chart.render().then(function () {
             if (options.idsBySlice && options.idsBySlice.length) {
                 DD.attachLegendViewButtons(el, labels, options.idsBySlice, showLead);
@@ -121,6 +126,7 @@
         renderOutcomeDonut(document.querySelector('#provider-outcome-chart'), outcome, drilldown.outcome || {});
         renderDrilldownDonut(document.querySelector('#provider-category-chart'), analytics.category_wise || [], 12, drilldown.category_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-zone-chart'), analytics.zone_wise || [], 12, drilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-area-chart'), analytics.area_wise || [], 12, drilldown.area_wise || {});
         renderDayDonut(
             document.querySelector('#provider-lead-day-chart'),
             analytics.lead_received_by_day_labels || [],
@@ -140,6 +146,7 @@
         var completedDrilldown = drilldown.completed || {};
         renderDrilldownDonut(document.querySelector('#provider-completed-category-chart'), completed.category_wise || [], 10, completedDrilldown.category_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-completed-zone-chart'), completed.zone_wise || [], 10, completedDrilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-completed-area-chart'), completed.area_wise || [], 10, completedDrilldown.area_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-completed-subcategory-chart'), completed.subcategory_wise || [], 10, completedDrilldown.subcategory_wise || {});
     }
 
@@ -148,6 +155,7 @@
         var cancelledDrilldown = drilldown.cancelled || {};
         renderDrilldownDonut(document.querySelector('#provider-cancelled-category-chart'), cancelled.category_wise || [], 10, cancelledDrilldown.category_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-cancelled-zone-chart'), cancelled.zone_wise || [], 10, cancelledDrilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-cancelled-area-chart'), cancelled.area_wise || [], 10, cancelledDrilldown.area_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-cancel-reason-chart'), cancelled.reasons || [], 10, cancelledDrilldown.reasons || {});
     }
 
@@ -156,6 +164,7 @@
         var holdDrilldown = drilldown.hold || {};
         renderDrilldownDonut(document.querySelector('#provider-hold-category-chart'), hold.category_wise || [], 10, holdDrilldown.category_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-hold-zone-chart'), hold.zone_wise || [], 10, holdDrilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-hold-area-chart'), hold.area_wise || [], 10, holdDrilldown.area_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-hold-reason-chart'), hold.reasons || [], 10, holdDrilldown.reasons || {});
     }
 
@@ -164,6 +173,7 @@
         var pendingDrilldown = drilldown.pending_open || {};
         renderDrilldownDonut(document.querySelector('#provider-pending-category-chart'), pendingOpen.category_wise || [], 10, pendingDrilldown.category_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-pending-zone-chart'), pendingOpen.zone_wise || [], 10, pendingDrilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-pending-area-chart'), pendingOpen.area_wise || [], 10, pendingDrilldown.area_wise || {});
         renderDrilldownDonut(document.querySelector('#provider-pending-reason-chart'), pendingOpen.reasons || [], 10, pendingDrilldown.reasons || {});
     }
 })();

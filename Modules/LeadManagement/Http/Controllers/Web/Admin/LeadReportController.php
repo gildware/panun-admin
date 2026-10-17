@@ -7,6 +7,7 @@ use Carbon\CarbonPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,7 @@ use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Services\CustomerLeadReportAnalyticsService;
+use Modules\LeadManagement\Services\InboundLeadExcelExport;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\LeadManagement\Services\LeadCtwaDisplayService;
 use Modules\LeadManagement\Services\ProviderLeadReportAnalyticsService;
@@ -810,6 +812,115 @@ class LeadReportController extends Controller
             'userFollowupTimeline' => $followupTimeline,
             'userFollowupsPerDay' => $followupsPerDay,
         ]);
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function export(Request $request): Renderable
+    {
+        $this->authorize('lead_report_export');
+
+        $export = app(InboundLeadExcelExport::class);
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
+        $report = $export->resolveReport($request->input('inbound_report'));
+        [$sort, $direction] = $export->resolvedSort($request);
+        $step = (int) $request->input('step', 1);
+        if (! in_array($step, [1, 2, 3, 4], true)) {
+            $step = 1;
+        }
+        $keys = $export->resolveKeys($report, $request);
+        if ($step === 4 && $keys === []) {
+            $step = 3;
+            toastr()->error(translate('Select_at_least_one_column'));
+        }
+        $columns = $export->flatColumns($report);
+        $total = 0;
+        $previewRows = [];
+        if ($step === 4) {
+            $query = $export->query($request, $dateFrom, $dateTo, $report);
+            $total = (clone $query)->count();
+            $previewLeads = (clone $query)->with($export->relations())->withCount('followups')->limit(InboundLeadExcelExport::PREVIEW_LIMIT)->get();
+            $previewRows = $export->valueRows($previewLeads, $keys);
+        }
+
+        $sharedQuery = $export->sharedQuery($request, $dateFrom, $dateTo);
+        $backParams = array_filter([
+            'inbound_report' => $report,
+            'date_from' => $dateFrom->toDateString(),
+            'date_to' => $dateTo->toDateString(),
+            'source_ids' => $request->input('source_ids'),
+            'ad_source_ids' => $request->input('ad_source_ids'),
+            'handled_by_ids' => $request->input('handled_by_ids'),
+        ], fn ($value) => $value !== null && $value !== '' && $value !== []);
+
+        return view('leadmanagement::admin.reports.export', [
+            'inboundReport' => $report,
+            'reportLabels' => $export->reportLabels(),
+            'groups' => $export->groups($report),
+            'columns' => $columns,
+            'step' => $step,
+            'selectedKeys' => $keys,
+            'previewRows' => $previewRows,
+            'total' => $total,
+            'sort' => $sort,
+            'direction' => $direction,
+            'sortOptions' => $export->sortOptions(),
+            'dateFrom' => $dateFrom->toDateString(),
+            'dateTo' => $dateTo->toDateString(),
+            'search' => trim((string) $request->input('search', '')),
+            'openStatus' => in_array($request->input('open_status'), ['open', 'closed'], true) ? $request->input('open_status') : 'all',
+            'selectedHandledByIds' => array_map('strval', (array) $request->input('handled_by_ids', [])),
+            'selectedSourceIds' => array_map('strval', (array) $request->input('source_ids', [])),
+            'selectedAdSourceIds' => array_map('strval', (array) $request->input('ad_source_ids', [])),
+            'selectedTemperatures' => array_map('strval', (array) $request->input('lead_temperature', [])),
+            'selectedCustomerStatusIds' => array_map('strval', (array) $request->input('customer_status_ids', [])),
+            'selectedProviderStatusIds' => array_map('strval', (array) $request->input('provider_status_ids', [])),
+            'selectedFutureReasonIds' => array_map('strval', (array) $request->input('future_customer_reason_ids', [])),
+            'selectedInvalidReasonIds' => array_map('strval', (array) $request->input('invalid_reason_ids', [])),
+            'selectedCategoryIds' => array_map('strval', (array) $request->input('category_ids', [])),
+            'selectedSubcategoryIds' => array_map('strval', (array) $request->input('subcategory_ids', [])),
+            'selectedZoneIds' => array_map('strval', (array) $request->input('zone_ids', [])),
+            'selectedAreaIds' => array_map('strval', (array) $request->input('area_ids', [])),
+            'selectedCancellationReasonIds' => array_map('strval', (array) $request->input('cancellation_reason_ids', [])),
+            'filterOptions' => $export->filterOptions($report),
+            'sharedQuery' => $sharedQuery,
+            'backUrl' => route('admin.lead.reports.inbound', $backParams),
+        ]);
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function exportDownload(Request $request): StreamedResponse|RedirectResponse
+    {
+        $this->authorize('lead_report_export');
+
+        $export = app(InboundLeadExcelExport::class);
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
+        $report = $export->resolveReport($request->input('inbound_report'));
+        $keys = $export->resolveKeys($report, $request);
+        if ($keys === []) {
+            toastr()->error(translate('Select_at_least_one_column'));
+
+            return back();
+        }
+
+        $leads = $export->query($request, $dateFrom, $dateTo, $report)
+            ->with($export->relations())
+            ->withCount('followups')
+            ->get();
+
+        if ($leads->isEmpty()) {
+            toastr()->error(translate('No_leads_found'));
+
+            return back();
+        }
+
+        $rows = $export->labeledRows($leads, $keys);
+        $fileName = 'inbound-'.$report.'-leads-'.now()->format('Y-m-d').'.xlsx';
+
+        return (new FastExcel(collect($rows)))->download($fileName);
     }
 
     /**
