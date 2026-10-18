@@ -145,7 +145,6 @@ class SuperfoneCallController extends Controller
             'agents' => $agents,
             'sort' => $sort,
             'dir' => $direction,
-            'webhookUrl' => url('/webhooks/superfone/calls'),
             'bookingChoices' => $bookingChoices,
         ]);
     }
