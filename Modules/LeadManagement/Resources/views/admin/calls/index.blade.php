@@ -112,10 +112,6 @@
         <div class="container-fluid">
             <div class="page-title-wrap mb-2">
                 <h2 class="page-title mb-0">{{ translate('Calls') }}</h2>
-                <p class="text-muted small mb-0">
-                    {{ translate('Superfone_posts_every_finished_call_to') }}
-                    <code>{{ $webhookUrl }}</code>
-                </p>
             </div>
 
             <div class="card calls-list-card">

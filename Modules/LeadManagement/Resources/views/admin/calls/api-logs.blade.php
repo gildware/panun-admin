@@ -82,7 +82,10 @@
             <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-2 mb-2">
                 <div>
                     <h2 class="page-title mb-0">{{ translate('API_logs') }}</h2>
-                    <p class="text-muted small mb-0">{{ translate('Superfone_webhook_and_API_calls') }}</p>
+                    <p class="text-muted small mb-0">
+                        {{ translate('Superfone_posts_every_finished_call_to') }}
+                        <code>{{ url('/webhooks/superfone/calls') }}</code>
+                    </p>
                 </div>
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <div class="calls-dir-toggle" role="group" aria-label="{{ translate('API_logs') }}">
