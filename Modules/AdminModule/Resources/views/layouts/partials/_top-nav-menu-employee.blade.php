@@ -9,6 +9,7 @@
         </a>
     </div>
     @include('adminmodule::layouts.partials.top-nav.group-employee-leads')
+    @include('adminmodule::layouts.partials.top-nav.group-calls')
     @include('adminmodule::layouts.partials.top-nav.group-hunting-board')
     @include('adminmodule::layouts.partials.top-nav.group-employee-bookings')
     @include('adminmodule::layouts.partials.top-nav.group-employee-task-board')

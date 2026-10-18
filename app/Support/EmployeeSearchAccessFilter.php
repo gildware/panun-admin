@@ -344,6 +344,10 @@ class EmployeeSearchAccessFilter
                 'patterns' => ['admin/voice-call/*'],
                 'gates' => ['lead_view', 'lead_outbound_enquiry_view'],
             ],
+            [
+                'patterns' => ['admin/calls', 'admin/calls/*'],
+                'gates' => ['lead_view'],
+            ],
         ];
     }
 

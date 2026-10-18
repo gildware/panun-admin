@@ -1,6 +1,7 @@
 @if(admin_workspace() === 'operations')
     @include('adminmodule::layouts.partials.top-nav.group-admin-dashboard')
     @include('adminmodule::layouts.partials.top-nav.group-admin-leads')
+    @include('adminmodule::layouts.partials.top-nav.group-calls')
     @include('adminmodule::layouts.partials.top-nav.group-hunting-board')
     @include('adminmodule::layouts.partials.top-nav.group-admin-bookings')
     @include('adminmodule::layouts.partials.top-nav.group-employee-task-board')

@@ -38,6 +38,7 @@ class AdminNavRegistry
             self::dashboardItems(),
             self::operationsItems(),
             self::leadsItems(),
+            self::callsItems(),
             self::huntingBoardItems(),
             self::bookingsItems(),
             self::taskBoardItems(),
@@ -424,6 +425,22 @@ class AdminNavRegistry
             self::entry('leads', $group, null, translate('Outbound_Enquiry'), route('admin.lead.outbound-enquiry.index'), [
                 'admin/lead/outbound-enquiry*',
             ], ['admin.lead.outbound-enquiry.index']),
+        ];
+    }
+
+    private static function callsItems(): array
+    {
+        $group = translate('Calls');
+
+        return [
+            self::entry('calls', $group, null, translate('Calls'), route('admin.calls.index'), [
+                'admin/calls',
+                'admin/calls/*',
+            ], ['admin.calls.index', 'admin.calls.show']),
+            self::entry('calls', $group, null, translate('API_logs'), route('admin.calls.api-logs'), [
+                'admin/calls/api-logs',
+                'admin/calls/api-logs/*',
+            ], ['admin.calls.api-logs', 'admin.calls.api-logs.show']),
         ];
     }
 

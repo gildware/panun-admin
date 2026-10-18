@@ -112,6 +112,12 @@
             $callFollowups = $lead->followups->filter(
                 fn ($followup) => $followup->contact_channel === \Modules\LeadManagement\Entities\LeadFollowup::CHANNEL_CALL
             );
+            $superfoneCalls = \Modules\LeadManagement\Entities\SuperfoneCall::query()
+                ->with('provider:id,company_name,contact_person_name')
+                ->where('lead_id', $lead->id)
+                ->orderByDesc('started_at')
+                ->get();
+            $superfoneByFollowup = $superfoneCalls->filter(fn ($call) => $call->lead_followup_id)->keyBy('lead_followup_id');
             $callLogs = collect();
             if ($lead->hasInitialCallRecording()) {
                 $callLogs->push([
@@ -124,14 +130,31 @@
                 ]);
             }
             foreach ($callFollowups as $callFollowup) {
+                $superfone = $superfoneByFollowup->get($callFollowup->id);
                 $callLogs->push([
                     'type' => 'followup',
                     'called_party_type' => $callFollowup->called_party_type ?: \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER,
                     'called_number' => $callFollowup->called_number ?: $lead->phone_number,
                     'called_name' => $callFollowup->called_name ?: $lead->name,
-                    'called_at' => $callFollowup->followup_at ?? $callFollowup->created_at,
+                    'called_at' => $superfone?->started_at ?? $callFollowup->followup_at ?? $callFollowup->created_at,
                     'remarks' => $callFollowup->remarks,
                     'followup' => $callFollowup,
+                    'superfone' => $superfone,
+                ]);
+            }
+            $loggedFollowupIds = $callFollowups->pluck('id')->all();
+            foreach ($superfoneCalls as $superfone) {
+                if ($superfone->lead_followup_id && in_array($superfone->lead_followup_id, $loggedFollowupIds, true)) {
+                    continue;
+                }
+                $callLogs->push([
+                    'type' => 'superfone',
+                    'called_party_type' => $superfone->called_party_type ?: \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER,
+                    'called_number' => $superfone->customer_phone ?: $lead->phone_number,
+                    'called_name' => $superfone->provider?->company_name ?: $lead->name,
+                    'called_at' => $superfone->started_at ?? $superfone->created_at,
+                    'remarks' => trim('Superfone '.strtolower((string) $superfone->direction).' call'),
+                    'superfone' => $superfone,
                 ]);
             }
             $callLogs = $callLogs->sortByDesc(fn ($log) => $log['called_at']?->timestamp ?? 0)->values();

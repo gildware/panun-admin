@@ -115,18 +115,42 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
 
-            @can('lead_outbound_enquiry_view')
+            @canany(['lead_view', 'lead_outbound_enquiry_view'])
                 <li class="nav-category" title="{{ translate('Voice') }}">
                     {{ translate('Voice') }}
                 </li>
-                <li>
-                    <a href="{{ route('admin.voice-call.index') }}"
-                       class="{{ request()->is('admin/voice-call*') ? 'active-menu' : '' }}">
-                        <span class="material-icons" title="{{ translate('Voice_Calls') }}">call</span>
-                        <span class="link-title">{{ translate('Voice_Calls') }}</span>
-                    </a>
-                </li>
-            @endcan
+                @can('lead_view')
+                    <li class="has-sub-item {{ request()->is('admin/calls*') ? 'sub-menu-opened' : '' }}">
+                        <a href="#" class="{{ request()->is('admin/calls*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ translate('Calls') }}">phone_in_talk</span>
+                            <span class="link-title">{{ translate('Calls') }}</span>
+                        </a>
+                        <ul class="nav sub-menu">
+                            <li>
+                                <a href="{{ route('admin.calls.index') }}"
+                                   class="{{ request()->routeIs('admin.calls.index', 'admin.calls.show') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('Calls') }}</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.calls.api-logs') }}"
+                                   class="{{ request()->is('admin/calls/api-logs*') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('API_logs') }}</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                @endcan
+                @can('lead_outbound_enquiry_view')
+                    <li>
+                        <a href="{{ route('admin.voice-call.index') }}"
+                           class="{{ request()->is('admin/voice-call*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ translate('Voice_Calls') }}">call</span>
+                            <span class="link-title">{{ translate('Voice_Calls') }}</span>
+                        </a>
+                    </li>
+                @endcan
+            @endcanany
 
             @canany(['whatsapp_chat_view', 'whatsapp_message_template_view'])
                 <li class="nav-category" title="{{ translate('WhatsApp_and_social_media') }}">

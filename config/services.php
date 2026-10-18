@@ -149,4 +149,8 @@ return [
         'followup_summary_cache_ttl' => (int) env('OMNIDIMENSION_FOLLOWUP_SUMMARY_CACHE_TTL', 2592000), // 30d safety; invalidated when new WA messages arrive
     ],
 
+    'superfone' => [
+        'webhook_secret' => env('SUPERFONE_WEBHOOK_SECRET'),
+    ],
+
 ];

@@ -31,6 +31,9 @@ class Source extends Model
     /** Canonical name for bookings placed by the customer in the mobile app. */
     public const NAME_DIRECT_APP_BOOKING = 'Direct App Booking';
 
+    /** Canonical name for leads created from an unmatched Superfone call. */
+    public const NAME_SUPERFONE = 'Superfone';
+
     protected $fillable = [
         'name',
         'description',
@@ -67,6 +70,7 @@ class Source extends Model
             self::NAME_WEBSITE_PARTNER_APPLICATION,
             self::NAME_APP_CUSTOM_REQUEST,
             self::NAME_DIRECT_APP_BOOKING,
+            self::NAME_SUPERFONE,
         ];
     }
 
@@ -226,6 +230,26 @@ class Source extends Model
         return static::create([
             'name' => self::NAME_DIRECT_APP_BOOKING,
             'description' => 'Bookings placed directly by the customer in the mobile app.',
+            'is_active' => true,
+        ]);
+    }
+
+    /**
+     * Return the lead source used for unmatched Superfone calls; creates it if missing.
+     */
+    public static function ensureSuperfoneSource(): self
+    {
+        $found = static::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(self::NAME_SUPERFONE)])
+            ->first();
+
+        if ($found) {
+            return $found;
+        }
+
+        return static::create([
+            'name' => self::NAME_SUPERFONE,
+            'description' => 'Leads created when a Superfone call does not match an existing lead.',
             'is_active' => true,
         ]);
     }

@@ -26,14 +26,28 @@
             @endcan
         @endcanany
 
-        @can('lead_outbound_enquiry_view')
+        @canany(['lead_view', 'lead_outbound_enquiry_view'])
             @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('Voice')])
-            @include('adminmodule::layouts.partials.top-nav._link', [
-                'href' => route('admin.voice-call.index'),
-                'label' => translate('Voice_Calls'),
-                'active' => request()->is('admin/voice-call*'),
-            ])
-        @endcan
+            @can('lead_view')
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.calls.index'),
+                    'label' => translate('Calls'),
+                    'active' => request()->routeIs('admin.calls.index', 'admin.calls.show'),
+                ])
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.calls.api-logs'),
+                    'label' => translate('API_logs'),
+                    'active' => request()->is('admin/calls/api-logs*'),
+                ])
+            @endcan
+            @can('lead_outbound_enquiry_view')
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.voice-call.index'),
+                    'label' => translate('Voice_Calls'),
+                    'active' => request()->is('admin/voice-call*'),
+                ])
+            @endcan
+        @endcanany
 
         @canany(['whatsapp_chat_view', 'whatsapp_message_template_view'])
             @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('WhatsApp_and_social_media')])
