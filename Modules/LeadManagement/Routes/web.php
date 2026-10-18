@@ -10,9 +10,16 @@ use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadFollowupController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadOutboundEnquiryController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadReportController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\OmniDimensionVoiceCallController;
+use Modules\LeadManagement\Http\Controllers\SuperfoneWebhookController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\SourceController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\SuperfoneApiLogController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\SuperfoneCallController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\VoiceCallCronJobController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\WhatsAppVoiceFollowupController;
+
+Route::post('/webhooks/superfone/calls', [SuperfoneWebhookController::class, 'calls'])
+    ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class])
+    ->name('webhooks.superfone.calls');
 
 Route::group([
     'prefix' => 'admin',
@@ -134,5 +141,19 @@ Route::group([
         Route::post('/cron-jobs/{rule}/stop', [VoiceCallCronJobController::class, 'stop'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.stop');
         Route::post('/cron-jobs/{rule}/start', [VoiceCallCronJobController::class, 'start'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.start');
         Route::post('/cron-jobs/{rule}/run', [VoiceCallCronJobController::class, 'runNow'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.run');
+    });
+
+    Route::group(['prefix' => 'calls', 'as' => 'calls.', 'middleware' => ['can:lead_view']], function () {
+        Route::get('/', [SuperfoneCallController::class, 'index'])->name('index');
+        Route::get('lead-search', [SuperfoneCallController::class, 'searchLeads'])->name('lead-search');
+        Route::get('booking-search', [SuperfoneCallController::class, 'searchBookings'])->name('booking-search');
+        Route::get('api-logs', [SuperfoneApiLogController::class, 'index'])->name('api-logs');
+        Route::get('api-logs/{log}', [SuperfoneApiLogController::class, 'show'])->name('api-logs.show');
+        Route::get('{call}/link-options', [SuperfoneCallController::class, 'linkOptions'])->name('link-options');
+        Route::post('{call}/link', [SuperfoneCallController::class, 'linkLead'])->name('link');
+        Route::post('{call}/booking', [SuperfoneCallController::class, 'linkBooking'])->name('booking');
+        Route::get('{call}', [SuperfoneCallController::class, 'show'])->name('show');
+        Route::get('{call}/recording', [SuperfoneCallController::class, 'recording'])->name('recording');
+        Route::post('{call}/recording', [SuperfoneCallController::class, 'downloadRecording'])->name('recording.download');
     });
 });

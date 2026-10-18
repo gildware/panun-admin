@@ -400,22 +400,27 @@
                         @php
                             $calledAt = $callLog['called_at'] ?? null;
                             $callLogFollowup = ($callLog['type'] ?? '') === 'followup' ? ($callLog['followup'] ?? null) : null;
+                            $superfone = $callLog['superfone'] ?? null;
                             $hasRecording = ($callLog['type'] ?? '') === 'initial'
                                 ? ($lead->hasInitialCallRecording() && $lead->initial_call_recording_url)
                                 : ($callLogFollowup?->hasRecording() && $callLogFollowup?->recording_url);
+                            $superfoneRecording = $superfone && ($superfone->hasRecording() || $superfone->recording_url);
                             $canManageCallLog = $callLogFollowup && auth()->user()?->can('lead_update');
+                            $partyType = $callLog['called_party_type'] ?? \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER;
+                            $partyLabel = match ($partyType) {
+                                \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_PROVIDER => translate('Provider'),
+                                \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_OTHER => translate('Other'),
+                                default => translate('Customer'),
+                            };
                         @endphp
                         <tr class="lead-call-log-row {{ $loop->even ? 'lead-call-log-row--alt' : '' }}">
                             <td>
-                                @php
-                                    $partyType = $callLog['called_party_type'] ?? \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER;
-                                    $partyLabel = match ($partyType) {
-                                        \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_PROVIDER => translate('Provider'),
-                                        \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_OTHER => translate('Other'),
-                                        default => translate('Customer'),
-                                    };
-                                @endphp
                                 <div class="d-flex flex-column gap-1">
+                                    @if($superfone)
+                                        <span class="chip {{ $superfone->direction === 'OUTBOUND' ? 'chip--info' : 'chip--success' }} align-self-start">
+                                            {{ $superfone->direction === 'OUTBOUND' ? translate('Outbound') : translate('Inbound') }}
+                                        </span>
+                                    @endif
                                     <span class="chip chip--primary align-self-start">{{ $partyLabel }}</span>
                                     <span>{{ $callLog['called_name'] ?: '—' }}</span>
                                     @if(!empty($callLog['called_number']))
@@ -423,17 +428,36 @@
                                     @endif
                                 </div>
                             </td>
-                            <td class="text-nowrap">{{ $calledAt?->format('d M Y, h:i A') ?? '—' }}</td>
-                            <td>{{ $callLog['remarks'] ?: '—' }}</td>
                             <td class="text-nowrap">
-                                @if($hasRecording)
+                                @if($superfone)
+                                    <div>{{ $superfone->started_at?->format('d M Y, h:i A') ?? '—' }}</div>
+                                    <div class="text-muted small">
+                                        {{ translate('Ended') }} {{ $superfone->ended_at?->format('h:i A') ?? '—' }}
+                                        · {{ $superfone->durationLabel() }}
+                                    </div>
+                                    <div class="small">{{ $superfone->outcomeLabel() }}@if($superfone->disposition) · {{ $superfone->disposition }}@endif</div>
+                                @else
+                                    {{ $calledAt?->format('d M Y, h:i A') ?? '—' }}
+                                @endif
+                            </td>
+                            <td style="white-space: pre-line;">{{ $callLog['remarks'] ?: '—' }}</td>
+                            <td class="text-nowrap">
+                                @if($hasRecording && $callLogFollowup)
                                     <button type="button" class="ld-btn ld-btn-outline voice-call-details-toggle" aria-expanded="false">{{ translate('View') }}</button>
+                                @elseif($superfoneRecording)
+                                    <a class="ld-btn ld-btn-outline" href="{{ route('admin.calls.show', $superfone) }}">{{ translate('View') }}</a>
                                 @else — @endif
                             </td>
                             @can('lead_update')
                                 <td class="text-end text-nowrap">
-                                    @if($canManageCallLog)
+                                    @if($superfone || $canManageCallLog)
                                         <div class="d-inline-flex align-items-center gap-1">
+                                            @if($superfone)
+                                                <a class="btn btn-sm btn-link p-0" href="{{ route('admin.calls.show', $superfone) }}" title="{{ translate('Call_details') }}">
+                                                    <span class="material-icons" aria-hidden="true">open_in_new</span>
+                                                </a>
+                                            @endif
+                                            @if($canManageCallLog)
                                             <button type="button"
                                                     class="btn btn-sm btn-link p-0 js-edit-call-log-btn"
                                                     title="{{ translate('Edit') }}"
@@ -456,6 +480,7 @@
                                                     data-url="{{ route('admin.lead.call-logs.destroy', [$lead->id, $callLogFollowup->id]) }}">
                                                 <span class="material-icons" aria-hidden="true">delete_outline</span>
                                             </button>
+                                            @endif
                                         </div>
                                     @else
                                         —

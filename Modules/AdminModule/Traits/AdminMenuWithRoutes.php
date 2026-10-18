@@ -1119,6 +1119,21 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Calls',
+                'uri' => 'admin/calls',
+                'full_route' => url('admin/calls'),
+                "keywords" => 'Calls, Superfone, call logs, recordings, inbound, outbound',
+                "type" => 'menu',
+            ],
+            [
+                'route_name' => 'API_logs',
+                'uri' => 'admin/calls/api-logs',
+                'full_route' => url('admin/calls/api-logs'),
+                'page_title' => 'API_logs',
+                "keywords" => 'API logs, Superfone webhooks, Superfone API, call webhooks',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'Lead_Configuration',
                 'uri' => 'admin/lead/configuration',
                 'full_route' => url('admin/lead/configuration'),
