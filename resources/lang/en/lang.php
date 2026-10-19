@@ -8502,6 +8502,7 @@ _Message' => 'Customer notification for provider bid offer
   'No_transcript_available' => 'No transcript available for this call.',
   'No_extracted_data_available' => 'No extracted data for this call.',
   'No_recording_available' => 'No recording available for this call.',
+  'Play_recording' => 'Play recording',
   'Voice_call_recording_hint' => 'Play the call recording below.',
   'No_call_summary_available' => 'No call summary available for this call.',
   'Call_Context' => 'Call context',
