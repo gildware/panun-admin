@@ -385,6 +385,14 @@ class SuperfoneCallController extends Controller
         return back();
     }
 
+    public function unmatch(SuperfoneCall $call): RedirectResponse
+    {
+        $this->calls->unmatch($call);
+        toastr()->success(translate('Call_unmatched'));
+
+        return back();
+    }
+
     public function show(SuperfoneCall $call): View
     {
         $call->load(['lead', 'followup', 'employee', 'provider', 'booking', 'customer']);

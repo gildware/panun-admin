@@ -67,9 +67,14 @@
                                     @endif
                                 </dd>
 
-                                @if(!$call->lead && !$call->booking)
                                     <dt class="col-sm-4">{{ translate('Actions') }}</dt>
                                     <dd class="col-sm-8">
+                                        @if($call->lead || $call->booking)
+                                            <form method="post" action="{{ route('admin.calls.unmatch', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Unmatch_this_call')));">
+                                                @csrf
+                                                <button type="submit" class="btn btn--danger calls-unmatch-btn">{{ translate('Unmatch') }}</button>
+                                            </form>
+                                        @else
                                         @php
                                             $linkProvider = trim((string) ($call->provider->company_name ?? $call->provider->contact_person_name ?? ''));
                                             $linkCustomer = trim((string) (($call->customer->first_name ?? '').' '.($call->customer->last_name ?? '')));
@@ -96,8 +101,8 @@
                                                 data-booking-action="{{ route('admin.calls.booking', $call) }}">
                                             {{ translate('Link_call') }}
                                         </button>
+                                        @endif
                                     </dd>
-                                @endif
 
                                 <dt class="col-sm-4">{{ translate('Call_id') }}</dt>
                                 <dd class="col-sm-8"><code>{{ $call->cdr_uuid }}</code></dd>
