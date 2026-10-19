@@ -13,6 +13,7 @@ class AdminPinnedNav
             'booking.requests' => (int) ($menuCounts['all_bookings'] ?? 0),
             'booking.repeat' => (int) ($menuCounts['repeat_bookings'] ?? 0),
             'booking.verify' => (int) ($menuCounts['pending_verify_bookings'] ?? 0),
+            'admin.calls' => (int) ($menuCounts['missed_calls'] ?? 0),
         ];
 
         return collect(AdminNavRegistry::pinnableCatalog())

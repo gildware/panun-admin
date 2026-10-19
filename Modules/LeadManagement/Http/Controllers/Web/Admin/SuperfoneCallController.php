@@ -78,9 +78,7 @@ class SuperfoneCallController extends Controller
                         });
                 });
             } elseif ($request->query('outcome') === 'missed') {
-                $query->where('outcome', 'missed')->where(function ($inner) {
-                    $inner->whereNull('direction')->orWhere('direction', '!=', 'OUTBOUND');
-                });
+                $query->missed();
             } else {
                 $query->where('outcome', $request->query('outcome'));
             }

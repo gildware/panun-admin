@@ -76,6 +76,7 @@ final class AdminChromeViewData
             'pending_bookings_menu_count' => $menuCounts['pending_bookings'] ?? 0,
             'customer_cart_not_contacted_count' => $menuCounts['customer_cart_not_contacted'] ?? 0,
             'new_service_requests_count' => $menuCounts['new_service_requests'] ?? 0,
+            'missed_calls_menu_count' => $menuCounts['missed_calls'] ?? 0,
             'max_booking_amount' => $maxBookingAmount,
             'adminBreadcrumbs' => AdminBreadcrumb::resolve(),
             'adminNavMatch' => AdminNavRegistry::match(),

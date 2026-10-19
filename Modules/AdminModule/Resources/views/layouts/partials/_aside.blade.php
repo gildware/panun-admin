@@ -123,13 +123,21 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     <li class="has-sub-item {{ request()->is('admin/calls*') ? 'sub-menu-opened' : '' }}">
                         <a href="#" class="{{ request()->is('admin/calls*') ? 'active-menu' : '' }}">
                             <span class="material-icons" title="{{ translate('Calls') }}">phone_in_talk</span>
-                            <span class="link-title">{{ translate('Calls') }}</span>
+                            <span class="link-title">{{ translate('Calls') }}
+                                @if(($menuCounts['missed_calls'] ?? 0) > 0)
+                                    <span class="count">{{ $menuCounts['missed_calls'] }}</span>
+                                @endif
+                            </span>
                         </a>
                         <ul class="nav sub-menu">
                             <li>
                                 <a href="{{ route('admin.calls.index') }}"
                                    class="{{ request()->routeIs('admin.calls.index', 'admin.calls.show') ? 'active-menu' : '' }}">
-                                    <span class="link-title">{{ translate('Calls') }}</span>
+                                    <span class="link-title">{{ translate('Calls') }}
+                                        @if(($menuCounts['missed_calls'] ?? 0) > 0)
+                                            <span class="count">{{ $menuCounts['missed_calls'] }}</span>
+                                        @endif
+                                    </span>
                                 </a>
                             </li>
                             <li>

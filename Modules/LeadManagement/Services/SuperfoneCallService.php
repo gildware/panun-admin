@@ -2,6 +2,7 @@
 
 namespace Modules\LeadManagement\Services;
 
+use App\Support\AdminMenuCounts;
 use App\Support\StoragePathPrefix;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -102,6 +103,10 @@ class SuperfoneCallService
             $call = $this->persistCall($payload, $event, $uuid);
         }
         $this->notifyCreatedLead();
+
+        if ($call) {
+            AdminMenuCounts::forget();
+        }
 
         if ($call && $this->shouldDownloadRecording($call)) {
             DownloadSuperfoneRecording::dispatch($call->id)->afterResponse();
