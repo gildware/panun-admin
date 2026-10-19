@@ -18,6 +18,9 @@
         .party-pill--provider { background: #e7f0ff; color: #1d4ed8; }
         .party-pill--customer { background: #e7f6ee; color: #0f7a3a; }
         .calls-link-lead-btn { padding: 0.42rem 0.95rem; font-size: 0.8125rem; font-weight: 600; border-radius: 8px; line-height: 1.2; }
+        .calls-unmatch-btn { background-color: var(--bs-danger); color: #fff; border: 1px solid var(--bs-danger); border-radius: 8px; font-weight: 600; line-height: 1.2; padding: 0.42rem 0.95rem; font-size: 0.8125rem; }
+        .calls-unmatch-btn:hover,
+        .calls-unmatch-btn:focus { background-color: #bb2d3b; color: #fff; border-color: #bb2d3b; }
         .lead-chip { display: inline-flex; align-items: stretch; border-radius: 999px; overflow: hidden; text-decoration: none; border: 1px solid #e5e7eb; background: #fff; line-height: 1; }
         .lead-chip__id { padding: 0.28rem 0.4rem; color: #111827; font-size: 0.72rem; font-weight: 700; }
         .lead-chip__type { padding: 0.28rem 0.45rem; font-size: 0.68rem; font-weight: 700; }

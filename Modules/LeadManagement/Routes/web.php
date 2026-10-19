@@ -152,6 +152,7 @@ Route::group([
         Route::get('{call}/link-options', [SuperfoneCallController::class, 'linkOptions'])->name('link-options');
         Route::post('{call}/link', [SuperfoneCallController::class, 'linkLead'])->name('link');
         Route::post('{call}/booking', [SuperfoneCallController::class, 'linkBooking'])->name('booking');
+        Route::post('{call}/unmatch', [SuperfoneCallController::class, 'unmatch'])->name('unmatch');
         Route::get('{call}', [SuperfoneCallController::class, 'show'])->name('show');
         Route::get('{call}/recording', [SuperfoneCallController::class, 'recording'])->name('recording');
         Route::post('{call}/recording', [SuperfoneCallController::class, 'downloadRecording'])->name('recording.download');

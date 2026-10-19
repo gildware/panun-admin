@@ -428,8 +428,40 @@ class SuperfoneCallService
         return 'other';
     }
 
+    public function unmatch(SuperfoneCall $call): SuperfoneCall
+    {
+        return DB::transaction(function () use ($call) {
+            if ($call->lead_followup_id) {
+                $followup = LeadFollowup::query()->find($call->lead_followup_id);
+                if ($followup && $this->remarksAreManaged($followup->remarks)) {
+                    $followup->delete();
+                }
+            }
+
+            if ($call->booking_followup_id) {
+                $followup = BookingFollowup::query()->find($call->booking_followup_id);
+                if ($followup && ($followup->reason === 'Superfone call' || $this->remarksAreManaged($followup->remarks))) {
+                    $followup->delete();
+                }
+            }
+
+            $call->lead_id = null;
+            $call->lead_followup_id = null;
+            $call->booking_id = null;
+            $call->booking_followup_id = null;
+            $call->manual_unmatched = true;
+            $call->save();
+
+            return $call->fresh();
+        });
+    }
+
     private function matchLead(SuperfoneCall $call): void
     {
+        if ($call->manual_unmatched) {
+            return;
+        }
+
         if ($call->lead_id || $call->provider_id || $call->customer_user_id) {
             if (! $call->booking_id && ($call->lead_id || $call->customer_user_id)) {
                 $this->attachBookingIfSingle($call);
@@ -495,6 +527,7 @@ class SuperfoneCallService
     public function linkToLead(SuperfoneCall $call, Lead $lead): SuperfoneCall
     {
         return DB::transaction(function () use ($call, $lead) {
+            $call->manual_unmatched = false;
             $call->lead_id = $lead->id;
             if (! $call->provider_id) {
                 $call->called_party_type = in_array($lead->lead_type, [Lead::TYPE_PROVIDER, Lead::TYPE_FUTURE_PROVIDER], true)
@@ -529,6 +562,7 @@ class SuperfoneCallService
         }
 
         return DB::transaction(function () use ($call, $booking) {
+            $call->manual_unmatched = false;
             $call->booking_id = $booking->id;
             if (! $call->customer_user_id) {
                 $call->customer_user_id = $booking->customer_id;

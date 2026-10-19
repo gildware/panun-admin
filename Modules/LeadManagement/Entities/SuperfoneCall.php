@@ -40,6 +40,7 @@ class SuperfoneCall extends Model
         'customer_user_id',
         'booking_id',
         'booking_followup_id',
+        'manual_unmatched',
         'called_party_type',
         'recording_url',
         'recording_url_expires_at',
@@ -65,6 +66,7 @@ class SuperfoneCall extends Model
         'recording_file_expires_at' => 'datetime',
         'summary_insights' => 'array',
         'payloads' => 'array',
+        'manual_unmatched' => 'boolean',
     ];
 
     public function lead(): BelongsTo

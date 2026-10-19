@@ -23,11 +23,16 @@
         .calls-sort .dropdown-item.active { font-weight: 700; background: #f3f5f8; color: #111827; }
         .calls-list-card .card-body { padding: 0.5rem 0.75rem 0.75rem; }
         .calls-list-card { overflow: hidden; }
-        .calls-list-scroll { max-height: calc(100vh - 22rem); overflow-x: hidden; overflow-y: auto; }
+        .calls-list-scroll { max-height: calc(100vh - 22rem); overflow-x: auto; overflow-y: auto; }
         .calls-list-table thead th { position: sticky; top: 0; z-index: 2; background: #fff; box-shadow: inset 0 -1px 0 #e5e7eb; }
-        .calls-list-table { width: 100%; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
-        .calls-list-table.table > :not(caption) > * > * { height: 52px; padding: 0 0.35rem; white-space: nowrap; overflow: visible; vertical-align: middle; }
-        .calls-list-table .calls-link-lead-btn { padding: 0.32rem 0.6rem; font-size: 0.75rem; }
+        .calls-list-table { width: 100%; min-width: 1360px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
+        .calls-list-table.table > :not(caption) > * > * { height: 52px; padding: 0 0.55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+        .calls-list-table.table > :not(caption) > * > *.calls-actions-cell { overflow: visible; text-overflow: clip; padding-left: 1rem; text-align: left; }
+        .calls-list-table .calls-link-lead-btn,
+        .calls-list-table .calls-unmatch-btn { padding: 0.32rem 0.6rem; font-size: 0.75rem; }
+        .calls-unmatch-btn { background-color: var(--bs-danger); color: #fff; border: 1px solid var(--bs-danger); border-radius: 8px; font-weight: 600; line-height: 1.2; }
+        .calls-unmatch-btn:hover,
+        .calls-unmatch-btn:focus { background-color: #bb2d3b; color: #fff; border-color: #bb2d3b; }
         .calls-list-table td.calls-lead-cell { white-space: nowrap; }
         .calls-lead-line { display: inline-flex; align-items: center; gap: 0.4rem; max-width: 100%; }
         .party-pill { display: inline-flex; align-items: center; padding: 0.22rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
@@ -47,9 +52,9 @@
         .lead-chip--future_customer .lead-chip__type { background: #fff4e5; color: #b45309; }
         .lead-chip--future_provider .lead-chip__type { background: #eef2ff; color: #4338ca; }
         .lead-chip:hover { border-color: #cbd5e1; }
-        .booking-chip { display: inline-flex; align-items: stretch; border-radius: 999px; overflow: hidden; text-decoration: none; border: 1px solid #e5e7eb; background: #fff; line-height: 1; }
-        .booking-chip__id { padding: 0.28rem 0.4rem; color: #111827; font-size: 0.72rem; font-weight: 700; }
-        .booking-chip__status { padding: 0.28rem 0.45rem; font-size: 0.68rem; font-weight: 700; background: #f1f3f5; color: #4b5563; }
+        .booking-chip { display: inline-flex; align-items: stretch; max-width: 100%; min-width: 0; border-radius: 999px; overflow: hidden; text-decoration: none; border: 1px solid #e5e7eb; background: #fff; line-height: 1; }
+        .booking-chip__id { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0.28rem 0.4rem; color: #111827; font-size: 0.72rem; font-weight: 700; }
+        .booking-chip__status { flex-shrink: 0; padding: 0.28rem 0.45rem; font-size: 0.68rem; font-weight: 700; background: #f1f3f5; color: #4b5563; white-space: nowrap; }
         .booking-chip--pending .booking-chip__status, .booking-chip--accepted .booking-chip__status { background: #fff4e5; color: #b45309; }
         .booking-chip--completed .booking-chip__status, .booking-chip--ongoing .booking-chip__status { background: #e7f6ee; color: #0f7a3a; }
         .booking-chip--canceled .booking-chip__status, .booking-chip--cancelled .booking-chip__status, .booking-chip--refund_request .booking-chip__status { background: #fdecea; color: #c62828; }
@@ -241,16 +246,16 @@
                     <table class="table table-striped table-hover table-sm align-middle mb-0 calls-list-table">
                         <colgroup>
                             <col style="width: 12%">
-                            <col style="width: 8%">
-                            <col style="width: 10%">
+                            <col style="width: 7%">
+                            <col style="width: 9%">
                             <col style="width: 7%">
                             <col style="width: 8%">
-                            <col style="width: 7%">
-                            <col style="width: 7%">
+                            <col style="width: 5%">
+                            <col style="width: 4%">
                             <col style="width: 14%">
-                            <col style="width: 10%">
-                            <col style="width: 11%">
-                            <col style="width: 6%">
+                            <col style="width: 8%">
+                            <col style="width: 17%">
+                            <col style="width: 9%">
                         </colgroup>
                         <thead>
                         @php
@@ -272,7 +277,7 @@
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Customer_or_Provider') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'party'])</span></th>
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Lead') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'lead'])</span></th>
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Booking') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'booking'])</span></th>
-                            <th class="text-end">{{ translate('Actions') }}</th>
+                            <th class="calls-actions-cell">{{ translate('Actions') }}</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -359,7 +364,7 @@
                                         'openBookings' => $bookingChoices[$call->id] ?? collect(),
                                     ])
                                 </td>
-                                <td>
+                                <td class="calls-booking-cell">
                                     @if($call->booking)
                                         @php $bookingStatus = (string) ($call->booking->booking_status ?: 'pending'); @endphp
                                         <a class="booking-chip booking-chip--{{ $bookingStatus }}" href="{{ route('admin.booking.details', [$call->booking_id, 'web_page' => 'details']) }}">
@@ -370,7 +375,7 @@
                                         <span class="text-muted">—</span>
                                     @endif
                                 </td>
-                                <td class="text-end">
+                                <td class="calls-actions-cell">
                                     @if(!$call->lead && !$call->booking)
                                         @php
                                             $linkProvider = trim((string) ($call->provider->company_name ?? $call->provider->contact_person_name ?? ''));
@@ -399,7 +404,10 @@
                                             {{ translate('Link_call') }}
                                         </button>
                                     @else
-                                        <span class="text-muted">—</span>
+                                        <form method="post" action="{{ route('admin.calls.unmatch', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Unmatch_this_call')));">
+                                            @csrf
+                                            <button type="submit" class="btn btn--danger calls-unmatch-btn">{{ translate('Unmatch') }}</button>
+                                        </form>
                                     @endif
                                 </td>
                             </tr>
