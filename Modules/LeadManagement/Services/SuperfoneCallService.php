@@ -4,6 +4,7 @@ namespace Modules\LeadManagement\Services;
 
 use App\Support\AdminMenuCounts;
 use App\Support\StoragePathPrefix;
+use Modules\AdminModule\Entities\UserNotification;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,8 @@ class SuperfoneCallService
     }
 
     private ?Lead $createdLead = null;
+
+    private bool $announceMissedCall = false;
     public const EVENT_ALL_CALLS = 'ALL_CALLS';
 
     public const EVENT_MISSED_CALL = 'MISSED_CALL';
@@ -97,12 +100,16 @@ class SuperfoneCallService
         }
 
         $this->createdLead = null;
+        $this->announceMissedCall = false;
         try {
             $call = $this->persistCall($payload, $event, $uuid);
         } catch (UniqueConstraintViolationException) {
             $call = $this->persistCall($payload, $event, $uuid);
         }
         $this->notifyCreatedLead();
+        if ($call && $this->announceMissedCall) {
+            $this->notifyMissedCall($call);
+        }
 
         if ($call) {
             AdminMenuCounts::forget();
@@ -126,6 +133,7 @@ class SuperfoneCallService
             if (! $call) {
                 $call = new SuperfoneCall(['cdr_uuid' => $uuid]);
             }
+            $previousOutcome = $call->exists ? $call->outcome : null;
             $this->applyPayload($call, $payload, $event);
             $call->save();
             $this->matchLead($call);
@@ -133,6 +141,7 @@ class SuperfoneCallService
             $call->save();
             $this->syncFollowup($call);
             $this->syncBookingFollowup($call);
+            $this->announceMissedCall = self::shouldNotifyMissed($previousOutcome, $call->outcome);
 
             return $call->fresh() ?? $call;
         });
@@ -257,6 +266,37 @@ class SuperfoneCallService
         }
 
         return substr($digits, -10);
+    }
+
+    public static function shouldNotifyMissed(?string $previousOutcome, ?string $outcome): bool
+    {
+        return $outcome === 'missed' && $previousOutcome !== 'missed';
+    }
+
+    /**
+     * Calls stored in the last few minutes, for the admin toast.
+     *
+     * @return array<int, array{id: string, title: string, message: string, url: string}>
+     */
+    public function recentAdminToasts(): array
+    {
+        return SuperfoneCall::query()
+            ->where('created_at', '>=', now()->subMinutes(3))
+            ->latest('created_at')
+            ->limit(8)
+            ->get()
+            ->map(function (SuperfoneCall $call) {
+                $who = $call->customer_phone ?: $call->customer_phone_digits ?: translate('Unknown');
+                $parts = array_filter([$call->directionLabel(), $who, $call->staff_name]);
+
+                return [
+                    'id' => (string) $call->id,
+                    'title' => translate('New_call_received'),
+                    'message' => implode(' · ', $parts),
+                    'url' => route('admin.calls.show', $call),
+                ];
+            })
+            ->all();
     }
 
     public static function outcomeForDirection(?string $outcome, ?string $direction): ?string
@@ -723,6 +763,36 @@ class SuperfoneCallService
         $this->createdLead = $lead;
 
         return $lead;
+    }
+
+    private function notifyMissedCall(SuperfoneCall $call): void
+    {
+        if (! function_exists('admin_inbox_notify_all')) {
+            return;
+        }
+
+        $who = $call->customer_phone ?: $call->customer_phone_digits ?: translate('Unknown');
+        $body = implode(' · ', array_filter([
+            $call->directionLabel(),
+            $who,
+            $call->staff_name,
+        ]));
+
+        try {
+            admin_inbox_notify_all(
+                UserNotification::TYPE_MISSED_CALL,
+                translate('Missed_call'),
+                $body,
+                route('admin.calls.show', $call),
+                'superfone_call_missed',
+                (string) $call->id,
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Superfone missed call notification failed', [
+                'call_id' => $call->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function notifyCreatedLead(): void

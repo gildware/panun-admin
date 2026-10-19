@@ -7,6 +7,7 @@
         @include('adminmodule::layouts.partials.top-nav._employee-nav-label', [
             'label' => translate('Calls'),
             'count' => $missedCallsMenuCount,
+            'badgeId' => 'calls-menu-missed-count',
         ])
         <span class="material-icons expand-more-icon">expand_more</span>
     </button>
@@ -16,6 +17,7 @@
             'label' => translate('Calls'),
             'active' => request()->routeIs('admin.calls.index', 'admin.calls.show'),
             'count' => $missedCallsMenuCount,
+            'countId' => 'calls-menu-missed-count-link',
         ])
         @include('adminmodule::layouts.partials.top-nav._link', [
             'href' => route('admin.calls.api-logs'),

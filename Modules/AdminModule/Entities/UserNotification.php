@@ -47,6 +47,7 @@ class UserNotification extends Model
     public const TYPE_TIMESHEET_DECIDED = 'timesheet_decided';
     public const TYPE_DOCUMENT_SUBMITTED = 'document_submitted';
     public const TYPE_DOCUMENT_DECIDED = 'document_decided';
+    public const TYPE_MISSED_CALL = 'missed_call';
 
     protected $fillable = [
         'user_id',
@@ -203,6 +204,7 @@ class UserNotification extends Model
             self::TYPE_LEAVE_REQUEST, self::TYPE_LEAVE_DECIDED => 'event_busy',
             self::TYPE_TIMESHEET_SUBMITTED, self::TYPE_TIMESHEET_DECIDED => 'schedule',
             self::TYPE_DOCUMENT_SUBMITTED, self::TYPE_DOCUMENT_DECIDED => 'description',
+            self::TYPE_MISSED_CALL => 'phone_missed',
             default => 'notifications',
         };
     }
@@ -241,6 +243,7 @@ class UserNotification extends Model
             self::TYPE_TIMESHEET_DECIDED => translate('Timesheet_update'),
             self::TYPE_DOCUMENT_SUBMITTED => translate('Document_submitted'),
             self::TYPE_DOCUMENT_DECIDED => translate('Document_update'),
+            self::TYPE_MISSED_CALL => translate('Missed_call'),
             default => translate('Notification'),
         };
     }
@@ -271,6 +274,7 @@ class UserNotification extends Model
             self::TYPE_LEAVE_REQUEST, self::TYPE_LEAVE_DECIDED => translate('View_leave'),
             self::TYPE_TIMESHEET_SUBMITTED, self::TYPE_TIMESHEET_DECIDED => translate('View_timesheet'),
             self::TYPE_DOCUMENT_SUBMITTED, self::TYPE_DOCUMENT_DECIDED => translate('View_document'),
+            self::TYPE_MISSED_CALL => translate('View_call'),
             default => translate('View_Details'),
         };
     }

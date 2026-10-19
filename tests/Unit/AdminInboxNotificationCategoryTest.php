@@ -57,6 +57,7 @@ class AdminInboxNotificationCategoryTest extends TestCase
             UserNotification::TYPE_LEAD,
             UserNotification::TYPE_WHATSAPP_HUMAN_SUPPORT,
             UserNotification::TYPE_HUNTING_INTEREST,
+            UserNotification::TYPE_MISSED_CALL,
         ];
 
         $internal = [
@@ -196,6 +197,7 @@ class AdminInboxNotificationCategoryTest extends TestCase
             'lead followup due' => ['internal', ['admin_inbox_notify_lead_followup_due', 'LeadFollowupReminderNotifier']],
             'hunting interest' => ['external', ['admin_inbox_notify_hunting_interest', 'TYPE_HUNTING_INTEREST']],
             'hunting rejected' => ['external', ['admin_inbox_notify_hunting_rejected', 'TYPE_HUNTING_INTEREST']],
+            'missed call' => ['external', ['TYPE_MISSED_CALL', 'notifyMissedCall']],
         ];
     }
 

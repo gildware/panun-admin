@@ -45,6 +45,8 @@
                 case 'web_booking':
                 case 'lead':
                     return { icon: 'info' };
+                case 'missed_call':
+                    return { icon: 'warning' };
                 case 'app_custom_request':
                     return { icon: 'info' };
                 case 'showcase':
@@ -62,7 +64,7 @@
         }
 
         function typesWithDirectNavigation() {
-            return ['chat_message', 'whatsapp_assigned', 'whatsapp_human_support', 'ticket_assigned', 'ticket_comment', 'lead_assigned', 'booking_assigned', 'lead_comment', 'booking_comment', 'lead', 'lead_followup_due'];
+            return ['chat_message', 'whatsapp_assigned', 'whatsapp_human_support', 'ticket_assigned', 'ticket_comment', 'lead_assigned', 'booking_assigned', 'lead_comment', 'booking_comment', 'lead', 'lead_followup_due', 'missed_call'];
         }
 
         function markNotificationRead(notificationId) {
@@ -150,6 +152,81 @@
             });
         };
 
+        function callToastShownIds() {
+            try {
+                var raw = sessionStorage.getItem('admin_shown_new_call_ids');
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function rememberCallToastId(id) {
+            var ids = callToastShownIds();
+            if (ids.indexOf(id) === -1) {
+                ids.push(id);
+                if (ids.length > 100) {
+                    ids = ids.slice(-100);
+                }
+                sessionStorage.setItem('admin_shown_new_call_ids', JSON.stringify(ids));
+            }
+        }
+
+        window.pkUpdateCallsMissedBadge = function (count) {
+            if (count === null || typeof count === 'undefined' || count === '') {
+                return;
+            }
+            count = parseInt(count, 10);
+            if (isNaN(count) || count < 0) {
+                count = 0;
+            }
+            var label = count > 99 ? '99+' : String(count);
+            ['calls-menu-missed-count', 'calls-menu-missed-count-link'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (!el) {
+                    return;
+                }
+                el.textContent = count > 0 ? label : '';
+                el.style.display = count > 0 ? 'inline-flex' : 'none';
+                var wrap = el.closest('.top-nav-label-wrap');
+                if (wrap) {
+                    wrap.classList.toggle('top-nav-label-wrap--badged', count > 0);
+                }
+            });
+        };
+
+        window.pkShowNewCallToasts = function (data, skipSound) {
+            var calls = (data && data.new_calls) || [];
+            if (!calls.length || typeof toastr === 'undefined') {
+                return;
+            }
+            var shown = callToastShownIds();
+            var played = false;
+            calls.forEach(function (call) {
+                if (!call || !call.id || shown.indexOf(String(call.id)) !== -1) {
+                    return;
+                }
+                rememberCallToastId(String(call.id));
+                if (skipSound) {
+                    return;
+                }
+                toastr.info(call.message || '', call.title || @json(translate('New_call_received')), {
+                    CloseButton: true,
+                    ProgressBar: true,
+                    timeOut: 8000,
+                    onclick: function () {
+                        if (call.url) {
+                            window.location.href = call.url;
+                        }
+                    }
+                });
+                played = true;
+            });
+            if (played && typeof window.pkPlayStaffNotificationSound === 'function') {
+                window.pkPlayStaffNotificationSound();
+            }
+        };
+
         window.pkHandleAdminInboxNotifications = function (data, opts) {
             opts = opts || {};
             var skipSound = !!opts.skipSound;
@@ -190,6 +267,9 @@
 
             var alerts = data.new_notification_alerts || [];
             var shownIds = getShownAlertIds();
+            window.pkShowNewCallToasts(data, skipSound);
+            window.pkUpdateCallsMissedBadge(data.missed_calls_count);
+
             alerts.forEach(function (alert) {
                 if (!alert || !alert.id || shownIds.indexOf(alert.id) !== -1) {
                     return;
