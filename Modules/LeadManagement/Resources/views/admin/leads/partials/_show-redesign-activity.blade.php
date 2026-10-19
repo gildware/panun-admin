@@ -386,8 +386,11 @@
                 <table class="data-table lead-call-log-table mb-0">
                     <thead>
                         <tr>
-                            <th>{{ translate('Who_You_Called') }}</th>
+                            <th>{{ translate('User_details') }}</th>
                             <th>{{ translate('When_You_Called') }}</th>
+                            <th>{{ translate('Duration') }}</th>
+                            <th>{{ translate('Agent') }}</th>
+                            <th>{{ translate('Status') }}</th>
                             <th>{{ translate('Remarks') }}</th>
                             <th>{{ translate('Recording') }}</th>
                             @can('lead_update')
@@ -412,6 +415,61 @@
                                 \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_OTHER => translate('Other'),
                                 default => translate('Customer'),
                             };
+                            $agentName = '';
+                            $durationLabel = '—';
+                            $statusLabel = null;
+                            $statusClass = 'chip--info';
+                            $displayRemarks = trim((string) ($callLog['remarks'] ?? ''));
+                            if ($superfone) {
+                                $agentName = trim((string) ($superfone->staff_name ?? ''));
+                                $durationLabel = $superfone->durationLabel();
+                                $outcome = $superfone->outcome ?: 'unknown';
+                                if ($outcome === 'missed' && $superfone->direction === 'OUTBOUND') {
+                                    $outcome = 'unanswered';
+                                }
+                                $statusLabel = $superfone->outcomeLabel();
+                                $statusClass = match ($outcome) {
+                                    'answered' => 'chip--success',
+                                    'missed' => 'chip--danger',
+                                    'unanswered' => 'chip--warning',
+                                    default => 'chip--info',
+                                };
+                                $kept = [];
+                                foreach (preg_split("/\r\n|\n|\r/", $displayRemarks) ?: [] as $line) {
+                                    $trimmed = trim($line);
+                                    if ($trimmed === '') {
+                                        if ($kept !== []) {
+                                            $kept[] = '';
+                                        }
+                                        continue;
+                                    }
+                                    if (preg_match('/^(Superfone\s|Answered\b|Unanswered\b|Missed\b|Ended\s|Agent:\s|Provider:\s)/i', $trimmed)) {
+                                        continue;
+                                    }
+                                    if ($superfone->disposition && strcasecmp($trimmed, (string) $superfone->disposition) === 0) {
+                                        continue;
+                                    }
+                                    $kept[] = $trimmed;
+                                }
+                                $displayRemarks = trim(implode("\n", $kept));
+                                if ($displayRemarks === '') {
+                                    $displayRemarks = trim((string) ($superfone->summary_text ?? ''));
+                                }
+                            } elseif ($callLogFollowup) {
+                                $creator = $callLogFollowup->createdBy;
+                                $agentName = trim((string) (($creator->first_name ?? '').' '.($creator->last_name ?? '')));
+                                if ($agentName === '') {
+                                    $agentName = trim((string) ($creator->email ?? ''));
+                                }
+                                $statusLabel = match ($callLogFollowup->followup_status) {
+                                    \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN => translate('Taken'),
+                                    \Modules\LeadManagement\Entities\LeadFollowup::STATUS_RESCHEDULE => translate('Reschedule'),
+                                    default => null,
+                                };
+                                $statusClass = $callLogFollowup->followup_status === \Modules\LeadManagement\Entities\LeadFollowup::STATUS_RESCHEDULE
+                                    ? 'chip--warning'
+                                    : 'chip--success';
+                            }
                         @endphp
                         <tr class="lead-call-log-row {{ $loop->even ? 'lead-call-log-row--alt' : '' }}">
                             <td>
@@ -430,17 +488,21 @@
                             </td>
                             <td class="text-nowrap">
                                 @if($superfone)
-                                    <div>{{ $superfone->started_at?->format('d M Y, h:i A') ?? '—' }}</div>
-                                    <div class="text-muted small">
-                                        {{ translate('Ended') }} {{ $superfone->ended_at?->format('h:i A') ?? '—' }}
-                                        · {{ $superfone->durationLabel() }}
-                                    </div>
-                                    <div class="small">{{ $superfone->outcomeLabel() }}@if($superfone->disposition) · {{ $superfone->disposition }}@endif</div>
+                                    {{ $superfone->started_at?->format('d M Y, h:i A') ?? ($calledAt?->format('d M Y, h:i A') ?? '—') }}
                                 @else
                                     {{ $calledAt?->format('d M Y, h:i A') ?? '—' }}
                                 @endif
                             </td>
-                            <td style="white-space: pre-line;">{{ $callLog['remarks'] ?: '—' }}</td>
+                            <td class="text-nowrap">{{ $durationLabel }}</td>
+                            <td>{{ $agentName !== '' ? $agentName : '—' }}</td>
+                            <td class="text-nowrap">
+                                @if($statusLabel)
+                                    <span class="chip {{ $statusClass }}">{{ $statusLabel }}</span>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td class="call-log-remarks">{{ $displayRemarks !== '' ? $displayRemarks : '—' }}</td>
                             <td class="text-nowrap">
                                 @if($hasRecording && $callLogFollowup)
                                     <button type="button" class="ld-btn ld-btn-outline voice-call-details-toggle" aria-expanded="false">{{ translate('View') }}</button>
@@ -490,7 +552,7 @@
                         </tr>
                         @if($hasRecording)
                             <tr class="voice-call-details-row d-none">
-                                <td colspan="{{ auth()->user()?->can('lead_update') ? 5 : 4 }}" class="p-0 border-0">
+                                <td colspan="{{ auth()->user()?->can('lead_update') ? 8 : 7 }}" class="p-0 border-0">
                                     @if(($callLog['type'] ?? '') === 'initial')
                                         @include('leadmanagement::admin.leads.partials._initial_call_recording_details_panel', ['lead' => $lead])
                                     @else
