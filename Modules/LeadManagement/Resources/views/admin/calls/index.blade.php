@@ -88,6 +88,9 @@
         .call-pill--type-future_customer { background: #fff4e5; color: #b45309; }
         .call-pill--type-future_provider { background: #eef2ff; color: #4338ca; }
         .call-pill--rec { background: #eef2ff; color: #4338ca; padding-left: 0.35rem; padding-right: 0.35rem; }
+        button.call-pill--rec { border: 0; cursor: pointer; }
+        button.call-pill--rec:hover,
+        button.call-pill--rec:focus { background: #e0e7ff; color: #3730a3; }
         .call-pill--note { background: #f3f4f6; color: #4b5563; padding-left: 0.35rem; padding-right: 0.35rem; }
         .calls-direction-btn { height: 34px; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0 0.55rem; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
         .calls-direction-btn .material-icons { font-size: 16px; line-height: 1; }
@@ -334,9 +337,13 @@
                                 <td>{{ $call->durationLabel() }}</td>
                                 <td>
                                     @if($call->hasRecording())
-                                        <span class="call-pill call-pill--rec" title="{{ translate('Recording') }}">
+                                        <button type="button"
+                                                class="call-pill call-pill--rec calls-play-recording"
+                                                title="{{ translate('Play_recording') }}"
+                                                data-recording-url="{{ route('admin.calls.recording', $call) }}"
+                                                data-recording-title="{{ $call->customer_phone ?: translate('Recording') }}">
                                             <span class="material-icons">mic</span>
-                                        </span>
+                                        </button>
                                     @elseif($call->summary_text)
                                         <span class="call-pill call-pill--note" title="{{ translate('Summary') }}">
                                             <span class="material-icons">notes</span>
@@ -424,6 +431,21 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="call-recording-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="call-recording-title">{{ translate('Recording') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                </div>
+                <div class="modal-body">
+                    <audio id="call-recording-audio" controls preload="auto" class="w-100"></audio>
+                    <p id="call-recording-error" class="text-danger small mb-0 mt-2 d-none">{{ translate('No_recording_available') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('script')
@@ -454,6 +476,39 @@
                 event.preventDefault();
                 clearTimeout(timer);
                 form.submit();
+            });
+        })();
+
+        (function () {
+            var modalEl = document.getElementById('call-recording-modal');
+            var audio = document.getElementById('call-recording-audio');
+            var error = document.getElementById('call-recording-error');
+            var title = document.getElementById('call-recording-title');
+            if (!modalEl || !audio || !window.bootstrap) return;
+
+            document.querySelectorAll('.calls-play-recording').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    if (error) error.classList.add('d-none');
+                    if (title) title.textContent = button.getAttribute('data-recording-title') || '';
+                    audio.src = button.getAttribute('data-recording-url') || '';
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                    var play = audio.play();
+                    if (play && typeof play.catch === 'function') {
+                        play.catch(function () {
+                            if (error) error.classList.remove('d-none');
+                        });
+                    }
+                });
+            });
+
+            audio.addEventListener('error', function () {
+                if (audio.getAttribute('src') && error) error.classList.remove('d-none');
+            });
+
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                audio.pause();
+                audio.removeAttribute('src');
+                audio.load();
             });
         })();
     </script>

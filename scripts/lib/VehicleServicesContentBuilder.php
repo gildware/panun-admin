@@ -181,6 +181,12 @@ class VehicleServicesContentBuilder
             str_contains($slug, 'ac') => [
                 ['Will AC gas refill fix weak cooling?', 'Not always. The technician checks for leaks and filter issues before recommending gas top-up.'],
             ],
+            $slug === 'periodic-car-service' => [
+                ['Which fuel should I pick?', 'Choose Petrol, Diesel, or CNG along with hatchback, sedan, or SUV. The price stays the same for that body size. Parts such as oil and filters are quoted on site.'],
+            ],
+            $slug === 'bike-general-service' => [
+                ['Do bikes have diesel or CNG options?', 'There is no diesel bike option. Pick Petrol for a normal bike or scooter, or CNG if the two-wheeler runs on CNG, such as a Bajaj Freedom.'],
+            ],
             default => [],
         };
 

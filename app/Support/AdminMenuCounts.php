@@ -10,6 +10,7 @@ use Modules\BookingModule\Entities\WebBooking;
 use Modules\BookingModule\Entities\WebProviderRequest;
 use Modules\CartModule\Entities\Cart;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\SuperfoneCall;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderChangeRequest;
@@ -51,6 +52,7 @@ final class AdminMenuCounts
                 'pending_bookings' => self::safeCountPendingBookings(),
                 'customer_cart_not_contacted' => self::safeCountCustomerCartNotContacted(),
                 'new_service_requests' => self::safeCountNewServiceRequests(),
+                'missed_calls' => self::safeCountMissedCalls(),
             ];
         });
     }
@@ -131,6 +133,10 @@ final class AdminMenuCounts
                     ? (int) ($counts['pending_bookings'] ?? 0)
                     : (int) ($counts['all_bookings'] ?? 0);
             }
+        }
+
+        if ($path === 'admin/calls') {
+            return (int) ($counts['missed_calls'] ?? 0);
         }
 
         if (str_contains($path, 'hunting-board')) {
@@ -305,6 +311,19 @@ final class AdminMenuCounts
                 ->whereNull('ccc.contacted_at')
                 ->distinct()
                 ->count('carts.customer_id');
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private static function safeCountMissedCalls(): int
+    {
+        try {
+            if (! Schema::hasTable('superfone_calls')) {
+                return 0;
+            }
+
+            return SuperfoneCall::query()->missed()->count();
         } catch (\Throwable) {
             return 0;
         }

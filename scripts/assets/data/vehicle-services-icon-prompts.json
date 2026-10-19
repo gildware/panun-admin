@@ -61,6 +61,21 @@
       "variant_key": "scooter",
       "filename": "scooter.png",
       "prompt": "Variation icon for vehicle service: scooter moped icon side view. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "petrol",
+      "filename": "petrol.png",
+      "prompt": "Variation icon for vehicle service: petrol fuel pump nozzle icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "diesel",
+      "filename": "diesel.png",
+      "prompt": "Variation icon for vehicle service: diesel fuel pump nozzle icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "cng",
+      "filename": "cng.png",
+      "prompt": "Variation icon for vehicle service: CNG gas cylinder with a small nozzle icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
     }
   ]
 }

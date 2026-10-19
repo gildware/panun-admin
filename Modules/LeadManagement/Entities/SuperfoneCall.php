@@ -104,6 +104,16 @@ class SuperfoneCall extends Model
         return $this->lead_id === null && $this->customer_user_id === null;
     }
 
+    /**
+     * Inbound (and direction-unknown) calls tagged missed. Outbound misses are unanswered.
+     */
+    public function scopeMissed($query)
+    {
+        return $query->where('outcome', 'missed')->where(function ($inner) {
+            $inner->whereNull('direction')->orWhere('direction', '!=', 'OUTBOUND');
+        });
+    }
+
     public function hasRecording(): bool
     {
         return ! empty($this->recording_path);

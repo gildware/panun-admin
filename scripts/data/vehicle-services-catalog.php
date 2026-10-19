@@ -59,6 +59,32 @@ if (! function_exists('vehicle_bike_cc_variants')) {
     }
 }
 
+if (! function_exists('vehicle_fuel_variants')) {
+    /**
+     * Keep body size or engine size, and add fuel as its own choice.
+     *
+     * @param  array<int, array{variant_key: string, title: string, variation_label: string, price: float}>  $bases
+     * @param  array<string, string>  $fuels
+     */
+    function vehicle_fuel_variants(array $bases, array $fuels): array
+    {
+        $variants = [];
+        foreach ($bases as $base) {
+            foreach ($fuels as $fuelKey => $fuelLabel) {
+                $title = $base['title'].' · '.$fuelLabel;
+                $variants[] = [
+                    'variant_key' => $base['variant_key'].'-'.$fuelKey,
+                    'title' => $title,
+                    'variation_label' => $title,
+                    'price' => (float) $base['price'],
+                ];
+            }
+        }
+
+        return $variants;
+    }
+}
+
 if (! function_exists('vehicle_two_wheeler_variants')) {
     function vehicle_two_wheeler_variants(array $prices): array
     {
@@ -141,7 +167,10 @@ return [
             'slug' => 'periodic-car-service',
             'sub_category_slug' => 'car-repair-maintenance',
             'base_price' => 1999.0,
-            'variants' => vehicle_car_size_variants(['hatchback' => 1999, 'sedan' => 2499, 'suv' => 2999]),
+            'variants' => vehicle_fuel_variants(
+                vehicle_car_size_variants(['hatchback' => 1999, 'sedan' => 2499, 'suv' => 2999]),
+                ['petrol' => 'Petrol', 'diesel' => 'Diesel', 'cng' => 'CNG']
+            ),
         ],
         [
             'name' => 'Car Battery Replacement',
@@ -169,7 +198,10 @@ return [
             'slug' => 'bike-general-service',
             'sub_category_slug' => 'bike-scooter-service',
             'base_price' => 499.0,
-            'variants' => vehicle_bike_cc_variants(['100-150cc' => 499, '150cc-plus' => 699]),
+            'variants' => vehicle_fuel_variants(
+                vehicle_bike_cc_variants(['100-150cc' => 499, '150cc-plus' => 699]),
+                ['petrol' => 'Petrol', 'cng' => 'CNG']
+            ),
         ],
         [
             'name' => 'Scooter Periodic Service',
