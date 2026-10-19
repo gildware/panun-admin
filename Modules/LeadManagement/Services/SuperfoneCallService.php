@@ -4,6 +4,7 @@ namespace Modules\LeadManagement\Services;
 
 use App\Support\StoragePathPrefix;
 use Carbon\Carbon;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -95,8 +96,31 @@ class SuperfoneCallService
         }
 
         $this->createdLead = null;
-        $call = DB::transaction(function () use ($payload, $event, $uuid) {
-            $call = SuperfoneCall::query()->firstOrNew(['cdr_uuid' => $uuid]);
+        try {
+            $call = $this->persistCall($payload, $event, $uuid);
+        } catch (UniqueConstraintViolationException) {
+            $call = $this->persistCall($payload, $event, $uuid);
+        }
+        $this->notifyCreatedLead();
+
+        if ($call && $this->shouldDownloadRecording($call)) {
+            DownloadSuperfoneRecording::dispatch($call->id)->afterResponse();
+        }
+
+        return $call;
+    }
+
+    /**
+     * A finished call and its recording can arrive together. Lock the existing row,
+     * and if both requests still insert, the loser retries and updates that row.
+     */
+    private function persistCall(array $payload, string $event, string $uuid): SuperfoneCall
+    {
+        return DB::transaction(function () use ($payload, $event, $uuid) {
+            $call = SuperfoneCall::query()->where('cdr_uuid', $uuid)->lockForUpdate()->first();
+            if (! $call) {
+                $call = new SuperfoneCall(['cdr_uuid' => $uuid]);
+            }
             $this->applyPayload($call, $payload, $event);
             $call->save();
             $this->matchLead($call);
@@ -105,15 +129,8 @@ class SuperfoneCallService
             $this->syncFollowup($call);
             $this->syncBookingFollowup($call);
 
-            return $call->fresh();
+            return $call->fresh() ?? $call;
         });
-        $this->notifyCreatedLead();
-
-        if ($call && $this->shouldDownloadRecording($call)) {
-            DownloadSuperfoneRecording::dispatch($call->id)->afterResponse();
-        }
-
-        return $call;
     }
 
     public function downloadRecording(SuperfoneCall $call): SuperfoneCall
