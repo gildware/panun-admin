@@ -3,6 +3,7 @@
 namespace Modules\AdminModule\Http\Controllers\Web\Admin;
 
 use App\Support\AdminHeaderChatCounts;
+use App\Support\AdminMenuCounts;
 use App\Support\AdminWorkspace;
 use App\Support\EmployeeSearchAccessFilter;
 use App\Traits\UploadSizeHelperTrait;
@@ -48,6 +49,7 @@ use Modules\AdminModule\Entities\RouteSearchHistory;
 use Modules\AdminModule\Services\StaffPresenceService;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
 use Modules\AdminModule\Entities\UserNotification;
+use Modules\LeadManagement\Services\SuperfoneCallService;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingCompensation;
@@ -589,6 +591,13 @@ class AdminController extends Controller
             ->values()
             ->all();
 
+        $newCalls = [];
+        $missedCallsCount = null;
+        if ($workspace === AdminWorkspace::OPERATIONS && $user->can('lead_view')) {
+            $newCalls = app(SuperfoneCallService::class)->recentAdminToasts();
+            $missedCallsCount = (int) (AdminMenuCounts::all()['missed_calls'] ?? 0);
+        }
+
         $presenceStatus = $staffPresenceService->resolveDisplayStatus($request->user());
         $presenceLabel = $staffPresenceService->statusLabel($presenceStatus);
 
@@ -600,6 +609,8 @@ class AdminController extends Controller
                 'whatsapp_unread_chats' => $whatsappUnreadChats,
                 'whatsapp_unread_messages' => $whatsappUnreadMessages,
                 'new_notification_alerts' => $newNotificationAlerts,
+                'new_calls' => $newCalls,
+                'missed_calls_count' => $missedCallsCount,
                 'notification_workspace' => $workspace,
                 'presence_status' => $presenceStatus,
                 'presence_label' => $presenceLabel,

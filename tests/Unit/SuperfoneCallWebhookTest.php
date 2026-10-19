@@ -21,6 +21,15 @@ class SuperfoneCallWebhookTest extends TestCase
         $this->assertTrue(SuperfoneCallService::isProvisionalDisposition('RINGING'));
     }
 
+    public function test_a_missed_call_notifies_only_when_it_newly_becomes_missed(): void
+    {
+        $this->assertTrue(SuperfoneCallService::shouldNotifyMissed(null, 'missed'));
+        $this->assertTrue(SuperfoneCallService::shouldNotifyMissed('answered', 'missed'));
+        $this->assertFalse(SuperfoneCallService::shouldNotifyMissed('missed', 'missed'));
+        $this->assertFalse(SuperfoneCallService::shouldNotifyMissed(null, 'unanswered'));
+        $this->assertFalse(SuperfoneCallService::shouldNotifyMissed(null, 'answered'));
+    }
+
     public function test_outbound_missed_calls_are_tagged_unanswered(): void
     {
         $this->assertSame('unanswered', SuperfoneCallService::outcomeForDirection('missed', 'OUTBOUND'));
