@@ -288,7 +288,7 @@
                             <tr>
                                 <td>
                                     <a href="{{ route('admin.calls.show', $call) }}">
-                                        {{ $call->started_at?->format('d M Y, h:i A') ?? '—' }}
+                                        {{ $call->formatIst('started_at') }}
                                     </a>
                                 </td>
                                 <td>

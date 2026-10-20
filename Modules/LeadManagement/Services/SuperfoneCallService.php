@@ -32,6 +32,9 @@ class SuperfoneCallService
     private ?Lead $createdLead = null;
 
     private bool $announceMissedCall = false;
+    /** Superfone sends call instants as UTC ISO-8601. Admin times are shown in IST. */
+    public const DISPLAY_TIMEZONE = 'Asia/Kolkata';
+
     public const EVENT_ALL_CALLS = 'ALL_CALLS';
 
     public const EVENT_MISSED_CALL = 'MISSED_CALL';
@@ -1119,18 +1122,55 @@ class SuperfoneCallService
         $call->{$attribute} = $value;
     }
 
-    private function fillDate(SuperfoneCall $call, string $attribute, mixed $value): void
+    /**
+     * Superfone CDR times are absolute instants (usually `...Z`). Store the IST wall clock
+     * so the calls list matches India Standard Time, the same way other admin timestamps are kept.
+     */
+    public static function parseSuperfoneInstant(mixed $value): ?Carbon
     {
-        $value = self::clean(is_scalar($value) ? (string) $value : null);
-        if ($value === null) {
-            return;
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
         }
 
         try {
-            $call->{$attribute} = Carbon::parse($value);
+            return Carbon::parse($value)->timezone(self::DISPLAY_TIMEZONE);
         } catch (\Throwable) {
-            // Ignore unparseable Superfone timestamps.
+            return null;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payloads
+     */
+    public static function instantFromPayloads(array $payloads, string $key): ?Carbon
+    {
+        foreach (array_reverse($payloads) as $payload) {
+            if (! is_array($payload) || ! array_key_exists($key, $payload)) {
+                continue;
+            }
+
+            $parsed = self::parseSuperfoneInstant($payload[$key]);
+            if ($parsed !== null) {
+                return $parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private function fillDate(SuperfoneCall $call, string $attribute, mixed $value): void
+    {
+        $parsed = self::parseSuperfoneInstant($value);
+        if ($parsed === null) {
+            return;
+        }
+
+        $call->{$attribute} = $parsed;
     }
 
     private function nullableInt(mixed $value): ?int

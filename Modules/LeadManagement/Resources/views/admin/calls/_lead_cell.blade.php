@@ -84,8 +84,9 @@
             </div>
         </div>
     </div>
+    @push('script')
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        function bootCallLinkModal() {
             var modal = document.getElementById('call-link-lead-modal');
             var leadInput = document.getElementById('call-link-lead-q');
             var leadResults = document.getElementById('call-link-lead-results');
@@ -94,8 +95,12 @@
             var kind = document.getElementById('call-link-kind');
             var name = document.getElementById('call-link-name');
             var phone = document.getElementById('call-link-phone');
-            if (!modal || !leadInput || !leadResults || !bookingInput || !bookingResults) {
+            if (!modal || !leadInput || !leadResults || !bookingInput || !bookingResults || modal.dataset.bound === '1') {
                 return;
+            }
+            modal.dataset.bound = '1';
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
             }
             var leadAction = '';
             var bookingAction = '';
@@ -281,13 +286,20 @@
                 });
             });
 
-            function watchSearch(input, results, urlName, listName, actionField, idField) {
+            function shouldSearch(query) {
+                if (/^\d+$/.test(query)) {
+                    return query.length >= 1;
+                }
+                return query.length >= 2;
+            }
+
+            function watchSearch(input, results, urlName, listName, actionField) {
                 var timer = null;
-                input.addEventListener('input', function () {
+                var requestId = 0;
+                function runSearch() {
                     clearTimeout(timer);
-                    var query = input.value.trim();
-                    var action = actionField === 'lead' ? leadAction : bookingAction;
-                    if (query.length < 2) {
+                    var query = input.value.trim().replace(/^#/, '');
+                    if (!shouldSearch(query)) {
                         showOpenCaptions();
                         if (actionField === 'lead') {
                             showLeads(savedLeads);
@@ -302,15 +314,17 @@
                     if (actionField !== 'lead' && bookingCaption) {
                         bookingCaption.textContent = @json(translate('Search_results'));
                     }
-                    if (action === '') {
-                        return;
-                    }
+                    var current = ++requestId;
                     timer = setTimeout(function () {
                         fetch(modal.getAttribute(urlName) + '?q=' + encodeURIComponent(query), {
-                            headers: { 'Accept': 'application/json' }
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                         }).then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('search failed');
+                            }
                             return response.json();
                         }).then(function (data) {
+                            if (current !== requestId) return;
                             var items = data[listName] || [];
                             if (!items.length) {
                                 emptyNote(results, 'No matches.');
@@ -321,13 +335,25 @@
                             } else {
                                 showBookings(items);
                             }
+                        }).catch(function () {
+                            if (current !== requestId) return;
+                            emptyNote(results, 'Could not search.');
                         });
-                    }, 250);
-                });
+                    }, 300);
+                }
+                input.addEventListener('input', runSearch);
+                input.addEventListener('change', runSearch);
             }
 
-            watchSearch(leadInput, leadResults, 'data-lead-search-url', 'leads', 'lead', 'lead_id');
-            watchSearch(bookingInput, bookingResults, 'data-booking-search-url', 'bookings', 'booking', 'booking_id');
-        });
+            watchSearch(leadInput, leadResults, 'data-lead-search-url', 'leads', 'lead');
+            watchSearch(bookingInput, bookingResults, 'data-booking-search-url', 'bookings', 'booking');
+        }
+        bootCallLinkModal();
+        if (!window.__callLinkModalEvents) {
+            window.__callLinkModalEvents = true;
+            document.addEventListener('turbo:load', bootCallLinkModal);
+            document.addEventListener('turbo:frame-load', bootCallLinkModal);
+        }
     </script>
+    @endpush
 @endonce

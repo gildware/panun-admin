@@ -150,7 +150,9 @@ class SuperfoneCallController extends Controller
     public function searchLeads(Request $request): JsonResponse
     {
         $term = trim((string) $request->query('q', ''));
-        if (mb_strlen($term) < 2) {
+        $idTerm = ltrim($term, '#');
+        $isId = $idTerm !== '' && ctype_digit($idTerm);
+        if (mb_strlen($term) < 2 && ! $isId) {
             return response()->json(['leads' => []]);
         }
 
@@ -160,8 +162,9 @@ class SuperfoneCallController extends Controller
             ->where(function ($query) use ($term, $digits) {
                 $query->where('name', 'like', '%'.$term.'%')
                     ->orWhere('phone_number', 'like', '%'.$term.'%');
-                if (ctype_digit($term)) {
-                    $query->orWhere('id', (int) $term);
+                $idTerm = ltrim($term, '#');
+                if ($idTerm !== '' && ctype_digit($idTerm)) {
+                    $query->orWhere('id', (int) $idTerm);
                 }
                 if ($digits !== '') {
                     $query->orWhere('phone_number', 'like', '%'.$digits);
@@ -189,7 +192,9 @@ class SuperfoneCallController extends Controller
     public function searchBookings(Request $request): JsonResponse
     {
         $term = trim((string) $request->query('q', ''));
-        if (mb_strlen($term) < 2) {
+        $idTerm = ltrim($term, '#');
+        $isId = $idTerm !== '' && ctype_digit($idTerm);
+        if (mb_strlen($term) < 2 && ! $isId) {
             return response()->json(['bookings' => []]);
         }
 
@@ -200,7 +205,7 @@ class SuperfoneCallController extends Controller
                 'category:id,name',
                 'subCategory:id,name',
             ])
-            ->where(function ($query) use ($term) {
+            ->where(function ($query) use ($term, $idTerm, $isId) {
                 $query->where('readable_id', 'like', '%'.$term.'%')
                     ->orWhere('id', 'like', '%'.$term.'%')
                     ->orWhereHas('customer', function ($customer) use ($term) {
@@ -212,6 +217,9 @@ class SuperfoneCallController extends Controller
                         $provider->where('company_name', 'like', '%'.$term.'%')
                             ->orWhere('contact_person_name', 'like', '%'.$term.'%');
                     });
+                if ($isId) {
+                    $query->orWhere('id', (int) $idTerm);
+                }
             })
             ->orderByDesc('created_at')
             ->limit(12)

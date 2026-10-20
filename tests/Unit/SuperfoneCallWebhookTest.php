@@ -7,6 +7,24 @@ use Tests\TestCase;
 
 class SuperfoneCallWebhookTest extends TestCase
 {
+    public function test_utc_call_timestamps_are_converted_to_ist(): void
+    {
+        $parsed = SuperfoneCallService::parseSuperfoneInstant('2026-10-20T04:01:39.000Z');
+
+        $this->assertNotNull($parsed);
+        $this->assertSame('Asia/Kolkata', $parsed->timezoneName);
+        $this->assertSame('2026-10-20 09:31:39', $parsed->format('Y-m-d H:i:s'));
+
+        $alreadyIst = SuperfoneCallService::parseSuperfoneInstant('2026-10-18T14:40:51+05:30');
+        $this->assertNotNull($alreadyIst);
+        $this->assertSame('2026-10-18 14:40:51', $alreadyIst->format('Y-m-d H:i:s'));
+
+        $fromPayload = SuperfoneCallService::instantFromPayloads([
+            'ALL_CALLS' => ['cdr_start' => '2026-10-20T04:01:39.000Z'],
+        ], 'cdr_start');
+        $this->assertSame('20 Oct 2026, 09:31 AM', $fromPayload?->format('d M Y, h:i A'));
+    }
+
     public function test_last_ten_digits_keep_the_indian_subscriber_number(): void
     {
         $this->assertSame('9876543210', SuperfoneCallService::lastTenDigits('+91 98765 43210'));
