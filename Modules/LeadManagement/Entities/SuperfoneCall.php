@@ -3,10 +3,12 @@
 namespace Modules\LeadManagement\Entities;
 
 use App\Support\StoragePathPrefix;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Modules\BookingModule\Entities\Booking;
+use Modules\LeadManagement\Services\SuperfoneCallService;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
 
@@ -117,6 +119,27 @@ class SuperfoneCall extends Model
     public function hasRecording(): bool
     {
         return ! empty($this->recording_path);
+    }
+
+    public function formatIst(string $attribute): string
+    {
+        $keys = [
+            'started_at' => 'cdr_start',
+            'answered_at' => 'cdr_answer',
+            'ended_at' => 'cdr_end',
+            'recording_url_expires_at' => 'cdr_recording_url_expires_at',
+            'recording_file_expires_at' => 'cdr_recording_expire_at',
+        ];
+
+        $moment = isset($keys[$attribute])
+            ? SuperfoneCallService::instantFromPayloads(is_array($this->payloads) ? $this->payloads : [], $keys[$attribute])
+            : null;
+
+        if ($moment === null && $this->{$attribute} instanceof CarbonInterface) {
+            $moment = $this->{$attribute};
+        }
+
+        return $moment ? $moment->format('d M Y, h:i A') : '—';
     }
 
     public function durationLabel(): string

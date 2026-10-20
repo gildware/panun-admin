@@ -16,7 +16,7 @@
                         <div class="card-body">
                             <dl class="row mb-0">
                                 <dt class="col-sm-4">{{ translate('Time') }}</dt>
-                                <dd class="col-sm-8">{{ $call->started_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                                <dd class="col-sm-8">{{ $call->formatIst('started_at') }}</dd>
 
                                 <dt class="col-sm-4">{{ translate('Direction') }}</dt>
                                 <dd class="col-sm-8">{{ $call->directionLabel() }}</dd>
@@ -34,10 +34,10 @@
                                 <dd class="col-sm-8">{{ $call->durationLabel() }}</dd>
 
                                 <dt class="col-sm-4">{{ translate('Answered_at') }}</dt>
-                                <dd class="col-sm-8">{{ $call->answered_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                                <dd class="col-sm-8">{{ $call->formatIst('answered_at') }}</dd>
 
                                 <dt class="col-sm-4">{{ translate('Ended_at') }}</dt>
-                                <dd class="col-sm-8">{{ $call->ended_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                                <dd class="col-sm-8">{{ $call->formatIst('ended_at') }}</dd>
 
                                 <dt class="col-sm-4">{{ translate('Employee') }}</dt>
                                 <dd class="col-sm-8">
