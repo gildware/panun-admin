@@ -25,7 +25,11 @@
         .calls-list-card { overflow: hidden; }
         .calls-list-scroll { max-height: calc(100vh - 22rem); overflow-x: auto; overflow-y: auto; }
         .calls-list-table thead th { position: sticky; top: 0; z-index: 2; background: #fff; box-shadow: inset 0 -1px 0 #e5e7eb; }
-        .calls-list-table { width: 100%; min-width: 1360px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
+        .calls-list-table { width: 100%; min-width: 1440px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
+        .calls-list-table td.calls-call-id-cell { overflow: visible; text-overflow: clip; text-align: center; }
+        .calls-copy-id { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
+        .calls-copy-id .material-icons { font-size: 16px; line-height: 1; }
+        .calls-copy-id.is-copied { color: #0f7a3a; border-color: #86efac; background: #e7f6ee; }
         .calls-list-table.table > :not(caption) > * > * { height: 52px; padding: 0 0.55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
         .calls-list-table.table > :not(caption) > * > *.calls-actions-cell { overflow: visible; text-overflow: clip; padding-left: 1rem; text-align: left; }
         .calls-list-table .calls-link-lead-btn,
@@ -248,17 +252,18 @@
                 <div class="calls-list-scroll">
                     <table class="table table-striped table-hover table-sm align-middle mb-0 calls-list-table">
                         <colgroup>
-                            <col style="width: 12%">
+                            <col style="width: 11%">
+                            <col style="width: 8%">
                             <col style="width: 7%">
-                            <col style="width: 9%">
+                            <col style="width: 8%">
                             <col style="width: 7%">
                             <col style="width: 8%">
                             <col style="width: 5%">
                             <col style="width: 4%">
-                            <col style="width: 14%">
+                            <col style="width: 13%">
                             <col style="width: 8%">
-                            <col style="width: 17%">
-                            <col style="width: 9%">
+                            <col style="width: 13%">
+                            <col style="width: 8%">
                         </colgroup>
                         <thead>
                         @php
@@ -271,6 +276,7 @@
                         @endphp
                         <tr>
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Time') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'started_at'])</span></th>
+                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Call_id') }}</span></span></th>
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Direction') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'direction'])</span></th>
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Phone') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'phone'])</span></th>
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Employee') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'employee'])</span></th>
@@ -290,6 +296,22 @@
                                     <a href="{{ route('admin.calls.show', $call) }}">
                                         {{ $call->formatIst('started_at') }}
                                     </a>
+                                </td>
+                                <td class="calls-call-id-cell">
+                                    @if($call->cdr_uuid)
+                                        <button type="button"
+                                                class="btn btn-outline-secondary calls-copy-id"
+                                                data-call-id="{{ $call->cdr_uuid }}"
+                                                data-bs-toggle="tooltip"
+                                                data-bs-placement="top"
+                                                data-bs-title="{{ translate('Copy_call_id') }}"
+                                                title="{{ translate('Copy_call_id') }}"
+                                                aria-label="{{ translate('Copy_call_id') }}">
+                                            <span class="material-icons" aria-hidden="true">content_copy</span>
+                                        </button>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
                                 </td>
                                 <td>
                                     @if($call->direction === 'INBOUND')
@@ -420,7 +442,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="text-center text-muted py-3">{{ translate('No_calls_yet') }}</td>
+                                <td colspan="12" class="text-center text-muted py-3">{{ translate('No_calls_yet') }}</td>
                             </tr>
                         @endforelse
                         </tbody>
@@ -509,6 +531,54 @@
                 audio.pause();
                 audio.removeAttribute('src');
                 audio.load();
+            });
+        })();
+
+        (function () {
+            var copiedLabel = @json(translate('Copied'));
+            var copyLabel = @json(translate('Copy_call_id'));
+            var setTip = function (button, text) {
+                button.setAttribute('data-bs-title', text);
+                button.setAttribute('title', text);
+                button.setAttribute('aria-label', text);
+                var tip = window.bootstrap && bootstrap.Tooltip ? bootstrap.Tooltip.getInstance(button) : null;
+                if (tip && typeof tip.setContent === 'function') {
+                    tip.setContent({ '.tooltip-inner': text });
+                }
+            };
+            document.querySelectorAll('.calls-copy-id').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var id = button.getAttribute('data-call-id') || '';
+                    if (!id) return;
+                    var finish = function () {
+                        var icon = button.querySelector('.material-icons');
+                        button.classList.add('is-copied');
+                        setTip(button, copiedLabel);
+                        if (icon) icon.textContent = 'check';
+                        setTimeout(function () {
+                            button.classList.remove('is-copied');
+                            setTip(button, copyLabel);
+                            if (icon) icon.textContent = 'content_copy';
+                        }, 1200);
+                    };
+                    var fallback = function () {
+                        var input = document.createElement('textarea');
+                        input.value = id;
+                        input.setAttribute('readonly', '');
+                        input.style.position = 'fixed';
+                        input.style.left = '-9999px';
+                        document.body.appendChild(input);
+                        input.select();
+                        document.execCommand('copy');
+                        input.remove();
+                        finish();
+                    };
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(id).then(finish).catch(fallback);
+                    } else {
+                        fallback();
+                    }
+                });
             });
         })();
     </script>

@@ -48,6 +48,40 @@ class SuperfoneCallWebhookTest extends TestCase
         $this->assertFalse(SuperfoneCallService::shouldNotifyMissed(null, 'answered'));
     }
 
+    public function test_call_toast_copy_matches_direction(): void
+    {
+        $outbound = SuperfoneCallService::adminToastCopy(
+            'OUTBOUND',
+            'answered',
+            '+917889458498',
+            'Kamran Rasool',
+            null,
+            '1:20',
+        );
+
+        $this->assertSame('Kamran Rasool made Outbound call to +917889458498 and +917889458498 answered', $outbound['message']);
+        $this->assertSame('+917889458498', $outbound['phone']);
+        $this->assertSame('', $outbound['meta']);
+        $this->assertSame('outbound', $outbound['tone']);
+        $this->assertSame('call_made', $outbound['icon']);
+
+        $named = SuperfoneCallService::adminToastCopy('OUTBOUND', 'answered', '+917889458498', 'Kamran Rasool', 'Rahul');
+        $this->assertSame('Kamran Rasool made Outbound call to +917889458498 and Rahul answered', $named['message']);
+
+        $quiet = SuperfoneCallService::adminToastCopy('OUTBOUND', 'unanswered', '+917889458498', 'Kamran Rasool', 'Rahul');
+        $this->assertSame('Kamran Rasool made Outbound call to +917889458498 and Rahul did not answer', $quiet['message']);
+        $this->assertSame('outbound-quiet', $quiet['tone']);
+
+        $incoming = SuperfoneCallService::adminToastCopy('INBOUND', 'answered', '+919876543210', 'Asha');
+        $this->assertSame('Incoming call answered', $incoming['title']);
+        $this->assertSame('inbound', $incoming['tone']);
+
+        $missed = SuperfoneCallService::adminToastCopy('INBOUND', 'missed', '+919876543210', null);
+        $this->assertSame('Missed call', $missed['title']);
+        $this->assertSame('missed', $missed['tone']);
+        $this->assertSame('phone_missed', $missed['icon']);
+    }
+
     public function test_outbound_missed_calls_are_tagged_unanswered(): void
     {
         $this->assertSame('unanswered', SuperfoneCallService::outcomeForDirection('missed', 'OUTBOUND'));
@@ -62,6 +96,13 @@ class SuperfoneCallWebhookTest extends TestCase
         $this->assertSame('provider', $decision['party']);
         $this->assertTrue($decision['needs_lead_link']);
         $this->assertNull($decision['booking']);
+    }
+
+    public function test_a_closed_lead_starts_a_new_lead_and_an_open_lead_is_reused(): void
+    {
+        $this->assertTrue(SuperfoneCallService::freshLeadForClosedMatch(false, true));
+        $this->assertFalse(SuperfoneCallService::freshLeadForClosedMatch(true, true));
+        $this->assertFalse(SuperfoneCallService::freshLeadForClosedMatch(false, false));
     }
 
     public function test_an_inbound_stranger_becomes_an_unknown_lead(): void

@@ -195,9 +195,42 @@
             });
         };
 
+        function escapeCallToast(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function callToastStack() {
+            var stack = document.getElementById('pk-call-toast-stack');
+            if (stack) {
+                return stack;
+            }
+            stack = document.createElement('div');
+            stack.id = 'pk-call-toast-stack';
+            stack.className = 'pk-call-toast-stack';
+            stack.setAttribute('aria-live', 'polite');
+            document.body.appendChild(stack);
+            return stack;
+        }
+
+        function dismissCallToast(card) {
+            if (!card || card.classList.contains('is-leaving')) {
+                return;
+            }
+            card.classList.add('is-leaving');
+            window.setTimeout(function () {
+                if (card.parentNode) {
+                    card.parentNode.removeChild(card);
+                }
+            }, 220);
+        }
+
         window.pkShowNewCallToasts = function (data, skipSound) {
             var calls = (data && data.new_calls) || [];
-            if (!calls.length || typeof toastr === 'undefined') {
+            if (!calls.length) {
                 return;
             }
             var shown = callToastShownIds();
@@ -210,16 +243,45 @@
                 if (skipSound) {
                     return;
                 }
-                toastr.info(call.message || '', call.title || @json(translate('New_call_received')), {
-                    CloseButton: true,
-                    ProgressBar: true,
-                    timeOut: 8000,
-                    onclick: function () {
-                        if (call.url) {
-                            window.location.href = call.url;
-                        }
+                var tone = call.tone || 'inbound';
+                var card = document.createElement('div');
+                card.className = 'pk-call-toast pk-call-toast--' + tone;
+                card.setAttribute('role', 'button');
+                card.tabIndex = 0;
+                var copy = (call.tone || '').indexOf('outbound') === 0
+                    ? '<span class="pk-call-toast-sentence">' + escapeCallToast(call.message || call.title || '') + '</span>'
+                    : '<span class="pk-call-toast-kicker">' + escapeCallToast(call.title || @json(translate('New_call_received'))) + '</span>' +
+                        (call.party ? '<span class="pk-call-toast-party">' + escapeCallToast(call.party) + '</span>' : '') +
+                        '<span class="pk-call-toast-phone">' + escapeCallToast(call.phone || call.message || '') + '</span>' +
+                        (call.meta ? '<span class="pk-call-toast-meta">' + escapeCallToast(call.meta) + '</span>' : '');
+                card.innerHTML =
+                    '<span class="pk-call-toast-icon material-symbols-outlined" aria-hidden="true">' + escapeCallToast(call.icon || 'call') + '</span>' +
+                    '<span class="pk-call-toast-copy">' + copy + '</span>' +
+                    '<button type="button" class="pk-call-toast-close" aria-label="Close">&times;</button>' +
+                    '<span class="pk-call-toast-progress" aria-hidden="true"></span>';
+                var openCall = function () {
+                    if (call.url) {
+                        window.location.href = call.url;
+                    }
+                };
+                card.addEventListener('click', function (event) {
+                    if (event.target.closest('.pk-call-toast-close')) {
+                        event.stopPropagation();
+                        dismissCallToast(card);
+                        return;
+                    }
+                    openCall();
+                });
+                card.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openCall();
                     }
                 });
+                callToastStack().prepend(card);
+                window.setTimeout(function () {
+                    dismissCallToast(card);
+                }, 8000);
                 played = true;
             });
             if (played && typeof window.pkPlayStaffNotificationSound === 'function') {
