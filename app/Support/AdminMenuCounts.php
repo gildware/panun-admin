@@ -323,7 +323,7 @@ final class AdminMenuCounts
                 return 0;
             }
 
-            return SuperfoneCall::query()->missed()->count();
+            return SuperfoneCall::query()->awaitingCallback()->count();
         } catch (\Throwable) {
             return 0;
         }

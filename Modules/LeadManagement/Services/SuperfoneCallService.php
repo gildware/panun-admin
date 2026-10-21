@@ -279,27 +279,125 @@ class SuperfoneCallService
     /**
      * Calls stored in the last few minutes, for the admin toast.
      *
-     * @return array<int, array{id: string, title: string, message: string, url: string}>
+     * @return array<int, array{id: string, title: string, phone: string, party: string, meta: string, message: string, tone: string, icon: string, url: string}>
      */
     public function recentAdminToasts(): array
     {
         return SuperfoneCall::query()
+            ->with(['lead:id,name', 'customer:id,first_name,last_name'])
             ->where('created_at', '>=', now()->subMinutes(3))
             ->latest('created_at')
             ->limit(8)
             ->get()
             ->map(function (SuperfoneCall $call) {
-                $who = $call->customer_phone ?: $call->customer_phone_digits ?: translate('Unknown');
-                $parts = array_filter([$call->directionLabel(), $who, $call->staff_name]);
+                $copy = self::adminToastCopy(
+                    $call->direction,
+                    $call->outcome,
+                    $call->customer_phone ?: $call->customer_phone_digits,
+                    $call->staff_name,
+                    $this->toastPartyName($call),
+                    ((int) $call->duration_seconds) > 0 ? $call->durationLabel() : null,
+                );
 
-                return [
+                return $copy + [
                     'id' => (string) $call->id,
-                    'title' => translate('New_call_received'),
-                    'message' => implode(' · ', $parts),
                     'url' => route('admin.calls.show', $call),
                 ];
             })
             ->all();
+    }
+
+    /**
+     * @return array{title: string, phone: string, party: string, meta: string, message: string, tone: string, icon: string}
+     */
+    public static function adminToastCopy(
+        ?string $direction,
+        ?string $outcome,
+        ?string $phone,
+        ?string $staffName,
+        ?string $partyName = null,
+        ?string $durationLabel = null,
+    ): array {
+        $direction = strtoupper((string) $direction);
+        $outcome = (string) $outcome;
+        $phone = trim((string) $phone) !== '' ? trim((string) $phone) : translate('Unknown');
+        $party = trim((string) $partyName);
+        $staff = trim((string) $staffName);
+        $duration = trim((string) $durationLabel);
+
+        $outboundAnswered = $direction === 'OUTBOUND' && $outcome === 'answered';
+        $outboundUnanswered = $direction === 'OUTBOUND' && in_array($outcome, ['unanswered', 'missed'], true);
+        $employee = $staff !== '' ? $staff : translate('Employee');
+        $who = $party !== '' ? $party : $phone;
+        $resultWord = $outboundAnswered
+            ? translate('answered')
+            : ($outboundUnanswered ? translate('did_not_answer') : '');
+        $sentence = '';
+        if ($direction === 'OUTBOUND') {
+            $sentence = trim(str_replace(
+                [':employee', ':phone', ':who', ':result'],
+                [$employee, $phone, $who, $resultWord],
+                $resultWord !== ''
+                    ? translate('Employee_made_outbound_call_to_and_result')
+                    : translate('Employee_made_outbound_call_to'),
+            ));
+        }
+
+        $title = match (true) {
+            $direction === 'OUTBOUND' => $sentence,
+            $outcome === 'missed' => translate('Missed_call'),
+            $outcome === 'answered' => translate('Incoming_call_answered'),
+            default => translate('New_call_received'),
+        };
+
+        $tone = match (true) {
+            $outcome === 'missed' && $direction !== 'OUTBOUND' => 'missed',
+            $direction === 'OUTBOUND' && $outcome === 'answered' => 'outbound',
+            $direction === 'OUTBOUND' => 'outbound-quiet',
+            default => 'inbound',
+        };
+
+        $icon = match (true) {
+            $tone === 'missed' => 'phone_missed',
+            $direction === 'OUTBOUND' => 'call_made',
+            default => 'call_received',
+        };
+
+        $meta = $direction === 'OUTBOUND'
+            ? ''
+            : implode(' · ', array_values(array_filter([$staff, $duration])));
+        $message = $sentence !== ''
+            ? $sentence
+            : implode(' · ', array_values(array_filter([
+                $party !== '' ? $party : null,
+                $phone,
+                $meta !== '' ? $meta : null,
+            ])));
+
+        return [
+            'title' => $title,
+            'phone' => $phone,
+            'party' => $party,
+            'meta' => $meta,
+            'message' => $message,
+            'tone' => $tone,
+            'icon' => $icon,
+        ];
+    }
+
+    private function toastPartyName(SuperfoneCall $call): ?string
+    {
+        $leadName = trim((string) ($call->lead?->name ?? ''));
+        if ($leadName !== '' && strcasecmp($leadName, 'Unknown') !== 0) {
+            return $leadName;
+        }
+
+        $customerName = trim(implode(' ', array_filter([
+            $call->customer?->first_name,
+            $call->customer?->last_name,
+        ])));
+
+        return $customerName !== '' ? $customerName : null;
     }
 
     public static function outcomeForDirection(?string $outcome, ?string $direction): ?string
@@ -541,7 +639,9 @@ class SuperfoneCallService
         }
 
         $provider = $this->findProviderByDigits($digits);
-        $lead = $provider ? null : $this->findLeadByDigits($digits);
+        $leadMatches = $provider ? collect() : $this->leadsByDigits($digits);
+        $lead = $this->firstOpenLead($leadMatches);
+        $closedLeadOnly = self::freshLeadForClosedMatch($lead !== null, $leadMatches->isNotEmpty());
         $customer = $provider ? null : $this->findUserByPhoneDigits($digits, CUSTOMER_USER_TYPES);
         $openBookings = $customer
             ? $this->openBookingsForCustomer((string) $customer->id)->count()
@@ -574,7 +674,7 @@ class SuperfoneCallService
             return;
         }
 
-        if ($decision['party'] === self::LINK_CUSTOMER && $customer) {
+        if ($decision['party'] === self::LINK_CUSTOMER && $customer && ! $closedLeadOnly) {
             $call->customer_user_id = $customer->id;
             $call->called_party_type = LeadFollowup::CALLED_PARTY_CUSTOMER;
             $this->attachBookingIfSingle($call);
@@ -582,11 +682,23 @@ class SuperfoneCallService
             return;
         }
 
-        if ($decision['party'] === self::LINK_UNKNOWN) {
+        if ($decision['party'] === self::LINK_UNKNOWN || $closedLeadOnly) {
             $created = $this->createUnknownLead($call);
             $call->lead_id = $created->id;
             $call->called_party_type = LeadFollowup::CALLED_PARTY_CUSTOMER;
+            if ($customer) {
+                $call->customer_user_id = $customer->id;
+                $this->attachBookingIfSingle($call);
+            }
         }
+    }
+
+    /**
+     * A closed lead must not absorb the next call. Create a new lead instead.
+     */
+    public static function freshLeadForClosedMatch(bool $hasOpenLead, bool $hasAnyLead): bool
+    {
+        return ! $hasOpenLead && $hasAnyLead;
     }
 
     public function linkToLead(SuperfoneCall $call, Lead $lead): SuperfoneCall
@@ -865,15 +977,27 @@ class SuperfoneCallService
             ->first();
     }
 
-    private function findLeadByDigits(string $digits): ?Lead
+    private function leadsByDigits(string $digits): Collection
     {
         $leadQuery = Lead::query()
-            ->orderByRaw('CASE WHEN lead_type = ? THEN 1 ELSE 0 END', [Lead::TYPE_INVALID])
             ->orderByDesc('updated_at')
             ->orderByDesc('id');
         $this->wherePhoneEndsWith($leadQuery, 'phone_number', $digits);
 
-        return $leadQuery->first();
+        return $leadQuery->get();
+    }
+
+    private function firstOpenLead(Collection $leads): ?Lead
+    {
+        if ($leads->isEmpty()) {
+            return null;
+        }
+
+        $meta = app(LeadOpenStatusService::class)->buildLeadStatusMeta($leads);
+
+        return $leads->first(
+            fn (Lead $lead) => (bool) ($meta[(int) $lead->id]['is_open'] ?? false)
+        );
     }
 
     private function findUserByPhoneDigits(string $digits, array $userTypes): ?User

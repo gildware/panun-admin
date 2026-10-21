@@ -116,6 +116,27 @@ class SuperfoneCall extends Model
         });
     }
 
+    /**
+     * Missed calls that still raise the Calls badge. One later outbound call to the
+     * same number clears every earlier miss from that number. The call rows stay missed.
+     */
+    public function scopeAwaitingCallback($query)
+    {
+        return $query->missed()->where(function ($open) {
+            $open->where(function ($withoutNumber) {
+                $withoutNumber->whereNull('superfone_calls.customer_phone_digits')
+                    ->orWhere('superfone_calls.customer_phone_digits', '');
+            })->orWhereNotExists(function ($callback) {
+                $callback->selectRaw('1')
+                    ->from('superfone_calls as callbacks')
+                    ->whereColumn('callbacks.customer_phone_digits', 'superfone_calls.customer_phone_digits')
+                    ->where('callbacks.customer_phone_digits', '!=', '')
+                    ->where('callbacks.direction', 'OUTBOUND')
+                    ->whereRaw('COALESCE(callbacks.started_at, callbacks.created_at) >= COALESCE(superfone_calls.started_at, superfone_calls.created_at)');
+            });
+        });
+    }
+
     public function hasRecording(): bool
     {
         return ! empty($this->recording_path);
