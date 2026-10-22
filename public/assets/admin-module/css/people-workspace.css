@@ -1730,6 +1730,7 @@ body:has(#attendanceUnlockModal.show) .modal-backdrop.show { z-index: 20055; }
 .ts-day.is-approved { border-left: 4px solid var(--ts-approved-solid); }
 .ts-day.is-approved .ts-submitted,
 .ts-submitted.is-approved { background: var(--ts-approved-solid); color: #fff; }
+.ts-reject-note { margin: 0 0 12px; color: var(--ts-red); font-size: 13px; font-weight: 650; line-height: 1.4; }
 .ts-day.is-rejected { border-left: 4px solid var(--ts-rejected-solid); }
 .ts-day.is-rejected .ts-submitted,
 .ts-submitted.is-rejected { background: var(--ts-rejected-solid); color: #fff; }

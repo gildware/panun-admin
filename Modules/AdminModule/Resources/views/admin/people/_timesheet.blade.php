@@ -12,8 +12,8 @@
     };
     $pendingCount = $board['lastMonthPending'] > 0 ? $board['lastMonthPending'] : $board['pendingTotal'];
     $pendingCopy = $board['lastMonthPending'] > 0
-        ? 'You have '.$board['lastMonthPending'].' pending timesheet '.($board['lastMonthPending'] === 1 ? 'day' : 'days').' for last month.'
-        : 'You have '.$board['pendingTotal'].' pending timesheet '.($board['pendingTotal'] === 1 ? 'day' : 'days').'.';
+        ? 'You have '.$board['lastMonthPending'].' timesheet '.($board['lastMonthPending'] === 1 ? 'day' : 'days').' to fill for last month.'
+        : 'You have '.$board['pendingTotal'].' timesheet '.($board['pendingTotal'] === 1 ? 'day' : 'days').' to fill.';
     $monthStart = \Carbon\Carbon::createFromFormat('Y-m-d', $board['month'].'-01')->startOfDay();
     $gridStart = $monthStart->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
     $gridEnd = $monthStart->copy()->endOfMonth()->startOfWeek(\Carbon\Carbon::MONDAY)->addDays(6);
@@ -57,6 +57,8 @@
         $dateKeys = array_keys($cardsByDate);
         sort($dateKeys);
         $firstPending = null;
+        $firstRejected = null;
+        $todayOpen = null;
         foreach ($dateKeys as $dateKey) {
             $candidate = $cardsByDate[$dateKey];
             if (! empty($candidate['outside']) || empty($candidate['open'])) {
@@ -66,17 +68,17 @@
             if (in_array($candidateState, ['holiday', 'future', 'off', 'before', 'weekoff'], true)) {
                 continue;
             }
+            if ($firstRejected === null && $candidateState === 'rejected') {
+                $firstRejected = $dateKey;
+            }
             if ($firstPending === null && $candidateState === 'pending') {
                 $firstPending = $dateKey;
             }
             if ($dateKey === $todayKey) {
-                $autoOpenDate = $todayKey;
-                break;
+                $todayOpen = $todayKey;
             }
         }
-        if ($autoOpenDate === null) {
-            $autoOpenDate = $firstPending;
-        }
+        $autoOpenDate = $firstRejected ?? $todayOpen ?? $firstPending;
     }
     $focusDate = $hasOldDay ? $oldWorkDate : $autoOpenDate;
     $weekPage = 0;
@@ -257,7 +259,7 @@
                                 <svg class="ts-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                 <h3 title="{{ $card['label'] }}">{{ $shortLabel }}</h3>
                             </button>
-                            <span class="ts-status-pill is-{{ $statusClass }}">{{ $statusLabel }}</span>
+                            <span class="ts-status-pill is-{{ $statusClass }}" @if($dayState === 'rejected' && filled($card['rejectNote'] ?? '')) title="Rejected: {{ $card['rejectNote'] }}" @endif>{{ $statusLabel }}</span>
                             @if($card['halfLeave'] ?? false)
                                 <span class="ts-kind-pill is-half">Half day</span>
                             @elseif($card['onLeave'] ?? false)
@@ -284,7 +286,7 @@
                                 <span class="ts-submitted is-leave" title="{{ $spanLabel !== '' ? $leaveBadge.' · '.$spanLabel : $leaveBadge }}">{{ $leaveBadge }}</span>
                             @elseif($open)
                                 <p class="ts-submit-hint" data-submit-hint @if($submitHint === '') hidden @endif>{{ $submitHint }}</p>
-                                <button class="ts-submit" type="submit" name="intent" value="submit" @disabled($submitHint !== '')>{{ ($card['state'] ?? '') === 'done' ? 'Update' : 'Submit' }} <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                                <button class="ts-submit" type="submit" name="intent" value="submit" @disabled($submitHint !== '')>{{ $dayState === 'done' ? 'Update' : ($dayState === 'rejected' ? 'Submit again' : 'Submit') }} <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                             @elseif(($card['state'] ?? '') === 'approved')
                                 <span class="ts-submitted is-approved">Approved</span>
                             @elseif(($card['state'] ?? '') === 'done')
@@ -302,6 +304,9 @@
                         </div>
                         @unless($closed)
                         <div class="ts-day-body" id="ts-body-{{ $card['date'] }}" @if(! $startOpen) hidden @endif>
+                        @if($dayState === 'rejected')
+                            <p class="ts-reject-note">Rejected{{ filled($card['rejectNote'] ?? '') ? ': '.$card['rejectNote'] : '' }}. Fill this day again.</p>
+                        @endif
                         <div class="ts-day-clip">
                         <div class="ts-sheet-wrap">
                             <div class="ts-sheet ts-entries">

@@ -367,8 +367,14 @@ class PeopleWorkspaceController extends Controller
         }
 
         $sheet = $this->workspace->timesheetForWeek($user, $date->copy()->startOfWeek(Carbon::MONDAY));
-        if (in_array($sheet->status, ['pending', 'approved'], true)) {
-            Toastr::error($sheet->status === 'approved' ? 'This week is already approved.' : 'This week is already with your manager.');
+        $existingDay = ($sheet->entries ?? [])[$date->toDateString()] ?? null;
+        if ($sheet->status === 'approved' || (is_array($existingDay) && ($existingDay['status'] ?? null) === 'approved')) {
+            Toastr::error('This day is already approved.');
+
+            return $this->timesheetRedirect($request);
+        }
+        if ($sheet->status === 'pending') {
+            Toastr::error('This week is already with your manager.');
 
             return $this->timesheetRedirect($request);
         }
@@ -398,14 +404,16 @@ class PeopleWorkspaceController extends Controller
             $holidays = PeopleHoliday::query()->pluck('holiday_on')->map(fn ($day) => Carbon::parse($day)->toDateString())->all();
             $complete = $this->timesheetWeekComplete($date->copy()->startOfWeek(Carbon::MONDAY), $entries, $holidays, $user);
             $previousStatus = (string) $sheet->status;
+            $status = $this->workspace->timesheetStatusAfterSave($entries, $complete);
             $sheet->forceFill([
                 'entries' => $entries,
                 'hours' => $hours,
-                'status' => $complete ? 'pending' : ($sheet->status === 'sent_back' ? 'sent_back' : 'draft'),
-                'decided_by' => $complete ? null : $sheet->decided_by,
-                'decided_at' => $complete ? null : $sheet->decided_at,
+                'status' => $status,
+                'decided_by' => $status === 'sent_back' ? $sheet->decided_by : null,
+                'decided_at' => $status === 'sent_back' ? $sheet->decided_at : null,
+                'decision_note' => $status === 'sent_back' ? $sheet->decision_note : null,
             ])->save();
-            if ($complete && $previousStatus !== 'pending') {
+            if ($status !== 'sent_back' && $complete && $previousStatus !== 'pending') {
                 $this->workspace->notifyTimesheetSubmitted($user, $sheet);
             }
             Toastr::success($complete ? 'Week sent to your manager.' : $message);
@@ -504,15 +512,19 @@ class PeopleWorkspaceController extends Controller
 
         $holidays = PeopleHoliday::query()->pluck('holiday_on')->map(fn ($day) => Carbon::parse($day)->toDateString())->all();
         $complete = $this->timesheetWeekComplete($date->copy()->startOfWeek(Carbon::MONDAY), $entries, $holidays, $user);
+        $status = $this->workspace->timesheetStatusAfterSave($entries, $complete);
 
         $sheet->forceFill([
             'entries' => $entries,
             'hours' => $hours,
-            'status' => $complete ? 'pending' : ($sheet->status === 'sent_back' ? 'sent_back' : 'draft'),
-            'decided_by' => $complete ? null : $sheet->decided_by,
-            'decided_at' => $complete ? null : $sheet->decided_at,
+            'status' => $status,
+            'decided_by' => $status === 'sent_back' ? $sheet->decided_by : null,
+            'decided_at' => $status === 'sent_back' ? $sheet->decided_at : null,
+            'decision_note' => $status === 'sent_back' ? $sheet->decision_note : null,
         ])->save();
-        $this->workspace->notifyTimesheetSubmitted($user, $sheet, $date);
+        if ($status !== 'sent_back') {
+            $this->workspace->notifyTimesheetSubmitted($user, $sheet, $date);
+        }
 
         Toastr::success($complete ? 'Week sent to your manager.' : ($alreadySubmitted ? 'Timesheet day updated.' : 'Timesheet day submitted.'));
 
@@ -645,7 +657,7 @@ class PeopleWorkspaceController extends Controller
         $submittedTimesheets = PeopleTimesheet::query()
             ->with('user')
             ->whereIn('user_id', $memberIds)
-            ->whereIn('status', ['pending', 'draft', 'sent_back'])
+            ->whereIn('status', ['pending', 'draft'])
             ->whereDate('week_starts_on', '<=', $periodEnd->toDateString())
             ->whereDate('week_starts_on', '>=', $periodMonth->copy()->subDays(6)->toDateString())
             ->orderByDesc('week_starts_on')
@@ -741,6 +753,9 @@ class PeopleWorkspaceController extends Controller
     public function decideTimesheet(Request $request, PeopleTimesheet $timesheet): RedirectResponse
     {
         $actor = $this->actor();
+        if ($request->input('work_date') === '') {
+            $request->merge(['work_date' => null]);
+        }
         $data = $request->validate([
             'decision' => ['required', Rule::in(['approve', 'sent_back'])],
             'return_to' => ['nullable', 'string', 'max:40'],
@@ -751,6 +766,7 @@ class PeopleWorkspaceController extends Controller
                 'max:500',
             ],
             'timesheet_id' => ['nullable', 'uuid'],
+            'work_date' => ['nullable', 'date'],
         ], [
             'decision_note.required' => 'Write a reason for rejecting this timesheet.',
         ]);
@@ -758,7 +774,13 @@ class PeopleWorkspaceController extends Controller
 
         try {
             $this->payroll->assertAttendanceOpen($timesheet->week_starts_on);
-            $this->workspace->decideTimesheet($actor, $timesheet, $data['decision'], $data['decision_note'] ?? null);
+            $this->workspace->decideTimesheet(
+                $actor,
+                $timesheet,
+                $data['decision'],
+                $data['decision_note'] ?? null,
+                $data['work_date'] ?? null,
+            );
         } catch (\InvalidArgumentException $exception) {
             Toastr::error($exception->getMessage());
 
@@ -767,9 +789,10 @@ class PeopleWorkspaceController extends Controller
 
         $fromApprovals = str_starts_with((string) ($data['return_to'] ?? ''), 'approvals');
         Toastr::success(match (true) {
+            $data['decision'] === 'approve' && $fromApprovals && filled($data['work_date'] ?? null) => 'That day is approved.',
             $data['decision'] === 'approve' && $fromApprovals => 'Timesheet accepted.',
             $data['decision'] === 'approve' => 'Timesheet approved.',
-            $fromApprovals => 'Timesheet denied.',
+            $fromApprovals => 'Timesheet rejected. The employee needs to fill it again.',
             default => 'Timesheet sent back.',
         });
 
@@ -1100,13 +1123,14 @@ class PeopleWorkspaceController extends Controller
         $saved = [];
         $sheets = PeopleTimesheet::query()->where('user_id', $user->id)->get();
         foreach ($sheets as $sheet) {
+            $this->workspace->markSentBackDaysRejected($sheet);
             $locked = in_array($sheet->status, ['pending', 'approved'], true);
             foreach ($sheet->entries ?? [] as $date => $entry) {
                 if (! is_array($entry)) {
                     continue;
                 }
                 $saved[$date] = $entry;
-                $saved[$date]['locked'] = $locked;
+                $saved[$date]['locked'] = $locked || ($entry['status'] ?? null) === 'approved';
                 $saved[$date]['sheet_status'] = (string) $sheet->status;
             }
         }
@@ -1125,7 +1149,7 @@ class PeopleWorkspaceController extends Controller
         for ($cursor = $first->copy(); $cursor->lte($currentMonth); $cursor->addMonth()) {
             $months[] = ['value' => $cursor->format('Y-m'), 'label' => $cursor->format('F Y')];
             $states = $this->timesheetMonthStates($cursor->copy(), $today, $holidays, $saved, $user);
-            $pending = count(array_filter($states, fn (array $day) => $day['state'] === 'pending'));
+            $pending = count(array_filter($states, fn (array $day) => in_array($day['state'], ['pending', 'rejected'], true)));
             $pendingTotal += $pending;
             if ($cursor->isSameMonth($lastMonth)) {
                 $lastMonthPending = $pending;
@@ -1178,7 +1202,7 @@ class PeopleWorkspaceController extends Controller
             $state = $this->timesheetDayState($cursor->copy(), $today, $holidays, $saved, $user);
             $entry = $saved[$key] ?? null;
             $rows = is_array($entry['rows'] ?? null) ? $entry['rows'] : [];
-            if ($inMonth) {
+            if ($inMonth && ($entry['status'] ?? null) !== 'rejected') {
                 foreach ($rows as $row) {
                     if (! is_array($row)) {
                         continue;
@@ -1204,7 +1228,7 @@ class PeopleWorkspaceController extends Controller
                 'outside' => ! $inMonth,
                 'open' => ! ($entry['locked'] ?? false)
                     && ! $cursor->gt($today)
-                    && ! ($hasLeave && ! $halfLeave)
+                    && ($state === 'rejected' || ! ($hasLeave && ! $halfLeave))
                     && in_array($state, ['pending', 'done', 'rejected'], true),
                 'onLeave' => $hasLeave,
                 'halfLeave' => $halfLeave,
@@ -1214,6 +1238,7 @@ class PeopleWorkspaceController extends Controller
                 'leaveRequestId' => $leaveId,
                 'leaveRevokeSummary' => $leave['summary'] ?? '',
                 'holidayName' => $holidayNames[$key] ?? '',
+                'rejectNote' => trim((string) ($entry['decision_note'] ?? '')),
                 'rows' => $rows,
             ];
         }
@@ -1320,13 +1345,16 @@ class PeopleWorkspaceController extends Controller
         if (($saved[$key]['status'] ?? null) === 'week_off') {
             return 'weekoff';
         }
+        if (($saved[$key]['status'] ?? null) === 'rejected') {
+            return 'rejected';
+        }
+        if (($saved[$key]['status'] ?? null) === 'approved') {
+            return 'approved';
+        }
         if (($saved[$key]['status'] ?? null) === 'submitted') {
             $sheetStatus = (string) ($saved[$key]['sheet_status'] ?? '');
             if ($sheetStatus === 'approved') {
                 return 'approved';
-            }
-            if ($sheetStatus === 'sent_back') {
-                return 'rejected';
             }
             $halfStillOpen = filled($saved[$key]['leave_request_id'] ?? null)
                 && (bool) ($saved[$key]['half'] ?? false)
@@ -1450,7 +1478,7 @@ class PeopleWorkspaceController extends Controller
             if ($day->isFuture()) {
                 return false;
             }
-            if (! is_array($entry) || ($entry['status'] ?? null) !== 'submitted' || ! $this->workspace->dayMeetsMinimum($entry, $user)) {
+            if (! $this->workspace->timesheetDayFilled($entry) || ! $this->workspace->dayMeetsMinimum($entry, $user)) {
                 return false;
             }
         }
@@ -1699,6 +1727,7 @@ class PeopleWorkspaceController extends Controller
                 ->orderBy('week_starts_on')
                 ->get();
             foreach ($sheets as $sheet) {
+                $this->workspace->markSentBackDaysRejected($sheet);
                 $entries = is_array($sheet->entries) ? $sheet->entries : [];
                 foreach ($entries as $date => $entry) {
                     if (! is_array($entry)) {
@@ -1720,7 +1749,7 @@ class PeopleWorkspaceController extends Controller
             $task = 0.0;
             $additional = 0.0;
             $leave = 0.0;
-            if ($entryStatus === 'submitted') {
+            if (in_array($entryStatus, ['submitted', 'approved'], true)) {
                 foreach ($entry['rows'] ?? [] as $row) {
                     if (! is_array($row)) {
                         continue;
@@ -1743,7 +1772,8 @@ class PeopleWorkspaceController extends Controller
                     }
                 }
             }
-            $state = $this->approvalDayState($cursor, $today, $entryStatus, $sheet ? (string) $sheet->status : '', isset($holidays[$key]), $person);
+            $sheetStatus = $sheet ? (string) $sheet->status : '';
+            $state = $this->approvalDayState($cursor, $today, $entryStatus, $sheetStatus, isset($holidays[$key]), $person);
             $days[] = [
                 'date' => $key,
                 'label' => $cursor->format('l, j F Y'),
@@ -1754,6 +1784,7 @@ class PeopleWorkspaceController extends Controller
                 'total' => round($task + $additional + $leave, 2),
                 'state' => $state,
                 'sheet' => $sheet,
+                'actionable' => $entryStatus === 'submitted' && in_array($sheetStatus, ['pending', 'draft'], true),
             ];
         }
 
@@ -1767,11 +1798,16 @@ class PeopleWorkspaceController extends Controller
 
     private function approvalDayState(Carbon $day, Carbon $today, string $entryStatus, string $sheetStatus, bool $holiday, ?User $person): string
     {
+        if ($entryStatus === 'rejected') {
+            return 'rejected';
+        }
+        if ($entryStatus === 'approved' || ($entryStatus === 'submitted' && $sheetStatus === 'approved')) {
+            return 'approved';
+        }
         if ($entryStatus === 'submitted') {
             return match ($sheetStatus) {
                 'approved' => 'approved',
-                'pending' => 'pending',
-                'sent_back' => 'sent_back',
+                'pending', 'draft' => 'pending',
                 default => 'submitted',
             };
         }

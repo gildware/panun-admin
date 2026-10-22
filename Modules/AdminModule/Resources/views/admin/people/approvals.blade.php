@@ -332,6 +332,7 @@
                                                     data-action="{{ route('admin.people.team.timesheet.decide', $sheet) }}"
                                                     data-employee="{{ $row['user_id'] }}"
                                                     data-timesheet="{{ $sheet->id }}"
+                                                    data-date="{{ $row['filled_for']->toDateString() }}"
                                                     data-summary="Approve {{ $row['person'] }}’s timesheet for {{ $filledFor }}?"
                                                 >Approve</button>
                                                 <button
@@ -342,7 +343,8 @@
                                                     data-action="{{ route('admin.people.team.timesheet.decide', $sheet) }}"
                                                     data-employee="{{ $row['user_id'] }}"
                                                     data-timesheet="{{ $sheet->id }}"
-                                                    data-summary="Reject {{ $row['person'] }}’s timesheet for {{ $filledFor }}?"
+                                                    data-date="{{ $row['filled_for']->toDateString() }}"
+                                                    data-summary="Reject {{ $row['person'] }}’s timesheet for {{ $filledFor }}? They will need to fill this day again."
                                                 >Reject</button>
                                             </div>
                                         </td>
@@ -362,6 +364,7 @@
                                         <input type="hidden" name="return_to" value="approvals-timesheet">
                                         <input type="hidden" name="decision" value="approve">
                                         <input type="hidden" name="timesheet_id" id="approve-timesheet-id" value="">
+                                        <input type="hidden" name="work_date" id="approve-timesheet-date" value="{{ old('work_date') }}">
                                         <input type="hidden" name="employee" id="approve-timesheet-employee" value="">
                                         <input type="hidden" name="period" value="{{ $timesheetPeriod }}">
                                         @if($employeeWise || $viewEmployee !== '')
@@ -390,6 +393,7 @@
                                         <input type="hidden" name="return_to" value="approvals-timesheet">
                                         <input type="hidden" name="decision" value="sent_back">
                                         <input type="hidden" name="timesheet_id" id="reject-timesheet-id" value="{{ $failedSheet->id ?? '' }}">
+                                        <input type="hidden" name="work_date" id="reject-timesheet-date" value="{{ old('work_date') }}">
                                         <input type="hidden" name="employee" id="reject-timesheet-employee" value="{{ $selectedEmployee }}">
                                         <input type="hidden" name="period" value="{{ $timesheetPeriod }}">
                                         @if($employeeWise || $viewEmployee !== '')
@@ -430,7 +434,7 @@
                                     });
                                 });
 
-                                function bindTimesheetModal(modalId, formId, summaryId, employeeId, sheetFieldId) {
+                                function bindTimesheetModal(modalId, formId, summaryId, employeeId, sheetFieldId, dateFieldId) {
                                     var modal = document.getElementById(modalId);
                                     if (!modal) return;
                                     modal.addEventListener('show.bs.modal', function (event) {
@@ -439,16 +443,18 @@
                                         var summary = document.getElementById(summaryId);
                                         var employee = document.getElementById(employeeId);
                                         var sheet = document.getElementById(sheetFieldId);
+                                        var workDate = dateFieldId ? document.getElementById(dateFieldId) : null;
                                         if (!button || !form) return;
                                         form.action = button.getAttribute('data-action') || '';
                                         if (summary) summary.textContent = button.getAttribute('data-summary') || summary.textContent;
                                         if (employee) employee.value = button.getAttribute('data-employee') || '';
                                         if (sheet) sheet.value = button.getAttribute('data-timesheet') || '';
+                                        if (workDate) workDate.value = button.getAttribute('data-date') || '';
                                     });
                                 }
 
-                                bindTimesheetModal('approveTimesheetModal', 'approve-timesheet-form', 'approve-timesheet-summary', 'approve-timesheet-employee', 'approve-timesheet-id');
-                                bindTimesheetModal('rejectTimesheetModal', 'reject-timesheet-form', 'reject-timesheet-summary', 'reject-timesheet-employee', 'reject-timesheet-id');
+                                bindTimesheetModal('approveTimesheetModal', 'approve-timesheet-form', 'approve-timesheet-summary', 'approve-timesheet-employee', 'approve-timesheet-id', 'approve-timesheet-date');
+                                bindTimesheetModal('rejectTimesheetModal', 'reject-timesheet-form', 'reject-timesheet-summary', 'reject-timesheet-employee', 'reject-timesheet-id', 'reject-timesheet-date');
 
                                 var rejectTimesheetModal = document.getElementById('rejectTimesheetModal');
                                 var rejectTimesheetNote = document.getElementById('reject-timesheet-note');

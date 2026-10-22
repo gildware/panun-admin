@@ -45,11 +45,7 @@
                 <td class="num">{{ $hoursText((float) $day['leave']) }}</td>
                 <td class="num">{{ $hoursText((float) $day['total']) }}</td>
                 <td class="actions">
-                    @if($day['sheet'] && in_array($day['state'], ['pending', 'submitted', 'sent_back'], true))
-                        @php
-                            $weekLabel = $day['sheet']->week_starts_on->format('j M Y');
-                            $decideSummary = $timesheetReview['name'].'’s timesheet for the week of '.$weekLabel;
-                        @endphp
+                    @if($day['sheet'] && ! empty($day['actionable']))
                         <div class="people-ws-actions">
                             <button
                                 class="btn-pw good"
@@ -59,7 +55,8 @@
                                 data-action="{{ route('admin.people.team.timesheet.decide', $day['sheet']) }}"
                                 data-employee="{{ $employeeId }}"
                                 data-timesheet="{{ $day['sheet']->id }}"
-                                data-summary="Approve {{ $decideSummary }}?"
+                                data-date="{{ $day['date'] }}"
+                                data-summary="Approve {{ $timesheetReview['name'] }}’s timesheet for {{ $day['label'] }}?"
                             >Approve</button>
                             <button
                                 class="btn-pw danger"
@@ -69,7 +66,8 @@
                                 data-action="{{ route('admin.people.team.timesheet.decide', $day['sheet']) }}"
                                 data-employee="{{ $employeeId }}"
                                 data-timesheet="{{ $day['sheet']->id }}"
-                                data-summary="Reject {{ $decideSummary }}?"
+                                data-date="{{ $day['date'] }}"
+                                data-summary="Reject {{ $timesheetReview['name'] }}’s timesheet for {{ $day['label'] }}? They will need to fill this day again."
                             >Reject</button>
                         </div>
                     @else
