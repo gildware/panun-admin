@@ -234,24 +234,26 @@ trait PreservesAdminProviderFormDrafts
         $this->attachDraftAdditionalDocuments($request, $files['additional_documents'] ?? null);
     }
 
+    protected function requestHasValidUploadedFile(Request $request, string $key): bool
+    {
+        $incoming = $request->file($key);
+        $files = is_array($incoming) ? $incoming : [$incoming];
+        foreach ($files as $file) {
+            if ($file instanceof UploadedFile && $file->isValid()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected function attachDraftFileArray(Request $request, string $key, $entries): void
     {
         if (! is_array($entries) || count($entries) === 0) {
             return;
         }
-        $incoming = $request->file($key);
-        $hasNew = false;
-        if (is_array($incoming)) {
-            foreach ($incoming as $f) {
-                if ($f) {
-                    $hasNew = true;
-                    break;
-                }
-            }
-        } elseif ($incoming) {
-            $hasNew = true;
-        }
-        if ($hasNew) {
+        // Empty picker slots are not a new upload. Keep the saved draft in that case.
+        if ($this->requestHasValidUploadedFile($request, $key)) {
             return;
         }
 

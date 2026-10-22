@@ -41,6 +41,54 @@
 
         var settings = $.extend( {}, defaults, options );
 
+        function fileMatchesAllowedExt(file, allowedExt) {
+            if (!allowedExt) {
+                return true;
+            }
+            var name = (file && file.name ? file.name : '').toLowerCase();
+            var type = (file && file.type ? file.type : '').toLowerCase();
+            var extRe = new RegExp('\\.(?:' + allowedExt + ')$', 'i');
+            if (extRe.test(name)) {
+                return true;
+            }
+            if (type.indexOf('image/') !== 0) {
+                return false;
+            }
+            var sub = (type.split('/')[1] || '').toLowerCase();
+            if (sub === 'jpg' || sub === 'pjpeg') {
+                sub = 'jpeg';
+            }
+            var parts = allowedExt.toLowerCase().split('|');
+            if (sub === 'jpeg' && (parts.indexOf('jpeg') !== -1 || parts.indexOf('jpg') !== -1)) {
+                return true;
+            }
+            return parts.indexOf(sub) !== -1;
+        }
+
+        function clearFileInput(input) {
+            var el = input && input.jquery ? input.get(0) : input;
+            if (!el) {
+                return;
+            }
+            try {
+                el.value = '';
+            } catch (e) {}
+        }
+
+        function assignFileToInput(fileInput, file) {
+            if (!fileInput || !file || typeof DataTransfer === 'undefined') {
+                return false;
+            }
+            try {
+                var dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+                return !!(fileInput.files && fileInput.files.length);
+            } catch (e) {
+                return false;
+            }
+        }
+
 
         /**
          * CALLED ON IMAGE SUCCESS RENDERED AND ADD NEW IMAGE
@@ -101,10 +149,8 @@
             if (input.files && input.files[0]) {
 
                 var file_select = input.files[0], allowedExt = settings.allowedExt, maxFileSize = settings.maxFileSize;
-                var file_select_type = file_select.type,
-                    regex = new RegExp(`(.*?)\.(${allowedExt})$`);
 
-                if(regex.test(file_select_type) || allowedExt == ''){
+                if(fileMatchesAllowedExt(file_select, allowedExt)){
 
                     if((maxFileSize == '') ||  (maxFileSize != '' && file_select.size <= maxFileSize)){
 
@@ -139,18 +185,20 @@
                     }
                     else if(maxFileSize != '' && file_select.size > maxFileSize){
 
-                        if( $(parent).find('img[data-spartanindeximage="'+index+'"]').is(":visible")  == true){
-                            $(parent).find('img[data-spartanindexi="'+index+'"]').hide();
-                        }
+                        $(parent).find('img[data-spartanindeximage="'+index+'"]').hide().removeAttr('src');
+                        $(parent).find('a[data-spartanindexremove="'+index+'"]').hide();
+                        $(parent).find('img[data-spartanindexi="'+index+'"]').show();
+                        clearFileInput(input);
                         settings.onSizeErr.call(this, index, file_select);
                         return false;
                     }
 
                 }
                 else{
-                    if( $(parent).find('img[data-spartanindeximage="'+index+'"]').is(":visible")  == true){
-                        $(parent).find('img[data-spartanindexi="'+index+'"]').hide();
-                    }
+                    $(parent).find('img[data-spartanindeximage="'+index+'"]').hide().removeAttr('src');
+                    $(parent).find('a[data-spartanindexremove="'+index+'"]').hide();
+                    $(parent).find('img[data-spartanindexi="'+index+'"]').show();
+                    clearFileInput(input);
                     settings.onExtensionErr.call(this, index, file_select);
                     return false;
                 }
@@ -271,14 +319,17 @@
         function onDropImage(setting, input, parent, evt){
             var index = $(input).data('spartanindexrow');
             var file_p = $(parent).find('.spartan_image_input[data-spartanindexinput="'+index+'"]');
-            file_p.files = evt.originalEvent.dataTransfer.files;
+            var fileInput = file_p.get(0);
+            var dropped = evt.originalEvent && evt.originalEvent.dataTransfer ? evt.originalEvent.dataTransfer.files : null;
+            if (fileInput && dropped && dropped.length) {
+                assignFileToInput(fileInput, dropped[0]);
+            }
 
             // clear on hover style
             $(input).find('.file_upload').css({'border-color': '#ddd', 'background' : 'none'});
             $(input).find('p[data-spartanlbldropfile="'+index+'"]').hide();
-            $(input).find('img[data-spartanindexi="'+index+'"]').show();
 
-            loadImage(settings, file_p, parent);
+            loadImage(settings, fileInput || file_p, parent);
         }
 
 

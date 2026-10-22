@@ -708,7 +708,7 @@ class ProviderController extends Controller
         }
 
         // Enforce at least one contact identity image (PDF upload removed from UI).
-        $hasContactImages = count(array_filter((array) $request->file('identity_images', []))) > 0;
+        $hasContactImages = $this->requestHasValidUploadedFile($request, 'identity_images');
         if (!$hasContactImages) {
             Toastr::error(translate('Please upload at least one contact identity image'));
 
@@ -717,7 +717,7 @@ class ProviderController extends Controller
 
         // Enforce at least one company identity image when provider is company.
         if ($request->provider_type === 'company') {
-            $hasCompanyImages = count(array_filter((array) $request->file('company_identity_images', []))) > 0;
+            $hasCompanyImages = $this->requestHasValidUploadedFile($request, 'company_identity_images');
             if (!$hasCompanyImages) {
                 Toastr::error(translate('Please upload at least one company identity image'));
 
@@ -2611,7 +2611,7 @@ class ProviderController extends Controller
         }
 
         // Contact identity is required (Box 5) unless provider already has saved identity docs.
-        $hasContactImages = $request->has('identity_images') && is_array($request->identity_images) && count($request->identity_images) > 0;
+        $hasContactImages = $this->requestHasValidUploadedFile($request, 'identity_images');
         $ownerHasExistingIdentity = $provider->owner && is_array($provider->owner->identification_image) && count($provider->owner->identification_image) > 0;
         if (!$hasContactImages && !$ownerHasExistingIdentity) {
             Toastr::error(translate('Please upload at least one contact identity image'));
@@ -2621,7 +2621,7 @@ class ProviderController extends Controller
 
         // Company identity is required only for provider_type=company.
         if ($request->provider_type === 'company') {
-            $hasCompanyImages = $request->has('company_identity_images') && is_array($request->company_identity_images) && count($request->company_identity_images) > 0;
+            $hasCompanyImages = $this->requestHasValidUploadedFile($request, 'company_identity_images');
             $providerHasExistingCompanyIdentity = is_array($provider->company_identity_images) && count($provider->company_identity_images) > 0;
 
             if (!$hasCompanyImages && !$providerHasExistingCompanyIdentity) {
