@@ -120,6 +120,12 @@ class SuperfoneCallController extends Controller
         $query->orderByDesc('superfone_calls.id');
 
         $calls = $query->paginate(25)->withQueryString();
+        $awaitingCallbackIds = SuperfoneCall::query()
+            ->awaitingCallback()
+            ->whereIn('superfone_calls.id', $calls->getCollection()->pluck('id'))
+            ->pluck('superfone_calls.id')
+            ->flip()
+            ->all();
         $agents = SuperfoneCall::query()
             ->whereNotNull('staff_name')
             ->where('staff_name', '!=', '')
@@ -140,6 +146,7 @@ class SuperfoneCallController extends Controller
 
         return view('leadmanagement::admin.calls.index', [
             'calls' => $calls,
+            'awaitingCallbackIds' => $awaitingCallbackIds,
             'agents' => $agents,
             'sort' => $sort,
             'dir' => $direction,
