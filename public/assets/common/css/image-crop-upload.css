@@ -6,10 +6,20 @@
     background: #111;
 }
 
+.image-crop-modal .modal-dialog {
+    max-height: calc(100vh - 1.5rem);
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.image-crop-modal .modal-content {
+    max-height: calc(100vh - 1.5rem);
+}
+
 .image-crop-modal__canvas-wrap {
     width: 100%;
-    height: min(70vh, 560px);
-    min-height: 320px;
+    height: min(52vh, 520px);
+    min-height: 220px;
     background: #111;
     position: relative;
 }
@@ -40,7 +50,27 @@
     outline-color: rgba(51, 153, 255, 0.75);
 }
 
-.image-crop-modal__ratio-hint {
+.image-crop-modal__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 12px 0;
     background: #f8f9fa;
     border-top: 1px solid #e9ecef;
+}
+
+.image-crop-modal__ratio-hint {
+    background: #f8f9fa;
+}
+
+.image-crop-modal__rotate {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.image-crop-modal__rotate .material-icons {
+    font-size: 18px;
+    line-height: 1;
 }
