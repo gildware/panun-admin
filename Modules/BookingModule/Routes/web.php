@@ -62,6 +62,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('{booking}/call-logs/{followup}', [BookingController::class, 'updateCallLog'])->middleware(['can:booking_view'])->name('call-logs.update');
         Route::delete('{booking}/call-logs/{followup}', [BookingController::class, 'destroyCallLog'])->middleware(['can:booking_view'])->name('call-logs.destroy');
         Route::post('followup/{id}/{followupId}/transcribe', [BookingController::class, 'transcribeFollowupRecording'])->middleware(['can:booking_view'])->name('followup.transcribe');
+        Route::get('followup/{followup}/recording', [\Modules\LeadManagement\Http\Controllers\Web\Admin\StoredRecordingController::class, 'bookingFollowup'])->name('followup.recording');
         Route::post('{id}/customer-non-responsive', [BookingController::class, 'markCustomerNonResponsive'])->middleware(['can:booking_view'])->name('customer_non_responsive.mark');
         Route::post('{id}/customer-non-responsive/reopen', [BookingController::class, 'reopenCustomerNonResponsive'])->middleware(['can:booking_view'])->name('customer_non_responsive.reopen');
         Route::get('repeat-details/{id}', [BookingController::class, 'repeatDetails'])->name('repeat_details');

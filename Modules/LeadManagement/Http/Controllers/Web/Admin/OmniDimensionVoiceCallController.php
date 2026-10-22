@@ -6,7 +6,9 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use App\Support\SeekableRecordingResponse;
 use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -342,7 +344,7 @@ class OmniDimensionVoiceCallController extends Controller
         ]);
     }
 
-    public function recording(int $callLogId): Response
+    public function recording(int $callLogId): BinaryFileResponse
     {
         $error = null;
         $url = $this->omniDimension->getRecordingUrl($callLogId, $error);
@@ -351,16 +353,7 @@ class OmniDimensionVoiceCallController extends Controller
             abort(404);
         }
 
-        $stream = Http::timeout(60)->get($url);
-        if ($stream->failed()) {
-            abort(404);
-        }
-
-        return response($stream->body(), 200, [
-            'Content-Type' => $stream->header('Content-Type') ?? 'audio/mpeg',
-            'Content-Disposition' => 'inline',
-            'Cache-Control' => 'private, max-age=300',
-        ]);
+        return SeekableRecordingResponse::fromUpstreamUrl($url);
     }
 
     public function store(Request $request): RedirectResponse|JsonResponse

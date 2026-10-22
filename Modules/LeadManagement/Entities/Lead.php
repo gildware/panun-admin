@@ -2,14 +2,11 @@
 
 namespace Modules\LeadManagement\Entities;
 
-use App\Support\StoragePathPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Facades\Storage;
-
 class Lead extends Model
 {
     public const TYPE_UNKNOWN = 'unknown';
@@ -166,13 +163,7 @@ class Lead extends Model
             return null;
         }
 
-        $path = StoragePathPrefix::apply('lead-initial-calls/'.$this->initial_call_recording_path);
-
-        try {
-            return Storage::disk($this->initial_call_recording_disk ?: getDisk())->url($path);
-        } catch (\Throwable) {
-            return asset('storage/'.$path);
-        }
+        return route('admin.lead.initial-call-recording.play', $this);
     }
 
     public function source(): BelongsTo

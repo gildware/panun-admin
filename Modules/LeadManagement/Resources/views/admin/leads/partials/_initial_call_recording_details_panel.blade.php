@@ -26,7 +26,7 @@
                     <div class="card-body voice-call-recording-box">
                         @if($hasRecording)
                             <audio controls
-                                   preload="none"
+                                   preload="metadata"
                                    class="w-100 voice-call-audio-player"
                                    src="{{ $lead->initial_call_recording_url }}">
                                 <source src="{{ $lead->initial_call_recording_url }}" type="{{ $lead->initial_call_recording_mime ?: 'audio/mpeg' }}">

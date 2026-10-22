@@ -24,7 +24,7 @@
                 </div>
                 <div class="card-body">
                     @if($hasRecording)
-                        <audio controls preload="none" class="w-100 voice-call-audio-player" src="{{ $enquiry->recording_url }}">
+                        <audio controls preload="metadata" class="w-100 voice-call-audio-player" src="{{ $enquiry->recording_url }}">
                             <source src="{{ $enquiry->recording_url }}" type="{{ $enquiry->recording_mime ?: 'audio/mpeg' }}">
                         </audio>
                     @else

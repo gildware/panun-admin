@@ -227,7 +227,7 @@
         font-weight: 500;
         word-break: break-word;
     }
-    .voice-call-recording-box .voice-call-audio-player { height: 36px; }
+    .voice-call-recording-box .voice-call-audio-player { display: block; width: 100%; height: 54px; }
     .booking-detail-v2 .table-section-label {
         font-size: .75rem;
         font-weight: 700;

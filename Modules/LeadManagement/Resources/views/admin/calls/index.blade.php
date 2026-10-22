@@ -462,7 +462,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                 </div>
                 <div class="modal-body">
-                    <audio id="call-recording-audio" controls preload="auto" class="w-100"></audio>
+                    <audio id="call-recording-audio" controls preload="metadata" class="w-100" style="height: 54px;"></audio>
                     <p id="call-recording-error" class="text-danger small mb-0 mt-2 d-none">{{ translate('No_recording_available') }}</p>
                 </div>
             </div>

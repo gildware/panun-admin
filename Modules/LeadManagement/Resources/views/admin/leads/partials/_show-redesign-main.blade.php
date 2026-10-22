@@ -249,7 +249,7 @@
                                     <td>
                                         @if($enquiry->hasRecording() && $enquiry->recording_url)
                                             <div class="d-flex flex-column align-items-start gap-1">
-                                                <audio controls preload="none" style="height: 32px; max-width: 160px;">
+                                                <audio controls preload="metadata" style="height: 54px; width: 260px; max-width: 100%;">
                                                     <source src="{{ $enquiry->recording_url }}" type="{{ $enquiry->recording_mime ?: 'audio/mpeg' }}">
                                                 </audio>
                                                 <button type="button"
