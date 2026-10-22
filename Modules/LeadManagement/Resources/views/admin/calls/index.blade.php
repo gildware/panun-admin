@@ -165,6 +165,7 @@
                         <option value="">{{ translate('All') }}</option>
                         <option value="answered" @selected(request('outcome') === 'answered')>{{ translate('Answered') }}</option>
                         <option value="missed" @selected(request('outcome') === 'missed')>{{ translate('Missed') }}</option>
+                        <option value="needs_callback" @selected(request('outcome') === 'needs_callback')>{{ translate('Needs_callback') }}</option>
                         <option value="unanswered" @selected(request('outcome') === 'unanswered')>{{ translate('Unanswered') }}</option>
                         <option value="other" @selected(request('outcome') === 'other')>{{ translate('Other') }}</option>
                         <option value="unknown" @selected(request('outcome') === 'unknown')>{{ translate('Unknown') }}</option>
