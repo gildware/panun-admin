@@ -2,6 +2,8 @@
 
 namespace Modules\WhatsAppModule\Services;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
@@ -9,6 +11,7 @@ use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
@@ -19,12 +22,55 @@ use Modules\WhatsAppModule\Support\SocialInboxChannel;
 class WhatsAppLeadLifecycleService
 {
     /**
-     * If the WhatsApp phone is already an onboarded provider-side user,
-     * we should not create a new CRM Lead row for their inbound messages.
+     * If the WhatsApp phone already belongs to an onboarded provider,
+     * inbound messages must not open a new CRM lead.
+     *
+     * Lead phones are the last 10 digits. Provider phones are stored with a
+     * country code (+91…) on the user, and sometimes only on the provider
+     * company or contact number, so the match is a digit suffix — the same
+     * rule calls already use.
      */
     protected function isProviderAccountPhone(string $leadPhone): bool
     {
-        return User::findByContactPhoneScoped($leadPhone, PROVIDER_USER_TYPES) !== null;
+        $digits = preg_replace('/\D+/', '', $leadPhone) ?? '';
+        if (strlen($digits) < 10) {
+            return false;
+        }
+        $suffix = substr($digits, -10);
+
+        $userQuery = User::query()->whereIn('user_type', PROVIDER_USER_TYPES);
+        $this->wherePhoneEndsWith($userQuery, 'phone', $suffix);
+        if ($userQuery->exists()) {
+            return true;
+        }
+
+        return Provider::query()
+            ->where(function ($query) use ($suffix) {
+                $this->wherePhoneEndsWith($query, 'company_phone', $suffix);
+                $query->orWhere(function ($inner) use ($suffix) {
+                    $this->wherePhoneEndsWith($inner, 'contact_person_phone', $suffix);
+                });
+            })
+            ->exists();
+    }
+
+    /**
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
+    protected function wherePhoneEndsWith($query, string $column, string $digits): void
+    {
+        $query->where(function ($inner) use ($column, $digits) {
+            if (DB::connection()->getDriverName() === 'mysql') {
+                $inner->whereRaw(
+                    "RIGHT(REGEXP_REPLACE(COALESCE({$column}, ''), '[^0-9]', ''), ?) = ?",
+                    [strlen($digits), $digits]
+                );
+
+                return;
+            }
+
+            $inner->where($column, $digits)->orWhere($column, 'like', '%'.$digits);
+        });
     }
 
     public function normalizeLeadPhone(?string $phone): ?string
