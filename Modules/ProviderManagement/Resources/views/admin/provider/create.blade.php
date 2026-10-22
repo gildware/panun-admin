@@ -626,7 +626,7 @@
 
 @push('script')
     <script src="{{asset('assets/provider-module')}}/js//tags-input.min.js"></script>
-    <script src="{{asset('assets/provider-module')}}/js/spartan-multi-image-picker.js"></script>
+    <script src="{{asset('assets/provider-module')}}/js/spartan-multi-image-picker.js?v=20261022-identity2"></script>
     <script src="{{asset('assets/provider-module')}}/plugins/jquery-steps/jquery.steps.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/plugins/jquery-validation/jquery.validate.min.js"></script>
 
@@ -1106,13 +1106,16 @@
                     }
 
                     formWizard.validate().settings.ignore = providerCreateJqvIgnoreFilter;
+                    if (typeof window.restoreProviderIdentityFiles === "function") {
+                        window.restoreProviderIdentityFiles();
+                    }
                     var providerType = $(".provider-add-edit-form-root").find("input[name='provider_type']:checked").val();
                     var identityDocsOk = true;
 
                     $(".identity-docs-error-msg").remove();
-                    var existingContactPreviews = $("#multi_image_picker img:not(.spartan_image_placeholder)").filter(function () {
+                    var existingContactPreviews = $("#multi_image_picker img[data-spartanindeximage]:visible").filter(function () {
                         var src = ($(this).attr("src") || "").trim();
-                        return src.length > 0 && src.indexOf("banner-upload-file.png") === -1;
+                        return src.length > 0 && src.indexOf("banner-upload-file.png") === -1 && src.indexOf("placeholder.png") === -1;
                     }).length + $("#multi_image_picker a:not(.spartan_remove_row)").filter(function () {
                         var href = ($(this).attr("href") || "").trim();
                         return href && href.indexOf("javascript:") !== 0;
@@ -1131,9 +1134,9 @@
 
                     $(".company-identity-docs-error-msg").remove();
                     if (providerType === "company") {
-                        var existingCompanyPreviews = $("#company_multi_image_picker img:not(.spartan_image_placeholder)").filter(function () {
+                        var existingCompanyPreviews = $("#company_multi_image_picker img[data-spartanindeximage]:visible").filter(function () {
                             var src = ($(this).attr("src") || "").trim();
-                            return src.length > 0 && src.indexOf("banner-upload-file.png") === -1;
+                            return src.length > 0 && src.indexOf("banner-upload-file.png") === -1 && src.indexOf("placeholder.png") === -1;
                         }).length + $("#company_multi_image_picker a:not(.spartan_remove_row)").filter(function () {
                             var href = ($(this).attr("href") || "").trim();
                             return href && href.indexOf("javascript:") !== 0;
@@ -1262,6 +1265,12 @@
                     formWizard.find('a[href="#finish"]').addClass("disabled").attr("aria-disabled", "true");
                     if (typeof window.syncProviderWizardIntlPhoneHiddens === "function") {
                         window.syncProviderWizardIntlPhoneHiddens(el);
+                    }
+                    if (typeof window.restoreProviderIdentityFiles === "function") {
+                        window.restoreProviderIdentityFiles();
+                    }
+                    if (typeof window.disableEmptyProviderIdentityInputs === "function") {
+                        window.disableEmptyProviderIdentityInputs();
                     }
                     el.submit();
                 }
@@ -1588,6 +1597,116 @@
                 setTimeout(function () {
                     tryBootProviderCreateSpartanPickers((attempt || 0) + 1);
                 }, 50);
+            }
+
+            window.rememberProviderIdentityFiles = function () {
+                window.__pkIdentityFiles = window.__pkIdentityFiles || { contact: [], company: [] };
+
+                function grab(selector) {
+                    var picker = document.querySelector(selector);
+                    if (!picker) {
+                        return [];
+                    }
+                    var files = [];
+                    picker.querySelectorAll("input.spartan_image_input").forEach(function (input) {
+                        if (input.files && input.files[0]) {
+                            files.push(input.files[0]);
+                        }
+                    });
+                    return files;
+                }
+
+                window.__pkIdentityFiles.contact = grab("#multi_image_picker");
+                window.__pkIdentityFiles.company = grab("#company_multi_image_picker");
+            };
+
+            window.restoreProviderIdentityFiles = function () {
+                var store = window.__pkIdentityFiles || {};
+                if (typeof DataTransfer === "undefined") {
+                    return;
+                }
+
+                function put(selector, files) {
+                    if (!files || !files.length) {
+                        return;
+                    }
+                    var picker = document.querySelector(selector);
+                    if (!picker) {
+                        return;
+                    }
+                    var inputs = Array.prototype.slice.call(picker.querySelectorAll("input.spartan_image_input"));
+                    var hasFile = inputs.some(function (input) {
+                        return input.files && input.files.length > 0;
+                    });
+                    if (hasFile) {
+                        return;
+                    }
+                    files.forEach(function (file, idx) {
+                        var input = inputs[idx];
+                        if (!input || !file) {
+                            return;
+                        }
+                        try {
+                            var dt = new DataTransfer();
+                            dt.items.add(file);
+                            input.files = dt.files;
+                        } catch (error) {}
+                    });
+                }
+
+                put("#multi_image_picker", store.contact);
+                put("#company_multi_image_picker", store.company);
+            };
+
+            window.disableEmptyProviderIdentityInputs = function () {
+                document.querySelectorAll("#multi_image_picker input.spartan_image_input, #company_multi_image_picker input.spartan_image_input").forEach(function (input) {
+                    input.disabled = !(input.files && input.files.length);
+                });
+            };
+
+            function assignDroppedIdentityFile(event) {
+                var wrap = event.target && event.target.closest
+                    ? event.target.closest("#multi_image_picker .spartan_item_wrapper, #company_multi_image_picker .spartan_item_wrapper")
+                    : null;
+                if (!wrap || !event.dataTransfer || !event.dataTransfer.files || !event.dataTransfer.files[0]) {
+                    return;
+                }
+                var input = wrap.querySelector("input.spartan_image_input");
+                if (!input || typeof DataTransfer === "undefined") {
+                    return;
+                }
+                try {
+                    var dt = new DataTransfer();
+                    dt.items.add(event.dataTransfer.files[0]);
+                    input.files = dt.files;
+                } catch (error) {}
+            }
+
+            if (!window.__pkIdentityFileMemoryBound) {
+                window.__pkIdentityFileMemoryBound = true;
+                document.addEventListener("drop", assignDroppedIdentityFile, true);
+                document.addEventListener("change", function (event) {
+                    var input = event.target;
+                    if (!input || !input.matches || !input.matches("#multi_image_picker .spartan_image_input, #company_multi_image_picker .spartan_image_input")) {
+                        return;
+                    }
+                    setTimeout(window.rememberProviderIdentityFiles, 0);
+                });
+                document.addEventListener("drop", function (event) {
+                    if (!event.target || !event.target.closest || !event.target.closest("#multi_image_picker, #company_multi_image_picker")) {
+                        return;
+                    }
+                    setTimeout(window.rememberProviderIdentityFiles, 0);
+                });
+                document.addEventListener("click", function (event) {
+                    var btn = event.target && event.target.closest
+                        ? event.target.closest("#multi_image_picker .spartan_remove_row, #company_multi_image_picker .spartan_remove_row")
+                        : null;
+                    if (!btn) {
+                        return;
+                    }
+                    setTimeout(window.rememberProviderIdentityFiles, 0);
+                });
             }
 
             tryBootProviderCreateSpartanPickers(0);

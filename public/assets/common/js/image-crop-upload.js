@@ -91,6 +91,16 @@
                         <div class="image-crop-modal__canvas-wrap">
                             <img class="image-crop-modal__image" alt="Crop preview">
                         </div>
+                        <div class="image-crop-modal__toolbar">
+                            <button type="button" class="btn btn-outline-secondary image-crop-modal__rotate" data-rotate="-90" disabled aria-label="Rotate left">
+                                <span class="material-icons" aria-hidden="true">rotate_left</span>
+                                Rotate left
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary image-crop-modal__rotate" data-rotate="90" disabled aria-label="Rotate right">
+                                <span class="material-icons" aria-hidden="true">rotate_right</span>
+                                Rotate right
+                            </button>
+                        </div>
                         <p class="image-crop-modal__ratio-hint px-3 py-2 mb-0 text-muted fs-12"></p>
                     </div>
                     <div class="modal-footer">
@@ -104,7 +114,7 @@
 
         const applyBtn = modalEl.querySelector('.image-crop-modal__apply');
         applyBtn.addEventListener('click', onApplyCrop);
-
+        modalEl.addEventListener('click', onRotateClick);
         modalEl.addEventListener('hidden.bs.modal', onModalHidden);
 
         return modalEl;
@@ -132,13 +142,14 @@
             zoomable: true,
             zoomOnWheel: true,
             scalable: false,
-            rotatable: false,
+            rotatable: true,
             checkOrientation: true,
             aspectRatio: isNaN(aspectRatio) ? NaN : aspectRatio,
             ready: function () {
                 if (cropper) {
                     cropper.resize();
                 }
+                setRotateEnabled(true);
             },
         });
     }
@@ -307,7 +318,78 @@
         return ratio[0] + ':' + ratio[1];
     }
 
+    function setRotateEnabled(enabled) {
+        if (!modalEl) {
+            return;
+        }
+        modalEl.querySelectorAll('.image-crop-modal__rotate').forEach(function (button) {
+            button.disabled = !enabled;
+        });
+    }
+
+    function onRotateClick(event) {
+        const button = event.target.closest('.image-crop-modal__rotate');
+        if (!button || !cropper || button.disabled) {
+            return;
+        }
+        const degrees = Number(button.getAttribute('data-rotate'));
+        if (!degrees) {
+            return;
+        }
+        cropper.rotate(degrees);
+        fitRotatedImage();
+    }
+
+    function fitRotatedImage() {
+        if (!cropper) {
+            return;
+        }
+
+        const container = cropper.getContainerData();
+        const image = cropper.getImageData();
+        const quarterTurn = Math.abs(image.rotate || 0) % 180 === 90;
+        const rotatedWidth = quarterTurn ? image.naturalHeight : image.naturalWidth;
+        const rotatedHeight = quarterTurn ? image.naturalWidth : image.naturalHeight;
+        if (!container.width || !container.height || !rotatedWidth || !rotatedHeight) {
+            return;
+        }
+
+        // Shrink the crop box first so viewMode does not force the canvas
+        // to stay zoomed in on the previous frame.
+        cropper.setCropBoxData({
+            left: container.width / 2,
+            top: container.height / 2,
+            width: 24,
+            height: 24,
+        });
+
+        const scale = Math.min(container.width / rotatedWidth, container.height / rotatedHeight);
+        const width = rotatedWidth * scale;
+        const height = rotatedHeight * scale;
+        cropper.setCanvasData({
+            left: (container.width - width) / 2,
+            top: (container.height - height) / 2,
+            width: width,
+            height: height,
+        });
+
+        const ratio = activeRatio ? activeRatio[0] / activeRatio[1] : width / height;
+        let cropWidth = width;
+        let cropHeight = ratio ? width / ratio : height;
+        if (cropHeight > height) {
+            cropHeight = height;
+            cropWidth = ratio ? height * ratio : width;
+        }
+        cropper.setCropBoxData({
+            left: (container.width - cropWidth) / 2,
+            top: (container.height - cropHeight) / 2,
+            width: cropWidth,
+            height: cropHeight,
+        });
+    }
+
     function destroyCropper() {
+        setRotateEnabled(false);
         if (cropper) {
             cropper.destroy();
             cropper = null;
@@ -432,7 +514,7 @@
             }
             if (hint) {
                 hint.textContent =
-                    'Drag and zoom to choose the visible area. Display ratio: ' + ratioLabel(activeRatio) + '.';
+                    'Drag, zoom, or rotate to choose the visible area. Display ratio: ' + ratioLabel(activeRatio) + '.';
             }
 
             const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
