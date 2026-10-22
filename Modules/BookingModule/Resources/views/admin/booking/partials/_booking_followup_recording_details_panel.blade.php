@@ -26,7 +26,7 @@
                     </div>
                     <div class="card-body voice-call-recording-box">
                         @if($hasRecording)
-                            <audio controls preload="none" class="w-100 voice-call-audio-player" src="{{ $followup->recording_url }}">
+                            <audio controls preload="metadata" class="w-100 voice-call-audio-player" src="{{ $followup->recording_url }}">
                                 <source src="{{ $followup->recording_url }}" type="{{ $followup->recording_mime ?: 'audio/mpeg' }}">
                             </audio>
                         @else

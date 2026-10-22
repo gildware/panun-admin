@@ -7,12 +7,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Storage;
+use App\Support\SeekableRecordingResponse;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\SuperfoneCall;
 use Modules\LeadManagement\Services\SuperfoneCallService;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SuperfoneCallController extends Controller
 {
@@ -416,17 +416,19 @@ class SuperfoneCallController extends Controller
         ]);
     }
 
-    public function recording(SuperfoneCall $call): StreamedResponse
+    public function recording(SuperfoneCall $call): BinaryFileResponse
     {
         abort_unless($call->hasRecording(), 404);
 
         $path = $call->recordingStoragePath();
-        $disk = Storage::disk($call->recordingDisk());
-        abort_unless($path && $disk->exists($path), 404);
+        abort_unless($path, 404);
 
-        return $disk->response($path, $call->recording_original_name ?: basename($path), [
-            'Content-Type' => $call->recording_mime ?: 'audio/mpeg',
-        ]);
+        return SeekableRecordingResponse::fromDisk(
+            $call->recordingDisk(),
+            $path,
+            $call->recording_mime ?: 'audio/mpeg',
+            $call->recording_original_name ?: basename($path)
+        );
     }
 
     public function downloadRecording(SuperfoneCall $call): RedirectResponse

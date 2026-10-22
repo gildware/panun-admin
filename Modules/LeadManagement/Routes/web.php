@@ -12,6 +12,7 @@ use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadReportController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\OmniDimensionVoiceCallController;
 use Modules\LeadManagement\Http\Controllers\SuperfoneWebhookController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\SourceController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\StoredRecordingController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\SuperfoneApiLogController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\SuperfoneCallController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\VoiceCallCronJobController;
@@ -46,6 +47,7 @@ Route::group([
             Route::get('{enquiry}/edit', [LeadOutboundEnquiryController::class, 'edit'])->name('edit');
             Route::put('{enquiry}', [LeadOutboundEnquiryController::class, 'update'])->name('update');
             Route::post('{enquiry}/transcribe', [LeadOutboundEnquiryController::class, 'transcribeRecording'])->name('transcribe');
+            Route::get('{enquiry}/recording', [StoredRecordingController::class, 'outboundEnquiry'])->name('recording');
         });
 
         // Reports routes should come before parameterized {id} routes
@@ -76,6 +78,8 @@ Route::group([
         Route::put('{lead}/call-logs/{followup}', [LeadController::class, 'updateCallLog'])->middleware(['can:lead_update'])->name('call-logs.update');
         Route::delete('{lead}/call-logs/{followup}', [LeadController::class, 'destroyCallLog'])->middleware(['can:lead_update'])->name('call-logs.destroy');
         Route::post('{lead}/followups/{followup}/transcribe', [LeadController::class, 'transcribeFollowupRecording'])->middleware(['can:lead_update'])->name('followups.transcribe');
+        Route::get('followups/{followup}/recording', [StoredRecordingController::class, 'leadFollowup'])->middleware(['can:lead_view'])->name('followups.recording');
+        Route::get('{lead}/initial-call-recording', [StoredRecordingController::class, 'initialCall'])->middleware(['can:lead_view'])->name('initial-call-recording.play');
         Route::post('{lead}/initial-call-recording/transcribe', [LeadController::class, 'transcribeInitialCallRecording'])->middleware(['can:lead_update'])->name('initial-call-recording.transcribe');
         Route::put('{id}', [LeadController::class, 'update'])->middleware(['can:lead_update'])->name('update');
         Route::delete('{id}', [LeadController::class, 'destroy'])->middleware(['can:lead_delete'])->name('destroy');

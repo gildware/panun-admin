@@ -116,7 +116,7 @@
                         <div class="card-body">
                             <h3 class="h5">{{ translate('Recording') }}</h3>
                             @if($call->hasRecording())
-                                <audio controls preload="none" class="w-100" src="{{ route('admin.calls.recording', $call) }}">
+                                <audio controls preload="metadata" class="w-100" style="height: 54px;" src="{{ route('admin.calls.recording', $call) }}">
                                     <source src="{{ route('admin.calls.recording', $call) }}" type="{{ $call->recording_mime ?: 'audio/mpeg' }}">
                                 </audio>
                             @elseif($call->recording_url)

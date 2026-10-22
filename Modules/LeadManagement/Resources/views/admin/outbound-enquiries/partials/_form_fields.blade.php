@@ -154,7 +154,7 @@
                     — {{ $enquiry->recording_original_name }}
                 @endif
                 @if($enquiry->recording_url)
-                    <audio controls preload="none" class="d-block mt-2" style="height: 36px; max-width: 320px;">
+                    <audio controls preload="metadata" class="d-block mt-2" style="height: 54px; width: 100%; max-width: 420px;">
                         <source src="{{ $enquiry->recording_url }}" type="{{ $enquiry->recording_mime ?: 'audio/mpeg' }}">
                     </audio>
                 @endif

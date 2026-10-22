@@ -2,10 +2,8 @@
 
 namespace Modules\BookingModule\Entities;
 
-use App\Support\StoragePathPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 use Modules\UserManagement\Entities\User;
 
 class BookingFollowup extends Model
@@ -142,13 +140,7 @@ class BookingFollowup extends Model
             return null;
         }
 
-        $path = StoragePathPrefix::apply('booking-followups/'.$this->recording_path);
-
-        try {
-            return Storage::disk($this->recording_disk ?: getDisk())->url($path);
-        } catch (\Throwable) {
-            return asset('storage/'.$path);
-        }
+        return route('admin.booking.followup.recording', $this);
     }
 
     public function contactChannelLabel(): ?string

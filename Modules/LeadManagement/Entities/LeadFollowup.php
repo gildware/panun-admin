@@ -2,10 +2,8 @@
 
 namespace Modules\LeadManagement\Entities;
 
-use App\Support\StoragePathPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class LeadFollowup extends Model
 {
@@ -136,13 +134,7 @@ class LeadFollowup extends Model
             return null;
         }
 
-        $path = StoragePathPrefix::apply('lead-followups/'.$this->recording_path);
-
-        try {
-            return Storage::disk($this->recording_disk ?: getDisk())->url($path);
-        } catch (\Throwable) {
-            return asset('storage/'.$path);
-        }
+        return route('admin.lead.followups.recording', $this);
     }
 
     public function contactChannelLabel(): ?string

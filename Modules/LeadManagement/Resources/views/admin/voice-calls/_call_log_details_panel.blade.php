@@ -77,7 +77,7 @@
                     <div class="card-body voice-call-recording-box">
                         @if($hasRecording)
                             <audio controls
-                                   preload="none"
+                                   preload="metadata"
                                    class="w-100 voice-call-audio-player"
                                    data-play-url="{{ route('admin.voice-call.recording', $callLogId) }}"></audio>
                         @else

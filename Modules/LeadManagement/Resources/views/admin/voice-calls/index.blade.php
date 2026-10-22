@@ -193,7 +193,9 @@
             padding: 4px 10px;
         }
         .voice-call-recording-box .voice-call-audio-player {
-            height: 36px;
+            display: block;
+            width: 100%;
+            height: 54px;
         }
         .voice-call-history-table tbody tr.voice-call-details-row > td {
             box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.04);

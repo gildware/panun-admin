@@ -2,10 +2,8 @@
 
 namespace Modules\LeadManagement\Entities;
 
-use App\Support\StoragePathPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class LeadOutboundEnquiry extends Model
 {
@@ -89,12 +87,6 @@ class LeadOutboundEnquiry extends Model
             return null;
         }
 
-        $path = StoragePathPrefix::apply('lead-outbound-enquiries/'.$this->recording_path);
-
-        try {
-            return Storage::disk($this->recording_disk ?: getDisk())->url($path);
-        } catch (\Throwable) {
-            return asset('storage/'.$path);
-        }
+        return route('admin.lead.outbound-enquiry.recording', $this);
     }
 }
