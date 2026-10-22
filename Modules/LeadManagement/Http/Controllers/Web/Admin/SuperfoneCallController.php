@@ -67,9 +67,11 @@ class SuperfoneCallController extends Controller
             $query->where('direction', $request->query('direction'));
         }
 
-        if (in_array($request->query('outcome'), ['answered', 'missed', 'unanswered', 'other', 'unknown'], true)) {
+        if (in_array($request->query('outcome'), ['answered', 'missed', 'unanswered', 'needs_callback', 'other', 'unknown'], true)) {
             if ($request->query('outcome') === 'unknown') {
                 $query->whereNull('outcome');
+            } elseif ($request->query('outcome') === 'needs_callback') {
+                $query->awaitingCallback();
             } elseif ($request->query('outcome') === 'unanswered') {
                 $query->where(function ($inner) {
                     $inner->where('outcome', 'unanswered')
