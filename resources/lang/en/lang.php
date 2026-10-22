@@ -8337,6 +8337,7 @@ _Message' => 'Customer notification for provider bid offer
   'Pending_Followups_Over_Time' => 'Pending Followups Over Time',
   'Missed' => 'Missed',
   'Missed_call' => 'Missed call',
+  'Needs_callback' => 'Needs callback',
   'New_call_received' => 'New call received',
   'Outbound_call' => 'Outbound call',
   'Outbound_call_answered' => 'Outbound call answered',

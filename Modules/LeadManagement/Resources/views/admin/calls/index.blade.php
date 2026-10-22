@@ -82,6 +82,29 @@
         .call-pill--out { background: #e7f0ff; color: #1d4ed8; }
         .call-pill--answered { background: #e7f6ee; color: #0f7a3a; }
         .call-pill--missed { background: #fdecea; color: #c62828; }
+        .call-pill--needs-callback { background: #c62828; color: #fff; }
+        .calls-result-pills { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; vertical-align: middle; max-width: 100%; }
+        .calls-list-table.table > tbody > tr.calls-row--needs-callback > * {
+            --bs-table-bg: #fff6f6;
+            --bs-table-accent-bg: #fdecea;
+            --bs-table-bg-type: #fdecea;
+            background-color: #fff6f6;
+        }
+        .calls-list-table.table > tbody > tr.calls-row--needs-callback > td:first-child {
+            box-shadow: inset 3px 0 0 #c62828, inset 0 0 0 9999px #fdecea;
+        }
+        .calls-list-table.table-hover > tbody > tr.calls-row--needs-callback:hover > * {
+            --bs-table-accent-bg: #f8d7d4;
+            --bs-table-bg-type: #f8d7d4;
+            background-color: #f8d7d4;
+        }
+        .calls-list-table.table-hover > tbody > tr.calls-row--needs-callback:hover > td:first-child {
+            box-shadow: inset 3px 0 0 #c62828, inset 0 0 0 9999px #f8d7d4;
+        }
+        .calls-list-table.table > tbody > tr.calls-row--needs-callback > td {
+            height: 72px;
+            overflow: visible;
+        }
         .call-pill--unanswered { background: #fff4e5; color: #b45309; }
         .call-pill--other { background: #fff4e5; color: #b45309; }
         .call-pill--unknown { background: #f1f3f5; color: #6b7280; }
@@ -257,10 +280,10 @@
                             <col style="width: 7%">
                             <col style="width: 8%">
                             <col style="width: 7%">
-                            <col style="width: 8%">
+                            <col style="width: 11%">
                             <col style="width: 5%">
                             <col style="width: 4%">
-                            <col style="width: 13%">
+                            <col style="width: 10%">
                             <col style="width: 8%">
                             <col style="width: 13%">
                             <col style="width: 8%">
@@ -291,7 +314,10 @@
                         </thead>
                         <tbody>
                         @forelse($calls as $call)
-                            <tr>
+                            @php
+                                $needsCallback = isset($awaitingCallbackIds[$call->id]);
+                            @endphp
+                            <tr @class(['calls-row--needs-callback' => $needsCallback]) @if($needsCallback) title="{{ translate('Needs_callback') }}" @endif>
                                 <td>
                                     <a href="{{ route('admin.calls.show', $call) }}">
                                         {{ $call->formatIst('started_at') }}
@@ -330,7 +356,7 @@
                                 </td>
                                 <td title="{{ $call->customer_phone }}">{{ $call->customer_phone ?: '—' }}</td>
                                 <td title="{{ $call->staff_name }}">{{ $call->staff_name ?: '—' }}</td>
-                                <td>
+                                <td class="calls-result-cell">
                                     @php
                                         $outcome = $call->outcome ?: 'unknown';
                                         if ($outcome === 'missed' && $call->direction === 'OUTBOUND') {
@@ -351,9 +377,17 @@
                                             default => 'call-pill--unknown',
                                         };
                                     @endphp
-                                    <span class="call-pill {{ $outcomeClass }}">
-                                        <span class="material-icons">{{ $outcomeIcon }}</span>
-                                        {{ $call->outcomeLabel() }}
+                                    <span class="calls-result-pills">
+                                        <span class="call-pill {{ $outcomeClass }}">
+                                            <span class="material-icons">{{ $outcomeIcon }}</span>
+                                            {{ $call->outcomeLabel() }}
+                                        </span>
+                                        @if($needsCallback)
+                                            <span class="call-pill call-pill--needs-callback">
+                                                <span class="material-icons">phone_callback</span>
+                                                {{ translate('Needs_callback') }}
+                                            </span>
+                                        @endif
                                     </span>
                                 </td>
                                 <td>{{ $call->durationLabel() }}</td>
