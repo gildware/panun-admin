@@ -32,8 +32,14 @@
         .calls-copy-id.is-copied { color: #0f7a3a; border-color: #86efac; background: #e7f6ee; }
         .calls-list-table.table > :not(caption) > * > * { height: 52px; padding: 0 0.55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
         .calls-list-table.table > :not(caption) > * > *.calls-actions-cell { overflow: visible; text-overflow: clip; padding-left: 1rem; text-align: left; }
+        .calls-actions-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
         .calls-list-table .calls-link-lead-btn,
-        .calls-list-table .calls-unmatch-btn { padding: 0.32rem 0.6rem; font-size: 0.75rem; }
+        .calls-list-table .calls-unmatch-btn,
+        .calls-list-table .calls-contact-btn { padding: 0.32rem 0.6rem; font-size: 0.75rem; }
+        .calls-contact-btn { border-radius: 8px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+        #call-contact-modal .call-contact-channels { display: flex; flex-direction: column; gap: 0.45rem; }
+        #call-contact-modal .form-check { margin-bottom: 0; }
+        #call-contact-modal .form-check-label { font-weight: 600; }
         .calls-unmatch-btn { background-color: var(--bs-danger); color: #fff; border: 1px solid var(--bs-danger); border-radius: 8px; font-weight: 600; line-height: 1.2; }
         .calls-unmatch-btn:hover,
         .calls-unmatch-btn:focus { background-color: #bb2d3b; color: #fff; border-color: #bb2d3b; }
@@ -83,6 +89,9 @@
         .call-pill--answered { background: #e7f6ee; color: #0f7a3a; }
         .call-pill--missed { background: #fdecea; color: #c62828; }
         .call-pill--needs-callback { background: #c62828; color: #fff; }
+        .call-pill--contact-phone { background: #e7f6ee; color: #0f7a3a; }
+        .call-pill--contact-chat { background: #e7f0ff; color: #1d4ed8; }
+        .call-pill--contact-not_picked { background: #fff4e5; color: #b45309; }
         .calls-result-pills { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; vertical-align: middle; max-width: 100%; }
         .calls-list-table.table > tbody > tr.calls-row--needs-callback > * {
             --bs-table-bg: #fff6f6;
@@ -101,8 +110,28 @@
         .calls-list-table.table-hover > tbody > tr.calls-row--needs-callback:hover > td:first-child {
             box-shadow: inset 3px 0 0 #c62828, inset 0 0 0 9999px #f8d7d4;
         }
-        .calls-list-table.table > tbody > tr.calls-row--needs-callback > td {
-            height: 72px;
+        .calls-list-table.table > tbody > tr.calls-row--contacted > * {
+            --bs-table-bg: #f3fbf6;
+            --bs-table-accent-bg: #e7f6ee;
+            --bs-table-bg-type: #e7f6ee;
+            background-color: #f3fbf6;
+        }
+        .calls-list-table.table > tbody > tr.calls-row--contacted > td:first-child {
+            box-shadow: inset 3px 0 0 #0f7a3a, inset 0 0 0 9999px #e7f6ee;
+        }
+        .calls-list-table.table > tbody > tr.calls-row--not-picked > * {
+            --bs-table-bg: #fffaf3;
+            --bs-table-accent-bg: #fff4e5;
+            --bs-table-bg-type: #fff4e5;
+            background-color: #fffaf3;
+        }
+        .calls-list-table.table > tbody > tr.calls-row--not-picked > td:first-child {
+            box-shadow: inset 3px 0 0 #b45309, inset 0 0 0 9999px #fff4e5;
+        }
+        .calls-list-table.table > tbody > tr.calls-row--needs-callback > td,
+        .calls-list-table.table > tbody > tr.calls-row--contacted > td,
+        .calls-list-table.table > tbody > tr.calls-row--not-picked > td {
+            height: 96px;
             overflow: visible;
         }
         .call-pill--unanswered { background: #fff4e5; color: #b45309; }
@@ -166,6 +195,7 @@
                         <option value="answered" @selected(request('outcome') === 'answered')>{{ translate('Answered') }}</option>
                         <option value="missed" @selected(request('outcome') === 'missed')>{{ translate('Missed') }}</option>
                         <option value="needs_callback" @selected(request('outcome') === 'needs_callback')>{{ translate('Needs_callback') }}</option>
+                        <option value="contacted" @selected(request('outcome') === 'contacted')>{{ translate('Contacted') }}</option>
                         <option value="unanswered" @selected(request('outcome') === 'unanswered')>{{ translate('Unanswered') }}</option>
                         <option value="other" @selected(request('outcome') === 'other')>{{ translate('Other') }}</option>
                         <option value="unknown" @selected(request('outcome') === 'unknown')>{{ translate('Unknown') }}</option>
@@ -286,8 +316,8 @@
                             <col style="width: 4%">
                             <col style="width: 10%">
                             <col style="width: 8%">
-                            <col style="width: 13%">
-                            <col style="width: 8%">
+                            <col style="width: 11%">
+                            <col style="width: 10%">
                         </colgroup>
                         <thead>
                         @php
@@ -316,9 +346,14 @@
                         <tbody>
                         @forelse($calls as $call)
                             @php
-                                $needsCallback = isset($awaitingCallbackIds[$call->id]);
+                                $contactMark = $contactMarks[$call->id] ?? null;
+                                $needsCallback = isset($awaitingCallbackIds[$call->id]) && $contactMark === null;
                             @endphp
-                            <tr @class(['calls-row--needs-callback' => $needsCallback]) @if($needsCallback) title="{{ translate('Needs_callback') }}" @endif>
+                            <tr @class([
+                                'calls-row--needs-callback' => $needsCallback,
+                                'calls-row--contacted' => $contactMark && $contactMark->channel !== 'not_picked',
+                                'calls-row--not-picked' => $contactMark && $contactMark->channel === 'not_picked',
+                            ]) @if($needsCallback) title="{{ translate('Needs_callback') }}" @elseif($contactMark) title="{{ $contactMark->channelLabel() }}" @endif>
                                 <td>
                                     <a href="{{ route('admin.calls.show', $call) }}">
                                         {{ $call->formatIst('started_at') }}
@@ -388,6 +423,11 @@
                                                 <span class="material-icons">phone_callback</span>
                                                 {{ translate('Needs_callback') }}
                                             </span>
+                                        @elseif($contactMark)
+                                            <span class="call-pill call-pill--contact-{{ $contactMark->channel }}">
+                                                <span class="material-icons">{{ $contactMark->channelIcon() }}</span>
+                                                {{ $contactMark->channelLabel() }}
+                                            </span>
                                         @endif
                                     </span>
                                 </td>
@@ -440,6 +480,17 @@
                                     @endif
                                 </td>
                                 <td class="calls-actions-cell">
+                                    <div class="calls-actions-stack">
+                                    @if($needsCallback)
+                                        <button type="button"
+                                                class="btn btn-outline-danger calls-contact-btn"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#call-contact-modal"
+                                                data-contact-action="{{ route('admin.calls.contact', $call) }}"
+                                                data-contact-phone="{{ $call->customer_phone }}">
+                                            {{ translate('Mark_contacted') }}
+                                        </button>
+                                    @endif
                                     @if(!$call->lead && !$call->booking)
                                         @php
                                             $linkProvider = trim((string) ($call->provider->company_name ?? $call->provider->contact_person_name ?? ''));
@@ -473,6 +524,7 @@
                                             <button type="submit" class="btn btn--danger calls-unmatch-btn">{{ translate('Unmatch') }}</button>
                                         </form>
                                     @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -485,6 +537,78 @@
                 </div>
                     <div class="mt-2">{{ $calls->links() }}</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="call-contact-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" id="call-contact-form" enctype="multipart/form-data" action="{{ session('contact_modal_action', '#') }}">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ translate('Mark_contacted') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="call-contact-phone" class="fw-bold mb-1">{{ session('contact_modal_phone') }}</p>
+                        <p class="text-muted small">{{ translate('Earlier_missed_calls_from_this_number_will_be_cleared') }}</p>
+                        <div class="mb-3">
+                            <div class="form-label">{{ translate('Contacted_through') }}</div>
+                            <div class="call-contact-channels">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="channel" id="call-contact-channel-phone" value="phone" @checked(old('channel', 'phone') !== 'chat')>
+                                    <label class="form-check-label" for="call-contact-channel-phone">{{ translate('Phone') }}</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="channel" id="call-contact-channel-chat" value="chat" @checked(old('channel') === 'chat')>
+                                    <label class="form-check-label" for="call-contact-channel-chat">{{ translate('Chat') }}</label>
+                                </div>
+                            </div>
+                            <div class="mt-3" data-phone-result>
+                                <div class="form-label">{{ translate('Phone_result') }}</div>
+                                <div class="call-contact-channels">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="phone_result" id="call-contact-picked" value="picked" @checked(old('phone_result', 'picked') !== 'not_picked')>
+                                        <label class="form-check-label" for="call-contact-picked">{{ translate('Customer_picked_up') }}</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="phone_result" id="call-contact-not-picked" value="not_picked" @checked(old('phone_result') === 'not_picked')>
+                                        <label class="form-check-label" for="call-contact-not-picked">{{ translate('Customer_did_not_pick_up') }}</label>
+                                    </div>
+                                </div>
+                            </div>
+                            @error('channel')
+                                <div class="text-danger small mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="mb-3" data-contact-file="phone">
+                            <label class="form-label" for="call-contact-recording">{{ translate('Recording') }} <span class="text-muted">({{ translate('Optional') }})</span></label>
+                            <input id="call-contact-recording" type="file" name="recording" class="form-control" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.webm,.mp4">
+                            @error('recording')
+                                <div class="text-danger small mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="mb-3" data-contact-file="chat">
+                            <label class="form-label" for="call-contact-screenshot">{{ translate('Screenshot') }} <span class="text-muted">({{ translate('Optional') }})</span></label>
+                            <input id="call-contact-screenshot" type="file" name="screenshot" class="form-control" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
+                            @error('screenshot')
+                                <div class="text-danger small mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div>
+                            <label class="form-label" for="call-contact-remarks">{{ translate('Remarks') }}</label>
+                            <textarea id="call-contact-remarks" name="remarks" class="form-control" rows="3" required maxlength="2000">{{ old('remarks') }}</textarea>
+                            @error('remarks')
+                                <div class="text-danger small mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ translate('Close') }}</button>
+                        <button type="submit" class="btn btn--primary">{{ translate('Mark_contacted') }}</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -534,6 +658,56 @@
                 clearTimeout(timer);
                 form.submit();
             });
+        })();
+
+        (function () {
+            var modalEl = document.getElementById('call-contact-modal');
+            var form = document.getElementById('call-contact-form');
+            if (!modalEl || !form) return;
+
+            var syncChannel = function () {
+                var selected = form.querySelector('[name="channel"]:checked');
+                var channel = selected ? selected.value : 'phone';
+                var phoneResult = form.querySelector('[data-phone-result]');
+                if (phoneResult) {
+                    phoneResult.hidden = channel !== 'phone';
+                    phoneResult.querySelectorAll('input').forEach(function (input) {
+                        input.disabled = channel !== 'phone';
+                    });
+                }
+                form.querySelectorAll('[data-contact-file]').forEach(function (block) {
+                    var active = block.getAttribute('data-contact-file') === channel;
+                    block.hidden = !active;
+                    block.querySelectorAll('input').forEach(function (input) {
+                        input.disabled = !active;
+                    });
+                });
+            };
+
+            form.querySelectorAll('[name="channel"]').forEach(function (input) {
+                input.addEventListener('change', syncChannel);
+            });
+            syncChannel();
+
+            modalEl.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                if (!button) return;
+                form.action = button.getAttribute('data-contact-action') || form.action;
+                var phone = document.getElementById('call-contact-phone');
+                if (phone) phone.textContent = button.getAttribute('data-contact-phone') || '';
+                form.reset();
+                var phoneChannel = form.querySelector('[name="channel"][value="phone"]');
+                var picked = form.querySelector('[name="phone_result"][value="picked"]');
+                if (phoneChannel) phoneChannel.checked = true;
+                if (picked) picked.checked = true;
+                syncChannel();
+            });
+
+            @if(session('contact_modal_action') && ($errors->has('channel') || $errors->has('phone_result') || $errors->has('remarks') || $errors->has('recording') || $errors->has('screenshot')))
+            if (window.bootstrap) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+            @endif
         })();
 
         (function () {

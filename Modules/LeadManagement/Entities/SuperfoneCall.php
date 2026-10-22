@@ -117,22 +117,65 @@ class SuperfoneCall extends Model
     }
 
     /**
-     * Missed calls that still raise the Calls badge. One later outbound call to the
-     * same number clears every earlier miss from that number. The call rows stay missed.
+     * Missed calls that still raise the Calls badge. One later outbound call, or a
+     * manual "mark contacted", clears every earlier miss from that number.
+     * The call rows stay missed.
      */
     public function scopeAwaitingCallback($query)
     {
         return $query->missed()->where(function ($open) {
             $open->where(function ($withoutNumber) {
-                $withoutNumber->whereNull('superfone_calls.customer_phone_digits')
-                    ->orWhere('superfone_calls.customer_phone_digits', '');
-            })->orWhereNotExists(function ($callback) {
-                $callback->selectRaw('1')
-                    ->from('superfone_calls as callbacks')
-                    ->whereColumn('callbacks.customer_phone_digits', 'superfone_calls.customer_phone_digits')
-                    ->where('callbacks.customer_phone_digits', '!=', '')
-                    ->where('callbacks.direction', 'OUTBOUND')
-                    ->whereRaw('COALESCE(callbacks.started_at, callbacks.created_at) >= COALESCE(superfone_calls.started_at, superfone_calls.created_at)');
+                $withoutNumber->where(function ($blank) {
+                    $blank->whereNull('superfone_calls.customer_phone_digits')
+                        ->orWhere('superfone_calls.customer_phone_digits', '');
+                })->whereNotExists(function ($contact) {
+                    $contact->selectRaw('1')
+                        ->from('superfone_call_contacts')
+                        ->whereColumn('superfone_call_contacts.superfone_call_id', 'superfone_calls.id');
+                });
+            })->orWhere(function ($withNumber) {
+                $withNumber->whereNotNull('superfone_calls.customer_phone_digits')
+                    ->where('superfone_calls.customer_phone_digits', '!=', '')
+                    ->whereNotExists(function ($callback) {
+                        $callback->selectRaw('1')
+                            ->from('superfone_calls as callbacks')
+                            ->whereColumn('callbacks.customer_phone_digits', 'superfone_calls.customer_phone_digits')
+                            ->where('callbacks.customer_phone_digits', '!=', '')
+                            ->where('callbacks.direction', 'OUTBOUND')
+                            ->whereRaw('COALESCE(callbacks.started_at, callbacks.created_at) >= COALESCE(superfone_calls.started_at, superfone_calls.created_at)');
+                    })
+                    ->whereNotExists(function ($contact) {
+                        $contact->selectRaw('1')
+                            ->from('superfone_call_contacts')
+                            ->where(function ($match) {
+                                $match->whereColumn('superfone_call_contacts.superfone_call_id', 'superfone_calls.id')
+                                    ->orWhere(function ($later) {
+                                        $later->whereColumn('superfone_call_contacts.customer_phone_digits', 'superfone_calls.customer_phone_digits')
+                                            ->where('superfone_call_contacts.customer_phone_digits', '!=', '')
+                                            ->whereRaw('superfone_call_contacts.contacted_at >= COALESCE(superfone_calls.started_at, superfone_calls.created_at)');
+                                    });
+                            });
+                    });
+            });
+        });
+    }
+
+    /**
+     * Calls an employee marked contacted, including earlier misses cleared by that mark.
+     */
+    public function scopeContacted($query)
+    {
+        return $query->where(function ($marked) {
+            $marked->whereExists(function ($contact) {
+                $contact->selectRaw('1')
+                    ->from('superfone_call_contacts')
+                    ->whereColumn('superfone_call_contacts.superfone_call_id', 'superfone_calls.id');
+            })->orWhereExists(function ($contact) {
+                $contact->selectRaw('1')
+                    ->from('superfone_call_contacts')
+                    ->whereColumn('superfone_call_contacts.customer_phone_digits', 'superfone_calls.customer_phone_digits')
+                    ->where('superfone_call_contacts.customer_phone_digits', '!=', '')
+                    ->whereRaw('superfone_call_contacts.contacted_at >= COALESCE(superfone_calls.started_at, superfone_calls.created_at)');
             });
         });
     }

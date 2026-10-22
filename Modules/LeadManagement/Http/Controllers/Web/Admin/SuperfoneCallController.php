@@ -2,15 +2,21 @@
 
 namespace Modules\LeadManagement\Http\Controllers\Web\Admin;
 
+use App\Support\AdminMenuCounts;
+use App\Support\SeekableRecordingResponse;
+use App\Support\StoragePathPrefix;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller;
-use App\Support\SeekableRecordingResponse;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\SuperfoneCall;
+use Modules\LeadManagement\Entities\SuperfoneCallContact;
 use Modules\LeadManagement\Services\SuperfoneCallService;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -67,11 +73,13 @@ class SuperfoneCallController extends Controller
             $query->where('direction', $request->query('direction'));
         }
 
-        if (in_array($request->query('outcome'), ['answered', 'missed', 'unanswered', 'needs_callback', 'other', 'unknown'], true)) {
+        if (in_array($request->query('outcome'), ['answered', 'missed', 'unanswered', 'needs_callback', 'contacted', 'other', 'unknown'], true)) {
             if ($request->query('outcome') === 'unknown') {
                 $query->whereNull('outcome');
             } elseif ($request->query('outcome') === 'needs_callback') {
                 $query->awaitingCallback();
+            } elseif ($request->query('outcome') === 'contacted') {
+                $query->contacted();
             } elseif ($request->query('outcome') === 'unanswered') {
                 $query->where(function ($inner) {
                     $inner->where('outcome', 'unanswered')
@@ -128,6 +136,7 @@ class SuperfoneCallController extends Controller
             ->pluck('superfone_calls.id')
             ->flip()
             ->all();
+        $contactMarks = SuperfoneCallContact::marksForCalls($calls->getCollection());
         $agents = SuperfoneCall::query()
             ->whereNotNull('staff_name')
             ->where('staff_name', '!=', '')
@@ -149,6 +158,7 @@ class SuperfoneCallController extends Controller
         return view('leadmanagement::admin.calls.index', [
             'calls' => $calls,
             'awaitingCallbackIds' => $awaitingCallbackIds,
+            'contactMarks' => $contactMarks,
             'agents' => $agents,
             'sort' => $sort,
             'dir' => $direction,
@@ -406,6 +416,73 @@ class SuperfoneCallController extends Controller
         toastr()->success(translate('Call_unmatched'));
 
         return back();
+    }
+
+    public function markContacted(Request $request, SuperfoneCall $call): RedirectResponse
+    {
+        $stillOpen = SuperfoneCall::query()->awaitingCallback()->whereKey($call->id)->exists();
+        if (! $stillOpen) {
+            toastr()->error(translate('This_call_no_longer_needs_a_callback'));
+
+            return back();
+        }
+
+        $validator = Validator::make($request->all(), [
+            'channel' => ['required', 'in:phone,chat'],
+            'phone_result' => ['nullable', 'in:picked,not_picked'],
+            'remarks' => ['required', 'string', 'max:2000'],
+            'recording' => ['nullable', 'file', 'mimes:mp3,wav,m4a,aac,ogg,webm,mp4', 'max:40960'],
+            'screenshot' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+        ]);
+
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('contact_modal_action', route('admin.calls.contact', $call))
+                ->with('contact_modal_phone', $call->customer_phone);
+        }
+
+        $validated = $validator->validated();
+        $channel = $validated['channel'] === 'phone' && ($validated['phone_result'] ?? 'picked') === 'not_picked'
+            ? 'not_picked'
+            : $validated['channel'];
+        $file = $channel === 'chat' ? $request->file('screenshot') : $request->file('recording');
+        $attachment = $file instanceof UploadedFile ? $this->storeContactAttachment($file) : [];
+
+        SuperfoneCallContact::query()->create([
+            'superfone_call_id' => $call->id,
+            'customer_phone_digits' => $call->customer_phone_digits !== '' ? $call->customer_phone_digits : null,
+            'channel' => $channel,
+            'remarks' => trim($validated['remarks']),
+            'employee_user_id' => $request->user()?->id,
+            'contacted_at' => now('Asia/Kolkata')->format('Y-m-d H:i:s'),
+            ...$attachment,
+        ]);
+        AdminMenuCounts::forget();
+
+        toastr()->success(translate('Marked_as_contacted'));
+
+        return back();
+    }
+
+    /**
+     * @return array{attachment_disk: string, attachment_path: string, attachment_mime: string, attachment_original_name: string}
+     */
+    private function storeContactAttachment(UploadedFile $file): array
+    {
+        $disk = getDisk();
+        $dir = StoragePathPrefix::apply('superfone-call-contacts/');
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin');
+        $name = now()->format('YmdHis').'-'.uniqid().'.'.$extension;
+        Storage::disk($disk)->putFileAs($dir, $file, $name);
+
+        return [
+            'attachment_disk' => $disk,
+            'attachment_path' => $name,
+            'attachment_mime' => (string) ($file->getMimeType() ?: 'application/octet-stream'),
+            'attachment_original_name' => $file->getClientOriginalName() ?: $name,
+        ];
     }
 
     public function show(SuperfoneCall $call): View
