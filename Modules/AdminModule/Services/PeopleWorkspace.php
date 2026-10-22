@@ -1267,7 +1267,7 @@ class PeopleWorkspace
             if ($day->isFuture()) {
                 return false;
             }
-            if (! is_array($entry) || ($entry['status'] ?? null) !== 'submitted' || ! $this->dayMeetsMinimum($entry, $user)) {
+            if (! $this->timesheetDayFilled($entry) || ! $this->dayMeetsMinimum($entry, $user)) {
                 return false;
             }
         }
@@ -1318,7 +1318,7 @@ class PeopleWorkspace
         return $this->isHr($actor) || $this->canDecideFor($actor, $employee);
     }
 
-    public function decideTimesheet(User $actor, PeopleTimesheet $sheet, string $decision, ?string $note = null): void
+    public function decideTimesheet(User $actor, PeopleTimesheet $sheet, string $decision, ?string $note = null, ?string $day = null): void
     {
         $employee = $sheet->user;
         if (! $employee || ! $this->canDecideTimesheet($actor, $employee)) {
@@ -1330,13 +1330,175 @@ class PeopleWorkspace
         }
 
         $reason = trim((string) $note);
+        $entries = is_array($sheet->entries) ? $sheet->entries : [];
+
+        $day = $this->timesheetDayKey($day);
+
+        if ($decision === 'approve') {
+            if ($day === null && $this->timesheetHasRejectedDay($entries)) {
+                throw new \InvalidArgumentException('This timesheet was rejected. The employee has to fill it again before it can be approved.');
+            }
+            $approvedCount = 0;
+            foreach ($entries as $date => $entry) {
+                if (! is_array($entry) || ($entry['status'] ?? null) !== 'submitted') {
+                    continue;
+                }
+                if ($day !== null && (string) $date !== $day) {
+                    continue;
+                }
+                $entry['status'] = 'approved';
+                unset($entry['decision_note']);
+                $entries[$date] = $entry;
+                $approvedCount++;
+            }
+            if ($approvedCount === 0) {
+                if ($day !== null) {
+                    throw new \InvalidArgumentException('That day is not waiting for a decision.');
+                }
+                $status = 'approved';
+            } else {
+                $complete = $employee
+                    ? $this->weekSubmitted($sheet->week_starts_on, $entries, $employee)
+                    : false;
+                $status = $this->timesheetStatusAfterSave($entries, $complete);
+            }
+            $sheet->forceFill([
+                'entries' => $entries,
+                'status' => $status,
+                'decided_by' => $actor->id,
+                'decided_at' => now(),
+                'decision_note' => $status === 'sent_back' ? $sheet->decision_note : null,
+            ])->save();
+            $this->notifyTimesheetDecided($actor, $sheet, $day, 'approve');
+
+            return;
+        }
+
+        $hours = is_array($sheet->hours) ? $sheet->hours : [];
+        $rejected = 0;
+        foreach ($entries as $date => $entry) {
+            if (! is_array($entry) || ($entry['status'] ?? null) !== 'submitted') {
+                continue;
+            }
+            if ($day !== null && (string) $date !== $day) {
+                continue;
+            }
+            $entry['status'] = 'rejected';
+            $entry['decision_note'] = $reason !== '' ? $reason : null;
+            $entries[$date] = $entry;
+            $rejected++;
+            $dayKey = self::DAY_KEYS[Carbon::parse((string) $date)->dayOfWeekIso - 1] ?? null;
+            if ($dayKey) {
+                $hours[$dayKey] = 0;
+            }
+        }
+        if ($day !== null && $rejected === 0) {
+            throw new \InvalidArgumentException('That day is not waiting for a decision.');
+        }
+
         $sheet->forceFill([
-            'status' => $decision === 'approve' ? 'approved' : 'sent_back',
+            'entries' => $entries,
+            'hours' => $hours,
+            'status' => 'sent_back',
             'decided_by' => $actor->id,
             'decided_at' => now(),
-            'decision_note' => $decision === 'sent_back' && $reason !== '' ? $reason : null,
+            'decision_note' => $reason !== '' ? $reason : null,
         ])->save();
-        $this->notifyTimesheetDecided($actor, $sheet);
+        $this->notifyTimesheetDecided($actor, $sheet, $day, 'sent_back');
+    }
+
+    /**
+     * Older rejections only changed the week. Mark those submitted days rejected
+     * so the employee has to fill them again.
+     */
+    public function markSentBackDaysRejected(PeopleTimesheet $sheet): void
+    {
+        if ((string) $sheet->status !== 'sent_back') {
+            return;
+        }
+
+        $entries = is_array($sheet->entries) ? $sheet->entries : [];
+        if ($this->timesheetHasRejectedDay($entries)) {
+            return;
+        }
+
+        $reason = trim((string) $sheet->decision_note);
+        $changed = false;
+        foreach ($entries as $date => $entry) {
+            if (! is_array($entry) || ($entry['status'] ?? null) !== 'submitted') {
+                continue;
+            }
+            $entry['status'] = 'rejected';
+            if ($reason !== '' && trim((string) ($entry['decision_note'] ?? '')) === '') {
+                $entry['decision_note'] = $reason;
+            }
+            $entries[$date] = $entry;
+            $changed = true;
+        }
+
+        if ($changed) {
+            $sheet->forceFill(['entries' => $entries])->save();
+        }
+    }
+
+    /**
+     * A rejected day keeps the week with the employee until they submit it again.
+     *
+     * @param  array<string, mixed>  $entries
+     */
+    public function timesheetDayFilled(mixed $entry): bool
+    {
+        return is_array($entry) && in_array($entry['status'] ?? null, ['submitted', 'approved'], true);
+    }
+
+    public function timesheetStatusAfterSave(array $entries, bool $complete): string
+    {
+        if ($this->timesheetHasRejectedDay($entries)) {
+            return 'sent_back';
+        }
+        if ($complete && ! $this->timesheetHasWaitingDay($entries)) {
+            return 'approved';
+        }
+
+        return $complete ? 'pending' : 'draft';
+    }
+
+    /**
+     * @param  array<string, mixed>  $entries
+     */
+    private function timesheetHasRejectedDay(array $entries): bool
+    {
+        foreach ($entries as $entry) {
+            if (is_array($entry) && ($entry['status'] ?? null) === 'rejected') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $entries
+     */
+    private function timesheetHasWaitingDay(array $entries): bool
+    {
+        foreach ($entries as $entry) {
+            if (is_array($entry) && ($entry['status'] ?? null) === 'submitted') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function timesheetDayKey(?string $day): ?string
+    {
+        $day = trim((string) $day);
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+            return null;
+        }
+
+        return Carbon::parse($day)->toDateString();
     }
 
     /**
@@ -1410,7 +1572,7 @@ class PeopleWorkspace
         foreach ($sheets as $sheet) {
             foreach ($sheet->entries ?? [] as $date => $entry) {
                 $date = (string) $date;
-                if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || ! is_array($entry) || ($entry['status'] ?? null) !== 'submitted') {
+                if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || ! $this->timesheetDayFilled($entry)) {
                     continue;
                 }
                 $rows = is_array($entry['rows'] ?? null) ? $entry['rows'] : [];
@@ -1746,7 +1908,7 @@ class PeopleWorkspace
             return $cell($kind, $leave['code'], $when.' · '.$leave['label'].' · Approved', $open);
         }
 
-        if (is_array($entry) && ($entry['status'] ?? null) === 'submitted') {
+        if ($this->timesheetDayFilled($entry)) {
             $rows = is_array($entry['rows'] ?? null) ? $entry['rows'] : [];
             $onlyLeave = $rows !== [] && collect($rows)->every(fn ($row) => is_array($row) && ($row['ticket_id'] ?? '') === 'leave');
             if (! empty($entry['half']) || ($leave['half'] ?? false)) {
@@ -2173,23 +2335,36 @@ class PeopleWorkspace
         }
     }
 
-    public function notifyTimesheetDecided(User $actor, PeopleTimesheet $sheet): void
+    public function notifyTimesheetDecided(User $actor, PeopleTimesheet $sheet, ?string $day = null, ?string $decision = null): void
     {
         if ((string) $actor->id === (string) $sheet->user_id) {
             return;
         }
 
         try {
+            $rejected = $decision === 'sent_back' || ($decision === null && (string) $sheet->status === 'sent_back');
+            $approved = $decision === 'approve' || ($decision === null && (string) $sheet->status === 'approved');
             $week = $sheet->week_starts_on?->format('j M Y') ?? '';
-            $body = $week !== '' ? 'Week of '.$week : '';
+            $dayLabel = $this->timesheetDayKey($day);
+            $body = $dayLabel !== null
+                ? Carbon::parse($dayLabel)->format('l, j F Y')
+                : ($week !== '' ? 'Week of '.$week : '');
+            if ($rejected) {
+                $body = trim($body.' Fill it again.');
+            }
             $why = trim((string) ($sheet->decision_note ?? ''));
             if ($why !== '') {
                 $body = trim($body.' '.$why);
             }
+            $title = match (true) {
+                $rejected => 'Your timesheet was rejected',
+                $approved => 'Your timesheet was Approved',
+                default => 'Your timesheet was '.$this->statusLabel((string) $sheet->status),
+            };
             $this->notifyPerson(
                 (string) $sheet->user_id,
                 UserNotification::TYPE_TIMESHEET_DECIDED,
-                'Your timesheet was '.$this->statusLabel((string) $sheet->status),
+                $title,
                 $body !== '' ? $body : null,
                 route('admin.people.index', ['section' => 'timesheet']),
                 'people_timesheet_decided',
@@ -2280,7 +2455,7 @@ class PeopleWorkspace
 
         PeopleTimesheet::query()
             ->with('user')
-            ->whereIn('status', ['pending', 'draft', 'sent_back'])
+            ->whereIn('status', ['pending', 'draft'])
             ->where('updated_at', '>=', now()->subDays(14))
             ->get()
             ->each(function (PeopleTimesheet $sheet) {

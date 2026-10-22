@@ -82,6 +82,84 @@ class PeopleApprovalNotificationTest extends TestCase
         $this->assertSame([], $this->notices($manager->user_id, UserNotification::TYPE_TIMESHEET_DECIDED)->all());
     }
 
+    public function test_approving_one_timesheet_day_leaves_the_other_days_waiting(): void
+    {
+        [$employee, $manager] = $this->pair();
+        $actor = User::query()->findOrFail($manager->user_id);
+        $sheet = PeopleTimesheet::query()->create([
+            'user_id' => $employee->user_id,
+            'week_starts_on' => '2026-03-02',
+            'hours' => ['mon' => 8, 'tue' => 8, 'wed' => 8, 'thu' => 8, 'fri' => 8, 'sat' => 8, 'sun' => 0],
+            'entries' => [
+                '2026-03-02' => ['status' => 'submitted', 'rows' => [['task' => 'Desk', 'hours' => 8]]],
+                '2026-03-03' => ['status' => 'submitted', 'rows' => [['task' => 'Site', 'hours' => 8]]],
+                '2026-03-04' => ['status' => 'submitted', 'rows' => [['task' => 'Desk', 'hours' => 8]]],
+                '2026-03-05' => ['status' => 'submitted', 'rows' => [['task' => 'Desk', 'hours' => 8]]],
+                '2026-03-06' => ['status' => 'submitted', 'rows' => [['task' => 'Desk', 'hours' => 8]]],
+                '2026-03-07' => ['status' => 'submitted', 'rows' => [['task' => 'Desk', 'hours' => 8]]],
+            ],
+            'status' => 'pending',
+        ]);
+
+        $this->workspace->decideTimesheet($actor, $sheet->fresh(), 'approve', null, '2026-03-02');
+
+        $sheet->refresh();
+        $this->assertSame('approved', $sheet->entries['2026-03-02']['status']);
+        $this->assertSame('submitted', $sheet->entries['2026-03-03']['status']);
+        $this->assertSame('submitted', $sheet->entries['2026-03-06']['status']);
+        $this->assertSame('pending', $sheet->status);
+
+        $notice = $this->notices($employee->user_id, UserNotification::TYPE_TIMESHEET_DECIDED)->first();
+        $this->assertNotNull($notice);
+        $this->assertStringContainsString('approved', strtolower((string) $notice->title));
+        $this->assertStringContainsString('Monday, 2 March 2026', (string) $notice->body);
+    }
+
+    public function test_rejecting_a_timesheet_day_sends_that_day_back_to_be_filled_again(): void
+    {
+        [$employee, $manager] = $this->pair();
+        $actor = User::query()->findOrFail($manager->user_id);
+        $sheet = PeopleTimesheet::query()->create([
+            'user_id' => $employee->user_id,
+            'week_starts_on' => '2026-03-02',
+            'hours' => ['mon' => 8, 'tue' => 8, 'wed' => 0, 'thu' => 0, 'fri' => 0, 'sat' => 0, 'sun' => 0],
+            'entries' => [
+                '2026-03-02' => ['status' => 'submitted', 'rows' => [['task' => 'Desk', 'hours' => 8]]],
+                '2026-03-03' => ['status' => 'submitted', 'rows' => [['task' => 'Site', 'hours' => 8]]],
+            ],
+            'status' => 'pending',
+        ]);
+
+        $this->workspace->decideTimesheet($actor, $sheet->fresh(), 'sent_back', 'Hours do not match.', '2026-03-02');
+
+        $sheet->refresh();
+        $this->assertSame('sent_back', $sheet->status);
+        $this->assertSame('rejected', $sheet->entries['2026-03-02']['status']);
+        $this->assertSame('Hours do not match.', $sheet->entries['2026-03-02']['decision_note']);
+        $this->assertSame('Desk', $sheet->entries['2026-03-02']['rows'][0]['task']);
+        $this->assertSame('submitted', $sheet->entries['2026-03-03']['status']);
+        $this->assertEquals(0, $sheet->hours['mon']);
+        $this->assertSame('sent_back', $this->workspace->timesheetStatusAfterSave($sheet->entries, true));
+
+        $entries = $sheet->entries;
+        $entries['2026-03-02']['status'] = 'submitted';
+        unset($entries['2026-03-02']['decision_note']);
+        $this->assertSame('pending', $this->workspace->timesheetStatusAfterSave($entries, true));
+
+        $notice = $this->notices($employee->user_id, UserNotification::TYPE_TIMESHEET_DECIDED)->first();
+        $this->assertNotNull($notice);
+        $this->assertStringContainsString('rejected', (string) $notice->title);
+        $this->assertStringContainsString('Monday, 2 March 2026', (string) $notice->body);
+        $this->assertStringContainsString('Hours do not match.', (string) $notice->body);
+
+        try {
+            $this->workspace->decideTimesheet($actor, $sheet->fresh(), 'approve');
+            $this->fail('A rejected day must be filled again before approval.');
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertStringContainsString('fill it again', $exception->getMessage());
+        }
+    }
+
     public function test_hr_is_notified_when_the_person_has_no_manager(): void
     {
         $this->type('Casual', 'casual');

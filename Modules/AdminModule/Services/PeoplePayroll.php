@@ -451,7 +451,7 @@ class PeoplePayroll
                 continue;
             }
 
-            $submitted = is_array($markedEntry) && ($markedEntry['status'] ?? null) === 'submitted';
+            $submitted = is_array($markedEntry) && in_array($markedEntry['status'] ?? null, ['submitted', 'approved'], true);
             if ($submitted && ! empty($markedEntry['half'])) {
                 $days += 0.5;
             } elseif (! $submitted) {
