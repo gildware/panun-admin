@@ -44,7 +44,10 @@ class AdminMiddleware
                     );
                 }
 
-                if (AdminWorkspace::requestIsSettings($request) && AdminWorkspace::settingsDenied()) {
+                if (
+                    (AdminWorkspace::requestIsSettings($request) && ! AdminWorkspace::userCanEnter(AdminWorkspace::SETTINGS))
+                    || (AdminWorkspace::requestIsAccounts($request) && ! AdminWorkspace::userCanEnter(AdminWorkspace::ACCOUNTS))
+                ) {
                     abort(403);
                 }
             }

@@ -30,7 +30,8 @@ class AdminWorkspace
 
     /**
      * Workspaces the signed-in person can open. Operations, HR, and Training
-     * stay available. The other three appear only when that person can use them.
+     * stay available. Marketing, Settings, and Accounts appear only when that
+     * person can use them. The Employee role never gets Settings or Accounts.
      *
      * @return array<int, string>
      */
@@ -48,7 +49,7 @@ class AdminWorkspace
         return match ($workspace) {
             self::OPERATIONS => self::userCanEnterOperations(),
             self::MARKETING => AdminMarketingRegistry::visibleSections() !== [],
-            self::SETTINGS => ! self::settingsDenied() && AdminSettingsRegistry::visibleSections() !== [],
+            self::SETTINGS => self::userCanEnterSettings(),
             self::ACCOUNTS => self::userCanEnterAccounts(),
             default => in_array($workspace, self::keys(), true),
         };
@@ -189,6 +190,39 @@ class AdminWorkspace
         return self::isSettingsPath($request);
     }
 
+    public static function requestIsAccounts(Request $request): bool
+    {
+        return self::isAccountsPath($request);
+    }
+
+    /**
+     * Live staff on the Employee role work in Operations, HR, and Training.
+     * Settings and Accounts stay with super admin and the specialist roles.
+     */
+    public static function isOperationsEmployee(): bool
+    {
+        $user = auth()->user();
+        if (! $user || $user->user_type !== 'admin-employee') {
+            return false;
+        }
+
+        $roles = $user->roles;
+        if ($roles->isEmpty()) {
+            return false;
+        }
+
+        return $roles->every(fn ($role) => $role->role_name === 'Employee');
+    }
+
+    private static function userCanEnterSettings(): bool
+    {
+        if (self::isOperationsEmployee() || self::settingsDenied()) {
+            return false;
+        }
+
+        return AdminSettingsRegistry::visibleSections() !== [];
+    }
+
     private static function isSettingsPath(Request $request): bool
     {
         return $request->is(
@@ -282,6 +316,10 @@ class AdminWorkspace
 
     private static function userCanEnterAccounts(): bool
     {
+        if (self::isOperationsEmployee()) {
+            return false;
+        }
+
         if (! is_admin_employee()) {
             return true;
         }
