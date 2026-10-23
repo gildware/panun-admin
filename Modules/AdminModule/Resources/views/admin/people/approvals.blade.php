@@ -323,6 +323,18 @@
                                         <td>@include('adminmodule::admin.people._badge', ['status' => $row['state']])</td>
                                         <td class="actions">
                                             <div class="people-ws-actions">
+                                                @if(($row['rows'] ?? []) !== [])
+                                                    <button
+                                                        class="btn-pw people-ts-view-btn"
+                                                        type="button"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#viewTimesheetDayModal"
+                                                        data-title="{{ $row['person'] }} · {{ $filledFor }}"
+                                                        data-rows="{{ json_encode($row['rows'], JSON_UNESCAPED_UNICODE) }}"
+                                                        title="View timesheet details"
+                                                        aria-label="View timesheet details"
+                                                    ><span class="material-icons" aria-hidden="true">visibility</span></button>
+                                                @endif
                                                 <a class="btn-pw" href="{{ route('admin.people.approvals', ['tab' => 'timesheet', 'employee' => $row['user_id'], 'view' => $row['user_id'], 'period' => $timesheetPeriod]) }}">View all</a>
                                                 <button
                                                     class="btn-pw good"
@@ -356,6 +368,23 @@
                             </table>
                         </article>
                     @endif
+                        <div class="modal fade" id="viewTimesheetDayModal" tabindex="-1" aria-labelledby="viewTimesheetDayModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                                <div class="modal-content people-ws-dept-modal">
+                                    <div class="modal-header">
+                                        <h2 class="modal-title" id="viewTimesheetDayModalLabel">Timesheet details</h2>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="people-ws-note" id="view-timesheet-day-empty" hidden>No work entries for this day.</p>
+                                        <div class="people-ts-detail-list" id="view-timesheet-day-rows"></div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button class="btn-pw" type="button" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="modal fade" id="approveTimesheetModal" tabindex="-1" aria-labelledby="approveTimesheetModalLabel" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content people-ws-dept-modal">
@@ -433,6 +462,67 @@
                                         button.remove();
                                     });
                                 });
+
+                                (function () {
+                                    var modal = document.getElementById('viewTimesheetDayModal');
+                                    if (!modal) return;
+                                    var title = document.getElementById('viewTimesheetDayModalLabel');
+                                    var list = document.getElementById('view-timesheet-day-rows');
+                                    var empty = document.getElementById('view-timesheet-day-empty');
+
+                                    function text(value) {
+                                        return value == null || String(value).trim() === '' ? '—' : String(value);
+                                    }
+
+                                    function kindLabel(kind) {
+                                        if (kind === 'leave') return 'Leave';
+                                        if (kind === 'extra') return 'Additional hours';
+                                        return 'Task';
+                                    }
+
+                                    modal.addEventListener('show.bs.modal', function (event) {
+                                        var button = event.relatedTarget;
+                                        if (button && !button.getAttribute('data-rows')) {
+                                            button = button.closest('[data-rows]');
+                                        }
+                                        if (!button || !list) return;
+                                        if (title) title.textContent = button.getAttribute('data-title') || 'Timesheet details';
+                                        list.innerHTML = '';
+                                        var rows = [];
+                                        try {
+                                            rows = JSON.parse(button.getAttribute('data-rows') || '[]');
+                                        } catch (error) {
+                                            rows = [];
+                                        }
+                                        if (!Array.isArray(rows) || rows.length < 1) {
+                                            if (empty) empty.hidden = false;
+                                            return;
+                                        }
+                                        if (empty) empty.hidden = true;
+                                        rows.forEach(function (row) {
+                                            var article = document.createElement('article');
+                                            article.className = 'people-ts-detail-card';
+                                            article.innerHTML =
+                                                '<div class="people-ts-detail-head">' +
+                                                    '<strong></strong>' +
+                                                    '<span class="people-ts-detail-kind"></span>' +
+                                                '</div>' +
+                                                '<dl class="people-ts-detail-grid">' +
+                                                    '<div><dt>From</dt><dd data-from></dd></div>' +
+                                                    '<div><dt>To</dt><dd data-to></dd></div>' +
+                                                    '<div><dt>Hours</dt><dd data-hours></dd></div>' +
+                                                    '<div class="people-ts-detail-wide"><dt>Description</dt><dd data-desc></dd></div>' +
+                                                '</dl>';
+                                            article.querySelector('strong').textContent = text(row.task);
+                                            article.querySelector('.people-ts-detail-kind').textContent = kindLabel(row.kind);
+                                            article.querySelector('[data-from]').textContent = text(row.from);
+                                            article.querySelector('[data-to]').textContent = text(row.to);
+                                            article.querySelector('[data-hours]').textContent = text(row.hours);
+                                            article.querySelector('[data-desc]').textContent = text(row.description);
+                                            list.appendChild(article);
+                                        });
+                                    });
+                                })();
 
                                 function bindTimesheetModal(modalId, formId, summaryId, employeeId, sheetFieldId, dateFieldId) {
                                     var modal = document.getElementById(modalId);

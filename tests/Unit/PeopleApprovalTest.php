@@ -24,4 +24,13 @@ class PeopleApprovalTest extends TestCase
         $this->assertFalse(PeopleWorkspace::mayDecide('hr', 'hr', null, true));
         $this->assertFalse(PeopleWorkspace::mayDecide('manager', 'manager', 'manager', false));
     }
+
+    public function test_time_text_formats_stored_clock_values(): void
+    {
+        $this->assertSame('9:00 AM', PeopleWorkspace::timeText('09:00'));
+        $this->assertSame('12:30 PM', PeopleWorkspace::timeText('12:30:00'));
+        $this->assertSame('5:05 PM', PeopleWorkspace::timeText('17:05'));
+        $this->assertSame('', PeopleWorkspace::timeText(null));
+        $this->assertSame('', PeopleWorkspace::timeText('bad'));
+    }
 }

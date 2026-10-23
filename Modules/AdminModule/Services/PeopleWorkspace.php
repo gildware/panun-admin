@@ -257,13 +257,43 @@ class PeopleWorkspace
 
     public static function hoursText(float $hours): string
     {
-        $rounded = round($hours, 1);
+        $rounded = round($hours, 2);
         $whole = round($rounded);
         if (abs($rounded - $whole) < 0.001) {
             return (string) (int) $whole;
         }
+        if (abs($rounded - round($rounded, 1)) < 0.001) {
+            return number_format(round($rounded, 1), 1, '.', '');
+        }
 
-        return number_format($rounded, 1, '.', '');
+        return number_format($rounded, 2, '.', '');
+    }
+
+    /** Show stored HH:MM as 12-hour clock text, e.g. 09:00 → 9:00 AM. */
+    public static function timeText(?string $time): string
+    {
+        $hm = substr(trim((string) $time), 0, 5);
+        if (! preg_match('/^(\d{2}):(\d{2})$/', $hm, $match)) {
+            return '';
+        }
+        $hour = (int) $match[1];
+        $minute = $match[2];
+        if ($hour > 23 || (int) $minute > 59) {
+            return '';
+        }
+        $meridiem = $hour >= 12 ? 'PM' : 'AM';
+        $hour12 = $hour % 12;
+        if ($hour12 === 0) {
+            $hour12 = 12;
+        }
+
+        return $hour12.':'.$minute.' '.$meridiem;
+    }
+
+    /** Shortest partial leave: one minute, as hours. */
+    public static function minPartialLeaveHours(): float
+    {
+        return round(1 / 60, 2);
     }
 
     public function timesheetSettings(): PeopleTimesheetSetting
@@ -392,15 +422,16 @@ class PeopleWorkspace
 
     /**
      * Hours for a partial day. Empty uses half the employee's day.
-     * The value stays below a full day so a whole day is still a full leave.
+     * Any span from one minute up to just under a full day is allowed.
      */
     public function partialLeaveHours(?User $user, ?float $hours = null): float
     {
         $day = $this->leaveDayHours($user);
-        $max = max(0.5, round($day - 0.5, 1));
-        $value = $hours === null ? $this->halfLeaveHours($user) : round($hours, 1);
-        if ($value + 0.001 < 0.5 || $value - 0.001 > $max) {
-            throw new \InvalidArgumentException('Leave for part of a day must be between 0.5 and '.self::hoursText($max).' hours.');
+        $min = self::minPartialLeaveHours();
+        $max = max($min, round($day - $min, 2));
+        $value = $hours === null ? $this->halfLeaveHours($user) : round($hours, 2);
+        if ($value + 0.001 < $min || $value - 0.001 > $max) {
+            throw new \InvalidArgumentException('Leave for part of a day must be at least one minute and under '.self::hoursText($day).' hours.');
         }
 
         return $value;
@@ -420,7 +451,7 @@ class PeopleWorkspace
     {
         $stored = $request->hours;
         if ($stored !== null && (float) $stored > 0) {
-            return round((float) $stored, 1);
+            return round((float) $stored, 2);
         }
 
         return $this->halfLeaveHours($user);
@@ -946,7 +977,7 @@ class PeopleWorkspace
                 if ($end <= $start) {
                     throw new \InvalidArgumentException('To time has to be later than from time.');
                 }
-                $leaveHours = round(($end - $start) / 60, 1);
+                $leaveHours = round(($end - $start) / 60, 2);
             }
         }
 

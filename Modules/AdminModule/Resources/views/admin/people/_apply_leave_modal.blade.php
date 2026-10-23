@@ -4,7 +4,7 @@
     $applyOpen = old('starts_on') || old('ends_on') || old('leave_type') || old('reason');
 @endphp
 <div class="modal fade" id="applyLeaveModal" tabindex="-1" aria-labelledby="applyLeaveModalLabel" aria-hidden="true" data-bs-focus="false">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content people-ws-dept-modal">
             <form method="post" action="{{ route('admin.people.leave.store') }}" novalidate>
                 @csrf
@@ -49,7 +49,8 @@
                     @php
                         $dayHours = (float) ($leavePicker['dayHours'] ?? 8);
                         $halfHours = (float) ($leavePicker['halfHours'] ?? round($dayHours / 2, 1));
-                        $maxPartialHours = max(0.5, round($dayHours - 0.5, 1));
+                        $minPartialHours = \Modules\AdminModule\Services\PeopleWorkspace::minPartialLeaveHours();
+                        $maxPartialHours = max($minPartialHours, round($dayHours - $minPartialHours, 2));
                         $halfMinutes = (int) round($halfHours * 60);
                         $defaultEnd = min((9 * 60) + $halfMinutes, (23 * 60) + 59);
                         $defaultFrom = old('from_time', '09:00');
@@ -81,9 +82,9 @@
                     </div>
                     <div class="field" id="leave-hours-field" @if(! old('half_day')) hidden @endif>
                         <label for="leave_hours">Hours</label>
-                        <input id="leave_hours" name="leave_hours" type="number" min="0.5" max="{{ $maxPartialHours }}" step="0.1" inputmode="decimal" value="{{ old('leave_hours', $halfHours) }}" readonly @disabled(! old('half_day'))>
+                        <input id="leave_hours" name="leave_hours" type="number" min="{{ $minPartialHours }}" max="{{ $maxPartialHours }}" step="0.01" inputmode="decimal" value="{{ old('leave_hours', $halfHours) }}" readonly @disabled(! old('half_day'))>
                         <p class="people-field-error" id="leave_hours_error" hidden></p>
-                        <p class="people-ws-note" id="leave-hours-note">Hours follow the from and to time. A part of the day must stay under a full day.</p>
+                        <p class="people-ws-note" id="leave-hours-note">Hours follow the from and to time. Any length from one minute up to under a full day is fine.</p>
                     </div>
                     <div class="field">
                         <label for="reason">Reason</label>
@@ -228,8 +229,15 @@
             }
 
             function hoursLabel(hours) {
-                var rounded = Math.round((Number(hours) || 0) * 10) / 10;
-                var text = Math.abs(rounded - Math.round(rounded)) < 0.001 ? String(Math.round(rounded)) : rounded.toFixed(1);
+                var rounded = Math.round((Number(hours) || 0) * 100) / 100;
+                var text;
+                if (Math.abs(rounded - Math.round(rounded)) < 0.001) {
+                    text = String(Math.round(rounded));
+                } else if (Math.abs(rounded - (Math.round(rounded * 10) / 10)) < 0.001) {
+                    text = (Math.round(rounded * 10) / 10).toFixed(1);
+                } else {
+                    text = rounded.toFixed(2);
+                }
                 return text + (text === '1' ? ' hour' : ' hours');
             }
 
@@ -597,7 +605,7 @@
                 var start = clockMinutes(fromTime.value);
                 var end = clockMinutes(toTime.value);
                 if (start === null || end === null || end <= start) return null;
-                var hours = Math.round(((end - start) / 60) * 10) / 10;
+                var hours = Math.round(((end - start) / 60) * 100) / 100;
                 leaveHours.value = String(hours);
                 return hours;
             }
@@ -855,9 +863,10 @@
                             fail(toTime, 'To time has to be later than from time.');
                         }
                         var dayMax = Number(picker.dayHours) || 8;
+                        var minHours = 1 / 60;
                         var entered = leaveHours ? Number(leaveHours.value) : 0;
-                        if (startMinutes !== null && endMinutes !== null && endMinutes > startMinutes && (!entered || entered < 0.5 || entered > dayMax - 0.5 + 0.001)) {
-                            fail(toTime, 'That span must be at least half an hour and stay under a full day.');
+                        if (startMinutes !== null && endMinutes !== null && endMinutes > startMinutes && (!entered || entered < minHours - 0.0001 || entered > dayMax - minHours + 0.001)) {
+                            fail(toTime, 'That span must be at least one minute and stay under a full day.');
                         }
                     }
 

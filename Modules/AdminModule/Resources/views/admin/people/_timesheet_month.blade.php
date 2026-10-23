@@ -27,7 +27,7 @@
             <tr @class(['is-even' => ((int) substr($day['date'], 8, 2)) % 2 === 0])>
                 <td>{{ $day['label'] }}</td>
                 <td>
-                    @if($day['chips'] === [])
+                    @if(($day['chips'] ?? []) === [])
                         —
                     @else
                         <div class="people-ts-chips">
@@ -45,8 +45,20 @@
                 <td class="num">{{ $hoursText((float) $day['leave']) }}</td>
                 <td class="num">{{ $hoursText((float) $day['total']) }}</td>
                 <td class="actions">
-                    @if($day['sheet'] && ! empty($day['actionable']))
-                        <div class="people-ws-actions">
+                    <div class="people-ws-actions">
+                        @if(($day['rows'] ?? []) !== [])
+                            <button
+                                class="btn-pw people-ts-view-btn"
+                                type="button"
+                                data-bs-toggle="modal"
+                                data-bs-target="#viewTimesheetDayModal"
+                                data-title="{{ $timesheetReview['name'] }} · {{ $day['label'] }}"
+                                data-rows="{{ json_encode($day['rows'], JSON_UNESCAPED_UNICODE) }}"
+                                title="View timesheet details"
+                                aria-label="View timesheet details"
+                            ><span class="material-icons" aria-hidden="true">visibility</span></button>
+                        @endif
+                        @if($day['sheet'] && ! empty($day['actionable']))
                             <button
                                 class="btn-pw good"
                                 type="button"
@@ -69,10 +81,10 @@
                                 data-date="{{ $day['date'] }}"
                                 data-summary="Reject {{ $timesheetReview['name'] }}’s timesheet for {{ $day['label'] }}? They will need to fill this day again."
                             >Reject</button>
-                        </div>
-                    @else
-                        @include('adminmodule::admin.people._badge', ['status' => $day['state']])
-                    @endif
+                        @else
+                            @include('adminmodule::admin.people._badge', ['status' => $day['state']])
+                        @endif
+                    </div>
                 </td>
             </tr>
         @empty

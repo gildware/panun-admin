@@ -230,7 +230,7 @@ class PeopleWorkspaceController extends Controller
             'ends_on' => ['required_unless:half_day,1', 'nullable', 'date', 'after_or_equal:starts_on'],
             'reason' => ['required', 'string', 'max:1000'],
             'half_day' => ['nullable', 'boolean'],
-            'leave_hours' => ['nullable', 'numeric', 'min:0.5', 'max:24'],
+            'leave_hours' => ['nullable', 'numeric', 'min:0.01', 'max:24'],
             'from_time' => ['required_if:half_day,1', 'nullable', 'date_format:H:i'],
             'to_time' => ['required_if:half_day,1', 'nullable', 'date_format:H:i'],
         ]);
@@ -1649,6 +1649,13 @@ class PeopleWorkspaceController extends Controller
      */
     private function submittedTimesheetRows($sheets, Carbon $periodMonth, Carbon $periodEnd)
     {
+        $extraIds = [];
+        $extraNames = [];
+        foreach ($this->workspace->configuredTimesheetTasks() as $extra) {
+            $extraIds[(string) $extra['id']] = true;
+            $extraNames[mb_strtolower((string) $extra['task'])] = true;
+        }
+        $extras = ['extra_ids' => $extraIds, 'extra_names' => $extraNames];
         $rows = collect();
         foreach ($sheets as $sheet) {
             $entries = is_array($sheet->entries) ? $sheet->entries : [];
@@ -1661,14 +1668,17 @@ class PeopleWorkspaceController extends Controller
                     continue;
                 }
                 $details = [];
+                $detailRows = [];
                 foreach ($entry['rows'] ?? [] as $row) {
                     if (! is_array($row)) {
                         continue;
                     }
-                    $name = trim((string) ($row['task'] ?? ''));
-                    if ($name !== '') {
-                        $details[] = $name.' ('.PeopleWorkspace::hoursText((float) ($row['hours'] ?? 0)).')';
+                    $detail = $this->timesheetApprovalRowDetail($row, $extras);
+                    if ($detail === null) {
+                        continue;
                     }
+                    $details[] = $detail['chip'];
+                    $detailRows[] = $detail;
                 }
                 $rows->push([
                     'sheet' => $sheet,
@@ -1677,6 +1687,7 @@ class PeopleWorkspaceController extends Controller
                     'filled_on' => $sheet->updated_at,
                     'filled_for' => $day,
                     'details' => $details,
+                    'rows' => $detailRows,
                     'state' => match ((string) $sheet->status) {
                         'approved' => 'approved',
                         'pending' => 'pending',
@@ -1746,6 +1757,7 @@ class PeopleWorkspaceController extends Controller
             $sheet = $record['sheet'] ?? null;
             $entryStatus = is_array($entry) ? (string) ($entry['status'] ?? '') : '';
             $chips = [];
+            $detailRows = [];
             $task = 0.0;
             $additional = 0.0;
             $leave = 0.0;
@@ -1754,21 +1766,22 @@ class PeopleWorkspaceController extends Controller
                     if (! is_array($row)) {
                         continue;
                     }
-                    $name = trim((string) ($row['task'] ?? ''));
-                    $ticket = (string) ($row['ticket_id'] ?? '');
-                    $hours = round((float) ($row['hours'] ?? 0), 2);
-                    $isLeave = in_array($ticket, ['leave', 'partial-leave'], true);
-                    $isExtra = isset($extraIds[$ticket]) || ($ticket === '' && $name !== '' && isset($extraNames[mb_strtolower($name)]));
-                    $chip = ($name !== '' ? $name : ($isLeave ? 'Leave' : 'Task')).' ('.PeopleWorkspace::hoursText($hours).')';
-                    if ($isLeave) {
+                    $detail = $this->timesheetApprovalRowDetail($row, [
+                        'extra_ids' => $extraIds,
+                        'extra_names' => $extraNames,
+                    ]);
+                    if ($detail === null) {
+                        continue;
+                    }
+                    $hours = (float) $detail['hours_value'];
+                    $chips[] = $detail['chip'];
+                    $detailRows[] = $detail;
+                    if ($detail['kind'] === 'leave') {
                         $leave += $hours;
-                        $chips[] = $chip;
-                    } elseif ($isExtra) {
+                    } elseif ($detail['kind'] === 'extra') {
                         $additional += $hours;
-                        $chips[] = $chip;
                     } else {
                         $task += $hours;
-                        $chips[] = $chip;
                     }
                 }
             }
@@ -1778,6 +1791,7 @@ class PeopleWorkspaceController extends Controller
                 'date' => $key,
                 'label' => $cursor->format('l, j F Y'),
                 'chips' => $chips,
+                'rows' => $detailRows,
                 'task' => round($task, 2),
                 'additional' => round($additional, 2),
                 'leave' => round($leave, 2),
@@ -1793,6 +1807,46 @@ class PeopleWorkspaceController extends Controller
             'name' => $person ? $this->workspace->displayName($person) : 'This person',
             'range' => $month->format('jS F Y').' – '.$monthEnd->format('jS F Y'),
             'days' => $days,
+        ];
+    }
+
+    /**
+     * One timesheet row for approval chips and the day-detail modal.
+     *
+     * @param  array<string, mixed>  $row
+     * @param  array{extra_ids?: array<string, true>, extra_names?: array<string, true>}  $extras
+     * @return array{task: string, description: string, from: string, to: string, hours: string, hours_value: float, kind: string, chip: string}|null
+     */
+    private function timesheetApprovalRowDetail(array $row, array $extras = []): ?array
+    {
+        $name = trim((string) ($row['task'] ?? ''));
+        $ticket = (string) ($row['ticket_id'] ?? '');
+        $hours = round((float) ($row['hours'] ?? 0), 2);
+        $isLeave = in_array($ticket, ['leave', 'partial-leave'], true);
+        $extraIds = $extras['extra_ids'] ?? [];
+        $extraNames = $extras['extra_names'] ?? [];
+        $isExtra = isset($extraIds[$ticket]) || ($ticket === '' && $name !== '' && isset($extraNames[mb_strtolower($name)]));
+        $kind = $isLeave ? 'leave' : ($isExtra ? 'extra' : 'task');
+        $label = $name !== '' ? $name : ($isLeave ? 'Leave' : ($isExtra ? 'Additional hours' : 'Task'));
+        $from = PeopleWorkspace::timeText((string) ($row['from_time'] ?? ''));
+        $to = PeopleWorkspace::timeText((string) ($row['to_time'] ?? ''));
+        $hoursLabel = PeopleWorkspace::hoursText($hours);
+        $span = ($from !== '' && $to !== '') ? $from.'–'.$to : '';
+        $meta = $span !== '' ? $span.' · '.$hoursLabel : $hoursLabel;
+        $chip = $label.' ('.$meta.')';
+        if ($name === '' && ! $isLeave && $hours <= 0 && $span === '') {
+            return null;
+        }
+
+        return [
+            'task' => $label,
+            'description' => trim((string) ($row['description'] ?? '')),
+            'from' => $from,
+            'to' => $to,
+            'hours' => $hoursLabel,
+            'hours_value' => $hours,
+            'kind' => $kind,
+            'chip' => $chip,
         ];
     }
 
