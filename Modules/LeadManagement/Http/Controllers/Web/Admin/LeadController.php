@@ -1723,6 +1723,7 @@ class LeadController extends Controller
                 }
                 $lead->lead_temperature = $payload['lead_temperature'] ?? null;
                 $lead->save();
+                app(LeadFollowupService::class)->clearPendingFollowupIfClosed($lead->fresh());
                 app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
                 toastr()->success(translate('Customer_lead_information_updated_successfully'));
@@ -1840,6 +1841,7 @@ class LeadController extends Controller
                 }
                 $lead->lead_temperature = $payload['lead_temperature'] ?? null;
                 $lead->save();
+                app(LeadFollowupService::class)->clearPendingFollowupIfClosed($lead->fresh());
                 app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
                 toastr()->success(translate('Provider_lead_information_updated_successfully'));
@@ -2459,6 +2461,7 @@ class LeadController extends Controller
                 ],
             ]);
         }
+        app(LeadFollowupService::class)->clearPendingFollowupIfClosed($lead->fresh());
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         return response()->json(['success' => true, 'status_name' => $statusName, 'status_color' => $statusColor]);
@@ -2606,6 +2609,7 @@ class LeadController extends Controller
             ]);
         }
 
+        app(LeadFollowupService::class)->clearPendingFollowupIfClosed($lead->fresh());
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         try {

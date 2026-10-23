@@ -724,6 +724,7 @@ class SuperfoneCallService
             $call->save();
             $this->attachBookingIfSingle($call);
             $call->save();
+            app(LeadFollowupService::class)->clearPendingFollowupIfClosed($lead->fresh() ?? $lead);
             $this->syncFollowup($call);
             $this->syncBookingFollowup($call);
 
@@ -1161,9 +1162,18 @@ class SuperfoneCallService
             $attributes['recording_original_name'] = $call->recording_original_name;
         }
 
+        $takenAt = $attributes['followup_at'] instanceof Carbon
+            ? $attributes['followup_at']
+            : Carbon::parse($attributes['followup_at']);
+        $leadIsOpen = app(LeadOpenStatusService::class)->isLeadOpen($lead);
+        $followupService = app(LeadFollowupService::class);
+        if (! $leadIsOpen) {
+            $followupService->clearPendingFollowupIfClosed($lead, false);
+        }
+
         if (! $followup) {
             $followup = LeadFollowup::query()->create(array_merge($attributes, [
-                'due_followup_at' => $lead->next_followup_at,
+                'due_followup_at' => $followupService->dueFollowupAtForCallSync($lead, $takenAt, $leadIsOpen),
                 'remarks' => $remarks,
                 'created_by' => $call->employee_user_id,
             ]));
@@ -1173,11 +1183,17 @@ class SuperfoneCallService
             if ($this->remarksAreManaged($followup->remarks)) {
                 $attributes['remarks'] = $remarks;
             }
+            if (! $followup->due_followup_at) {
+                $attributes['due_followup_at'] = $followupService->dueFollowupAtForCallSync($lead, $takenAt, $leadIsOpen);
+            } elseif (! $leadIsOpen && $followup->due_followup_at->lt($takenAt)) {
+                // Closed-lead syncs must not keep a stale overdue due from before the lead closed.
+                $attributes['due_followup_at'] = $takenAt;
+            }
             $followup->update($attributes);
         }
 
         $leadUpdates = [];
-        if (in_array($call->outcome, ['missed', 'unanswered'], true) && $lead->next_followup_at === null) {
+        if ($leadIsOpen && in_array($call->outcome, ['missed', 'unanswered'], true) && $lead->next_followup_at === null) {
             $leadUpdates['next_followup_at'] = now();
         }
         if (($lead->handled_by === null || $lead->handled_by === '') && $call->employee_user_id) {

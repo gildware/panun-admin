@@ -91,6 +91,13 @@ class LeadOpenStatusService
         return $meta;
     }
 
+    public function isLeadOpen(Lead $lead): bool
+    {
+        $meta = $this->buildLeadStatusMeta(collect([$lead]));
+
+        return (bool) ($meta[(int) $lead->id]['is_open'] ?? false);
+    }
+
     /**
      * @param Collection<int, CustomerLeadStatus>|null $customerStatuses
      * @param Collection<int, ProviderLeadStatus>|null $providerStatuses

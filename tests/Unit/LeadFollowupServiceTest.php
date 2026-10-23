@@ -92,4 +92,58 @@ class LeadFollowupServiceTest extends TestCase
         $this->assertFalse($changed);
         $this->assertTrue($lead->next_followup_at->equalTo($originalDue));
     }
+
+    public function test_clear_pending_followup_when_lead_is_closed(): void
+    {
+        $lead = new Lead([
+            'lead_type' => Lead::TYPE_CUSTOMER,
+            'next_followup_at' => Carbon::parse('2026-10-20 16:00:00'),
+        ]);
+
+        $cleared = $this->service->clearPendingFollowupIfClosed($lead, false);
+
+        $this->assertTrue($cleared);
+        $this->assertNull($lead->next_followup_at);
+    }
+
+    public function test_clear_pending_followup_keeps_due_when_lead_is_open(): void
+    {
+        $due = Carbon::parse('2026-10-20 16:00:00');
+        $lead = new Lead([
+            'lead_type' => Lead::TYPE_CUSTOMER,
+            'next_followup_at' => $due->copy(),
+        ]);
+
+        $cleared = $this->service->clearPendingFollowupIfClosed($lead, true);
+
+        $this->assertFalse($cleared);
+        $this->assertTrue($lead->next_followup_at->equalTo($due));
+    }
+
+    public function test_superfone_due_on_closed_lead_uses_call_time_not_stale_next(): void
+    {
+        $takenAt = Carbon::parse('2026-10-21 15:34:33');
+        $lead = new Lead([
+            'lead_type' => Lead::TYPE_CUSTOMER,
+            'next_followup_at' => Carbon::parse('2026-10-20 16:00:00'),
+        ]);
+
+        $due = $this->service->dueFollowupAtForCallSync($lead, $takenAt, false);
+
+        $this->assertTrue($due->equalTo($takenAt));
+    }
+
+    public function test_superfone_due_on_open_lead_uses_next_followup_at(): void
+    {
+        $takenAt = Carbon::parse('2026-10-21 15:34:33');
+        $next = Carbon::parse('2026-10-22 10:00:00');
+        $lead = new Lead([
+            'lead_type' => Lead::TYPE_CUSTOMER,
+            'next_followup_at' => $next->copy(),
+        ]);
+
+        $due = $this->service->dueFollowupAtForCallSync($lead, $takenAt, true);
+
+        $this->assertTrue($due->equalTo($next));
+    }
 }
