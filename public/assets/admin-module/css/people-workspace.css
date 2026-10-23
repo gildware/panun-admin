@@ -130,11 +130,23 @@
   color: #fff;
   border-color: var(--pw-bad);
 }
-.people-ts-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.people-ts-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
 .people-ts-chip {
   display: inline-flex;
   align-items: center;
-  max-width: 320px;
+  flex: 0 0 auto;
+  max-width: none;
   padding: 4px 8px;
   border-radius: 6px;
   background: #3f3f46;
@@ -143,10 +155,12 @@
   font-weight: 650;
   line-height: 1.2;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .people-ts-chip.is-more { border: 0; cursor: pointer; background: #52525b; }
+.people-ts-queue td:nth-child(4),
+.people-ts-month td:nth-child(2) {
+  max-width: 280px;
+}
 .people-ts-month .people-ws-actions { justify-content: flex-end; align-items: center; }
 .people-ws .people-ts-view-btn {
   display: inline-flex;
@@ -159,54 +173,70 @@
   color: var(--pw-ink);
 }
 .people-ws .people-ts-view-btn .material-icons { font-size: 18px; line-height: 1; }
-.people-ts-detail-list { display: grid; gap: 12px; }
-.people-ts-detail-card {
+#viewTimesheetDayModal .modal-dialog { max-width: 640px; }
+#viewTimesheetDayModal .people-ts-detail-list { display: grid; gap: 12px; }
+#viewTimesheetDayModal .people-ts-detail-card {
   border: 1px solid var(--pw-line);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: #f8fafc;
 }
-.people-ts-detail-head {
+#viewTimesheetDayModal .people-ts-detail-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
-.people-ts-detail-head strong { font-size: 14px; color: var(--pw-ink); }
-.people-ts-detail-kind {
+#viewTimesheetDayModal .people-ts-detail-head strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pw-ink);
+  line-height: 1.35;
+}
+#viewTimesheetDayModal .people-ts-detail-kind {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #4b5563;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: .04em;
+  letter-spacing: .03em;
   text-transform: uppercase;
-  color: var(--pw-muted);
+  white-space: nowrap;
 }
-.people-ts-detail-grid {
+#viewTimesheetDayModal .people-ts-detail-meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px 14px;
-  margin: 0;
+  gap: 12px 16px;
+  margin: 0 0 12px;
 }
-.people-ts-detail-grid dt {
-  margin: 0 0 2px;
+#viewTimesheetDayModal .people-ts-detail-meta > div,
+#viewTimesheetDayModal .people-ts-detail-desc { min-width: 0; }
+#viewTimesheetDayModal .people-ts-detail-label {
+  display: block;
+  margin: 0 0 4px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
   color: var(--pw-muted);
 }
-.people-ts-detail-grid dd {
+#viewTimesheetDayModal .people-ts-detail-value {
+  display: block;
   margin: 0;
   font-size: 14px;
+  font-weight: 650;
   color: var(--pw-ink);
-  white-space: pre-wrap;
   word-break: break-word;
+  white-space: pre-wrap;
 }
-.people-ts-detail-wide { grid-column: 1 / -1; }
-#viewTimesheetDayModal .modal-dialog { max-width: 640px; }
 @media (max-width: 640px) {
-  .people-ts-detail-grid { grid-template-columns: 1fr; }
+  #viewTimesheetDayModal .people-ts-detail-meta { grid-template-columns: 1fr; }
 }
 .people-ts-queue table { min-width: 980px; border-collapse: separate; border-spacing: 0; }
 .people-ts-queue thead th {

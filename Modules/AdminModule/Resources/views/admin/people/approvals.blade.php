@@ -4,6 +4,75 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/people-workspace.css') }}?v={{ filemtime(public_path('assets/admin-module/css/people-workspace.css')) }}">
+    <style>
+        #viewTimesheetDayModal .modal-dialog { max-width: 640px; }
+        #viewTimesheetDayModal .people-ts-detail-list { display: grid; gap: 12px; }
+        #viewTimesheetDayModal .people-ts-detail-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 16px;
+            background: #f8fafc;
+        }
+        #viewTimesheetDayModal .people-ts-detail-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        #viewTimesheetDayModal .people-ts-detail-head strong {
+            display: block;
+            font-size: 15px;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.35;
+        }
+        #viewTimesheetDayModal .people-ts-detail-kind {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            color: #4b5563;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        #viewTimesheetDayModal .people-ts-detail-meta {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px 16px;
+            margin: 0 0 12px;
+        }
+        #viewTimesheetDayModal .people-ts-detail-meta > div,
+        #viewTimesheetDayModal .people-ts-detail-desc {
+            min-width: 0;
+        }
+        #viewTimesheetDayModal .people-ts-detail-label {
+            display: block;
+            margin: 0 0 4px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #6b7280;
+        }
+        #viewTimesheetDayModal .people-ts-detail-value {
+            display: block;
+            margin: 0;
+            font-size: 14px;
+            font-weight: 650;
+            color: #111827;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        @media (max-width: 640px) {
+            #viewTimesheetDayModal .people-ts-detail-meta { grid-template-columns: 1fr; }
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -504,17 +573,20 @@
                                             article.className = 'people-ts-detail-card';
                                             article.innerHTML =
                                                 '<div class="people-ts-detail-head">' +
-                                                    '<strong></strong>' +
-                                                    '<span class="people-ts-detail-kind"></span>' +
+                                                    '<strong data-task></strong>' +
+                                                    '<span class="people-ts-detail-kind" data-kind></span>' +
                                                 '</div>' +
-                                                '<dl class="people-ts-detail-grid">' +
-                                                    '<div><dt>From</dt><dd data-from></dd></div>' +
-                                                    '<div><dt>To</dt><dd data-to></dd></div>' +
-                                                    '<div><dt>Hours</dt><dd data-hours></dd></div>' +
-                                                    '<div class="people-ts-detail-wide"><dt>Description</dt><dd data-desc></dd></div>' +
-                                                '</dl>';
-                                            article.querySelector('strong').textContent = text(row.task);
-                                            article.querySelector('.people-ts-detail-kind').textContent = kindLabel(row.kind);
+                                                '<div class="people-ts-detail-meta">' +
+                                                    '<div><span class="people-ts-detail-label">From</span><span class="people-ts-detail-value" data-from></span></div>' +
+                                                    '<div><span class="people-ts-detail-label">To</span><span class="people-ts-detail-value" data-to></span></div>' +
+                                                    '<div><span class="people-ts-detail-label">Hours</span><span class="people-ts-detail-value" data-hours></span></div>' +
+                                                '</div>' +
+                                                '<div class="people-ts-detail-desc">' +
+                                                    '<span class="people-ts-detail-label">Description</span>' +
+                                                    '<span class="people-ts-detail-value" data-desc></span>' +
+                                                '</div>';
+                                            article.querySelector('[data-task]').textContent = text(row.task);
+                                            article.querySelector('[data-kind]').textContent = kindLabel(row.kind);
                                             article.querySelector('[data-from]').textContent = text(row.from);
                                             article.querySelector('[data-to]').textContent = text(row.to);
                                             article.querySelector('[data-hours]').textContent = text(row.hours);
