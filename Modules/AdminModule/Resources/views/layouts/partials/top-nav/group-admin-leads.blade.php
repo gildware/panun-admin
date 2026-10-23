@@ -24,8 +24,14 @@
                 && ! request()->is('admin/lead/reports*')
                 && ! request()->is('admin/lead/outbound-enquiry*')
                 && ! request()->is('admin/lead/todays-followups*')
-                && ! request()->is('admin/lead/hunting-board*'),
+                && ! request()->is('admin/lead/hunting-board*')
+                && ! request()->is('admin/lead/deleted*'),
             'count' => $unassigned_leads_menu_count ?? 0,
+        ])
+        @include('adminmodule::layouts.partials.top-nav._link', [
+            'href' => route('admin.lead.deleted'),
+            'label' => translate('Deleted_leads'),
+            'active' => request()->is('admin/lead/deleted*'),
         ])
 
         @can('booking_view')

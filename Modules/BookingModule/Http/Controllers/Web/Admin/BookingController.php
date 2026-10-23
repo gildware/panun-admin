@@ -2983,7 +2983,7 @@ class BookingController extends Controller
 
         if ($webPage === 'details') {
 
-            $booking = $this->booking->with([
+            $bookingQuery = $this->booking->with([
                 'category',
                 'subCategory',
                 'comments.createdBy',
@@ -3029,8 +3029,8 @@ class BookingController extends Controller
                 'reopenedByUser',
                 'reopenCaseResolvedByUser',
                 'compensations.creator',
-            ])
-                ->find($id);
+            ]);
+            $booking = $this->findBookingForAdmin($bookingQuery, $id);
 
             if (!$booking) {
                 return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
@@ -3256,7 +3256,7 @@ class BookingController extends Controller
                 return redirect()->route('admin.booking.list');
             }
         } elseif ($webPage === 'history') {
-            $booking = $this->booking->with([
+            $booking = $this->findBookingForAdmin($this->booking->with([
                 'change_logs.changedBy',
                 'customer',
                 'provider',
@@ -3267,7 +3267,7 @@ class BookingController extends Controller
                 'spawnedFollowupBookings',
                 'reopenedByUser',
                 'reopenCaseResolvedByUser',
-            ])->find($id);
+            ]), $id);
 
             if (!$booking) {
                 return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
@@ -3275,7 +3275,13 @@ class BookingController extends Controller
 
             return view('bookingmodule::admin.booking.history', compact('booking', 'webPage'));
         } elseif ($webPage === 'followups') {
-            $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address', 'booking_partial_payments', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
+            $booking = $this->findBookingForAdmin(
+                $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address', 'booking_partial_payments', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser']),
+                $id
+            );
+            if (!$booking) {
+                return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
+            }
             $webPage = 'followups';
             $booking->setRelation('followups', $booking->followups->sort(function ($a, $b) {
                 $aScheduled = $a->status === 'scheduled';
@@ -3317,7 +3323,7 @@ class BookingController extends Controller
                 'followupScheduleMinAt'
             ));
         } elseif ($webPage === 'comments') {
-            $booking = $this->booking->with([
+            $booking = $this->findBookingForAdmin($this->booking->with([
                 'comments.createdBy',
                 'comments.pinnedByUser',
                 'comments.attachments',
@@ -3330,7 +3336,7 @@ class BookingController extends Controller
                 'spawnedFollowupBookings',
                 'reopenedByUser',
                 'reopenCaseResolvedByUser',
-            ])->find($id);
+            ]), $id);
 
             if (!$booking) {
                 return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
@@ -4848,34 +4854,28 @@ class BookingController extends Controller
      * @return RedirectResponse
      * @throws AuthorizationException
      */
-    public function destroy($id): RedirectResponse
+    public function destroy(Request $request, $id): RedirectResponse
     {
         $this->authorize('booking_delete');
 
-        $booking = $this->booking
-            ->with([
-                'detail',
-                'details_amounts',
-                'schedule_histories',
-                'status_histories',
-                'booking_offline_payments',
-                'ignores',
-                'reviews',
-                'booking_partial_payments',
-                'extra_services',
-                'repeat.detail',
-                'repeat.details_amounts',
-                'repeat.statusHistories',
-                'repeat.scheduleHistories',
-                'repeat.repeatHistories',
-            ])
-            ->findOrFail($id);
+        $validated = $request->validate([
+            'deletion_reason' => ['required', 'string', 'min:3', 'max:1000'],
+        ], [
+            'deletion_reason.required' => translate('Deletion_reason_is_required'),
+            'deletion_reason.min' => translate('Deletion_reason_is_too_short_booking'),
+        ]);
 
-        DB::transaction(function () use ($booking) {
-            app(AdminBookingDeletionService::class)->deleteBookingAndRelations($booking);
-        });
+        $booking = $this->booking->findOrFail($id);
+        $booking->deleted_by = auth()->id();
+        $booking->deletion_reason = trim($validated['deletion_reason']);
+        $booking->save();
+        $booking->delete();
 
-        Toastr::success(translate('Booking_deleted_successfully'));
+        Toastr::success(translate('Booking_moved_to_deleted_bookings'));
+
+        if (is_super_admin()) {
+            return redirect()->route('admin.booking.deleted');
+        }
 
         return redirect()->route('admin.booking.list', [
             'booking_status' => 'pending',
@@ -10591,6 +10591,16 @@ class BookingController extends Controller
         }
 
         return $payload;
+    }
+
+    protected function findBookingForAdmin($query, $id): ?Booking
+    {
+        $booking = (clone $query)->find($id);
+        if (! $booking && is_super_admin()) {
+            $booking = (clone $query)->withTrashed()->find($id);
+        }
+
+        return $booking;
     }
 
 }

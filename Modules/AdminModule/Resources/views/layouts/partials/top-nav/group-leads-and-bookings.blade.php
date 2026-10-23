@@ -9,16 +9,30 @@
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.lead.index'),
                 'label' => translate('Leads'),
-                'active' => (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*') && !request()->is('admin/lead/hunting-board*'),
+                'active' => (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*') && !request()->is('admin/lead/hunting-board*') && !request()->is('admin/lead/deleted*'),
             ])
+            @if(is_super_admin())
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.lead.deleted'),
+                'label' => translate('Deleted_leads'),
+                'active' => request()->is('admin/lead/deleted*'),
+            ])
+            @endif
         @endcan
         @can('booking_view')
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']),
                 'label' => translate('Booking_Requests'),
-                'active' => (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && !request()->is('admin/booking/list/verification') && !request()->is('admin/booking/list/offline-payment') && !request()->is('admin/booking/list/special-scenarios') && !request()->is('admin/booking/list/cancelled-by-provider') && !request()->is('admin/booking/list/cancelled-by-customer') && !request()->is('admin/booking/reviews/list') && !request()->is('admin/booking/repeat*'),
+                'active' => (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && !request()->is('admin/booking/list/verification') && !request()->is('admin/booking/list/offline-payment') && !request()->is('admin/booking/list/special-scenarios') && !request()->is('admin/booking/list/cancelled-by-provider') && !request()->is('admin/booking/list/cancelled-by-customer') && !request()->is('admin/booking/reviews/list') && !request()->is('admin/booking/repeat*') && !request()->is('admin/booking/deleted*'),
                 'count' => $all_bookings_menu_count,
             ])
+            @if(is_super_admin())
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.booking.deleted'),
+                'label' => translate('Deleted_bookings'),
+                'active' => request()->is('admin/booking/deleted*'),
+            ])
+            @endif
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']),
                 'label' => translate('Repeat_booking'),

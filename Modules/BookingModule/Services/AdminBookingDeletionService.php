@@ -57,7 +57,7 @@ class AdminBookingDeletionService
         $booking->reviews()->delete();
         $booking->booking_partial_payments()->delete();
 
-        $booking->delete();
+        $booking->forceDelete();
     }
 
     /**

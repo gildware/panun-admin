@@ -404,7 +404,7 @@ class SeedBookingTestMatrix extends Command
         BookingPartialPayment::query()->whereIn('booking_id', $ids)->delete();
         BookingDetail::query()->whereIn('booking_id', $ids)->delete();
 
-        Booking::query()->whereIn('id', $ids)->each(fn (Booking $b) => $b->delete());
+        Booking::query()->whereIn('id', $ids)->each(fn (Booking $b) => $b->forceDelete());
 
         $this->info('Removed prior QA matrix bookings.');
     }

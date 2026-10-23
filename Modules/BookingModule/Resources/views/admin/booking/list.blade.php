@@ -220,6 +220,12 @@
                         @endif
 
                         <div class="d-flex flex-wrap align-items-center gap-3 fw-medium">
+                            @if(is_super_admin())
+                                <a href="{{ route('admin.booking.deleted') }}" class="btn btn--secondary btn-sm h-45">
+                                    <span class="material-icons">delete</span>
+                                    {{ translate('Deleted_bookings') }}
+                                </a>
+                            @endif
                             @if($isStandardListMode)
                                 @can('booking_view')
                                     @if($isRepeatBookingList)

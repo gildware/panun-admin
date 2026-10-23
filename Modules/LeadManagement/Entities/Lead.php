@@ -4,11 +4,14 @@ namespace Modules\LeadManagement\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 class Lead extends Model
 {
+    use SoftDeletes;
+
     public const TYPE_UNKNOWN = 'unknown';
     public const TYPE_CUSTOMER = 'customer';
     public const TYPE_PROVIDER = 'provider';
@@ -179,6 +182,11 @@ class Lead extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(\Modules\UserManagement\Entities\User::class, 'created_by', 'id');
+    }
+
+    public function deletedByUser(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\UserManagement\Entities\User::class, 'deleted_by', 'id')->withTrashed();
     }
 
     public function outboundEnquiries(): HasMany

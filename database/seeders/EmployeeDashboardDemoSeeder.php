@@ -753,7 +753,7 @@ class EmployeeDashboardDemoSeeder extends Seeder
             if (Schema::hasTable('booking_status_histories')) {
                 DB::table('booking_status_histories')->whereIn('booking_id', $bookingIds)->delete();
             }
-            Booking::query()->whereIn('id', $bookingIds)->delete();
+            Booking::query()->whereIn('id', $bookingIds)->forceDelete();
         }
 
         if (Schema::hasTable('staff_activity_events')) {
