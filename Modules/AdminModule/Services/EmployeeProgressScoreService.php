@@ -902,15 +902,17 @@ class EmployeeProgressScoreService
                     ->whereNotNull('handled_by')
                     ->where('handled_by', '!=', Lead::HANDLED_BY_AI);
             })
-            ->with(['lead:id,handled_by,date_time_of_lead_received'])
+            ->with(['lead:id,handled_by,date_time_of_lead_received,lead_type,non_responsive_at'])
             ->get(['id', 'lead_id', 'followup_at', 'due_followup_at']);
 
         $leadIds = $periodLeadFollowups->pluck('lead_id')->map(fn ($id) => (string) $id)->filter()->unique()->values()->all();
         if ($leadIds !== []) {
             $leads = Lead::query()
                 ->whereIn('id', $leadIds)
-                ->get(['id', 'handled_by', 'date_time_of_lead_received'])
+                ->get(['id', 'handled_by', 'date_time_of_lead_received', 'lead_type', 'non_responsive_at'])
                 ->keyBy(fn (Lead $lead) => (string) $lead->id);
+
+            $openMeta = $this->leadOpenStatus->buildLeadStatusMeta($leads);
 
             $historyByLead = LeadFollowup::query()
                 ->whereIn('lead_id', $leadIds)
@@ -931,6 +933,10 @@ class EmployeeProgressScoreService
             }
 
             foreach ($periodLeadFollowups as $followup) {
+                if (! ($openMeta[(int) $followup->lead_id]['is_open'] ?? false)) {
+                    continue;
+                }
+
                 $due = $dueByFollowupId[(int) $followup->id] ?? $followup->due_followup_at;
                 if (! $due instanceof Carbon) {
                     $due = $due ? Carbon::parse($due) : null;

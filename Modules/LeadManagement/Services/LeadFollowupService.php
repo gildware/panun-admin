@@ -91,6 +91,51 @@ class LeadFollowupService
     }
 
     /**
+     * Closed leads (Booked / cancel / non-responsive / invalid / future) must not keep a pending lead follow-up.
+     *
+     * @param  bool|null  $isOpen  Pass when already known to avoid a status lookup; null resolves via {@see LeadOpenStatusService}.
+     */
+    public function clearPendingFollowupIfClosed(Lead $lead, ?bool $isOpen = null): bool
+    {
+        if ($isOpen === null) {
+            $isOpen = app(LeadOpenStatusService::class)->isLeadOpen($lead);
+        }
+
+        if ($isOpen || $lead->next_followup_at === null) {
+            return false;
+        }
+
+        $lead->next_followup_at = null;
+        if ($lead->exists) {
+            $lead->save();
+        }
+
+        return true;
+    }
+
+    /**
+     * Due time stamped on a Superfone-synced lead follow-up.
+     * Closed leads never inherit a stale {@see Lead::$next_followup_at} (avoids false late penalties).
+     */
+    public function dueFollowupAtForCallSync(Lead $lead, Carbon $takenAt, ?bool $isOpen = null): ?Carbon
+    {
+        if ($isOpen === null) {
+            $isOpen = app(LeadOpenStatusService::class)->isLeadOpen($lead);
+        }
+
+        if (! $isOpen) {
+            return $takenAt;
+        }
+
+        $next = $lead->next_followup_at;
+        if ($next && ! $next instanceof Carbon) {
+            $next = Carbon::parse($next);
+        }
+
+        return $next;
+    }
+
+    /**
      * Whether this open lead has a follow-up due today or earlier (matches pending-till-today lists).
      */
     public function leadHasPendingFollowup(Lead $lead, bool $isOpen): bool

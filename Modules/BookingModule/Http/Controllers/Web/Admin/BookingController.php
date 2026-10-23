@@ -10528,6 +10528,9 @@ class BookingController extends Controller
             ]);
         }
 
+        app(\Modules\LeadManagement\Services\LeadFollowupService::class)
+            ->clearPendingFollowupIfClosed($lead->fresh() ?? $lead);
+
         try {
             app(\Modules\LeadManagement\Services\LeadHuntingBoardService::class)->unpublishIfPublished(
                 $lead,
