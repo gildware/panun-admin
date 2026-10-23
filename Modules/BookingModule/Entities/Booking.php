@@ -6,6 +6,7 @@ use App\Traits\HasUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -31,7 +32,7 @@ use Modules\BookingModule\Entities\BookingCompensation;
 
 class Booking extends Model
 {
-    use HasFactory, HasUuid, BookingTrait, BookingScopes;
+    use HasFactory, HasUuid, BookingTrait, BookingScopes, SoftDeletes;
 
     /**
      * Used for admin "pending till today" follow-up lists: only active jobs, not completed / canceled / refunded.
@@ -195,6 +196,11 @@ class Booking extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function deletedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by', 'id')->withTrashed();
     }
 
     public function subCategory(): BelongsTo

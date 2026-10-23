@@ -1,3 +1,4 @@
+@if(! $booking->trashed())
 @can('booking_delete')
     <div class="booking-detail-delete-footer">
         <button type="button"
@@ -11,3 +12,4 @@
 
     @include('bookingmodule::admin.booking.partials._booking-detail-delete-modal', ['booking' => $booking])
 @endcan
+@endif

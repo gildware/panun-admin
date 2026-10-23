@@ -156,7 +156,13 @@
                 <div class="col-12 lead-index-page">
                     <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                         <h2 class="page-title">{{ translate('Lead_Management') }}</h2>
-                        <div>
+                        <div class="d-flex flex-wrap gap-2">
+                            @if(is_super_admin())
+                            <a href="{{ route('admin.lead.deleted') }}" class="btn btn--secondary">
+                                <span class="material-icons">delete</span>
+                                {{ translate('Deleted_leads') }}
+                            </a>
+                            @endif
                             <button type="button" class="btn btn--primary" data-bs-toggle="modal" data-bs-target="#leadCreateModal">
                                 <span class="material-icons">add</span>
                                 {{ translate('Add_New_Lead') }}
@@ -1057,6 +1063,25 @@
                     frame.src = 'about:blank';
                 }
                 $('#lead-view-loading').addClass('d-none');
+            });
+
+            window.addEventListener('message', function (event) {
+                if (event.origin !== window.location.origin) {
+                    return;
+                }
+                if (!event.data || event.data.type !== 'lead-deleted-close-modal') {
+                    return;
+                }
+                const modalEl = document.getElementById('leadViewModal');
+                if (modalEl && typeof bootstrap !== 'undefined') {
+                    const instance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                    instance.hide();
+                }
+                const page = new URLSearchParams(window.location.search).get('page') || 1;
+                reloadLeads(page);
+                if (event.data.message && window.toastr) {
+                    toastr.success(event.data.message);
+                }
             });
 
             $(document).on('click.leadIndexNav', '#lead-list-wrapper a.btn-lead-view', function (e) {

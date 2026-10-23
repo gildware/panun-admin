@@ -176,6 +176,25 @@
             }
         @endphp
 
+        @if($lead->trashed())
+            @php
+                $deletedByUser = $lead->deletedByUser;
+                $deletedByName = trim((string) (($deletedByUser->first_name ?? '').' '.($deletedByUser->last_name ?? '')));
+                if ($deletedByName === '' && $deletedByUser) {
+                    $deletedByName = (string) ($deletedByUser->email ?: $deletedByUser->phone);
+                }
+            @endphp
+            <div class="alert alert-warning mb-3">
+                <div class="fw-medium mb-1">{{ translate('This_lead_is_deleted') }}</div>
+                <div>{{ translate('Deletion_reason') }}: {{ $lead->deletion_reason ?: '—' }}</div>
+                <div class="small text-muted mt-1">
+                    {{ translate('Deleted_by') }}: {{ $deletedByName !== '' ? $deletedByName : '—' }}
+                    · {{ translate('Deleted_at') }}: {{ optional($lead->deleted_at)->format('d M Y H:i') }}
+                </div>
+                <a href="{{ route('admin.lead.deleted') }}" class="btn btn-sm btn--secondary mt-2">{{ translate('Back_to_deleted_leads') }}</a>
+            </div>
+        @endif
+
         @if($createdBookingId)
             <div class="alert alert-success d-flex justify-content-between align-items-center mb-3">
                 <div>
@@ -1032,28 +1051,53 @@
                                     <h5 class="modal-title text-danger" id="deleteLeadModalLabel">{{ translate('Are_you_sure?') }}</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                                 </div>
-                                <div class="modal-body pt-0">
-                                    <p class="mb-0 text-muted">
-                                        {{ translate('This_action_will_permanently_remove_the_lead_and_its_related_data.') }}
-                                    </p>
-                                </div>
-                                <div class="modal-footer border-0 d-flex justify-content-center gap-3 pb-4">
-                                    <button type="button"
-                                            class="btn btn--secondary"
-                                            data-bs-dismiss="modal">
-                                        {{ translate('Cancel') }}
-                                    </button>
-                                    <form method="POST" action="{{ route('admin.lead.destroy', $lead->id) }}" class="d-inline">
-                                        @csrf
-                                        @method('DELETE')
+                                <form method="POST" action="{{ route('admin.lead.destroy', $lead->id) }}">
+                                    @csrf
+                                    @method('DELETE')
+                                    @if(!empty($inModal))
+                                        <input type="hidden" name="in_modal" value="1">
+                                    @endif
+                                    <div class="modal-body pt-0">
+                                        <p class="mb-3 text-muted">
+                                            {{ translate('Deleted_leads_help') }}
+                                        </p>
+                                        <label class="form-label" for="deletion_reason">{{ translate('Deletion_reason') }}</label>
+                                        <textarea name="deletion_reason"
+                                                  id="deletion_reason"
+                                                  class="form-control @error('deletion_reason') is-invalid @enderror"
+                                                  rows="3"
+                                                  minlength="3"
+                                                  maxlength="1000"
+                                                  required
+                                                  placeholder="{{ translate('Why_is_this_lead_being_deleted') }}">{{ old('deletion_reason') }}</textarea>
+                                        @error('deletion_reason')
+                                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                    <div class="modal-footer border-0 d-flex justify-content-center gap-3 pb-4">
+                                        <button type="button"
+                                                class="btn btn--secondary"
+                                                data-bs-dismiss="modal">
+                                            {{ translate('Cancel') }}
+                                        </button>
                                         <button type="submit" class="btn btn-danger">
                                             {{ translate('Delete_Lead') }}
                                         </button>
-                                    </form>
-                                </div>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     </div>
+                    @if($errors->has('deletion_reason'))
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function () {
+                                var modal = document.getElementById('deleteLeadModal');
+                                if (modal && window.bootstrap) {
+                                    window.bootstrap.Modal.getOrCreateInstance(modal).show();
+                                }
+                            });
+                        </script>
+                    @endif
 
         </div>
     </div>

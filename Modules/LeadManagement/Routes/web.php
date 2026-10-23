@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\AdSourceController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\DeletedLeadController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadCommentController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadConfigurationController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadController;
@@ -29,6 +30,9 @@ Route::group([
 ], function () {
     Route::group(['prefix' => 'lead', 'as' => 'lead.'], function () {
         Route::get('/', [LeadController::class, 'index'])->middleware(['can:lead_view'])->name('index');
+        Route::get('deleted', [DeletedLeadController::class, 'index'])->middleware(['can:lead_view'])->name('deleted');
+        Route::post('deleted/{id}/restore', [DeletedLeadController::class, 'restore'])->middleware(['can:lead_delete'])->name('deleted.restore');
+        Route::delete('deleted/{id}', [DeletedLeadController::class, 'forceDestroy'])->middleware(['can:lead_delete'])->name('deleted.force');
         Route::get('hunting-board', [LeadHuntingBoardController::class, 'index'])->middleware(['can:lead_view'])->name('hunting-board.index');
         Route::post('hunting-board/{id}/remind', [LeadHuntingBoardController::class, 'remind'])->middleware(['can:lead_update'])->name('hunting-board.remind');
         Route::post('{id}/hunting/start', [LeadHuntingBoardController::class, 'start'])->middleware(['can:lead_update'])->name('hunting.start');

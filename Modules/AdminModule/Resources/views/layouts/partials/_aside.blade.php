@@ -84,10 +84,18 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     @can('lead_view')
                         <li>
                             <a href="{{ route('admin.lead.index') }}"
-                               class="{{ (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*') && !request()->is('admin/lead/hunting-board*') ? 'active-menu' : '' }}">
+                               class="{{ (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*') && !request()->is('admin/lead/hunting-board*') && !request()->is('admin/lead/deleted*') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Leads') }}</span>
                             </a>
                         </li>
+                        @if(is_super_admin())
+                        <li>
+                            <a href="{{ route('admin.lead.deleted') }}"
+                               class="{{ request()->is('admin/lead/deleted*') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Deleted_leads') }}</span>
+                            </a>
+                        </li>
+                        @endif
                         <li>
                             <a href="{{ route('admin.lead.hunting-board.index') }}"
                                class="{{ request()->is('admin/lead/hunting-board*') ? 'active-menu' : '' }}">
@@ -290,6 +298,14 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                 </span>
                             </a>
                         </li>
+                        @if(is_super_admin())
+                        <li>
+                            <a href="{{ route('admin.booking.deleted') }}"
+                               class="{{ request()->is('admin/booking/deleted*') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Deleted_bookings') }}</span>
+                            </a>
+                        </li>
+                        @endif
                         <li>
                             <a href="{{ route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
                                class="{{ request()->is('admin/booking/repeat*') || request()->is('admin/booking/create/repeat') ? 'active-menu' : '' }}">

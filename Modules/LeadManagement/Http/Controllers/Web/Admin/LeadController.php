@@ -2029,7 +2029,7 @@ class LeadController extends Controller
 
     public function show($id): View
     {
-        $lead = Lead::with([
+        $leadQuery = Lead::with([
             'source',
             'adSource',
             'followups.createdBy',
@@ -2038,13 +2038,18 @@ class LeadController extends Controller
             'comments.pinnedByUser',
             'comments.attachments',
             'createdBy',
+            'deletedByUser',
             'customerLeadTags',
             'huntingInterests' => fn ($q) => $q->with(['provider:id,company_name,contact_person_name,contact_person_phone'])->latest(),
             'huntingStartedByUser:id,first_name,last_name,email',
             'outboundEnquiries' => fn ($q) => $q->with(['handledBy', 'createdBy', 'statusConfig', 'relatedLead', 'booking']),
-        ])
-            ->withCount('outboundEnquiries')
-            ->findOrFail($id);
+        ])->withCount('outboundEnquiries');
+
+        $lead = (clone $leadQuery)->find($id);
+        if (! $lead && is_super_admin()) {
+            $lead = (clone $leadQuery)->withTrashed()->find($id);
+        }
+        abort_unless($lead, 404);
 
         $activeFollowupOptions = fn ($q) => $q->where('is_active', true);
         $invalidReasons = LeadInvalidReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
@@ -3780,12 +3785,28 @@ class LeadController extends Controller
         return $label;
     }
 
-    public function destroy(int $id): RedirectResponse
+    public function destroy(Request $request, int $id): RedirectResponse|\Illuminate\Http\Response
     {
+        $validated = $request->validate([
+            'deletion_reason' => ['required', 'string', 'min:3', 'max:1000'],
+        ], [
+            'deletion_reason.required' => translate('Deletion_reason_is_required'),
+            'deletion_reason.min' => translate('Deletion_reason_is_too_short'),
+        ]);
+
         $lead = Lead::findOrFail($id);
+        $lead->deleted_by = Auth::id();
+        $lead->deletion_reason = trim($validated['deletion_reason']);
+        $lead->save();
         $lead->delete();
 
-        toastr()->success(translate('Lead_deleted_successfully'));
+        if ($request->boolean('in_modal')) {
+            return response()->view('leadmanagement::admin.leads.partials._close-preview-modal', [
+                'message' => translate('Lead_moved_to_deleted_leads'),
+            ]);
+        }
+
+        toastr()->success(translate('Lead_moved_to_deleted_leads'));
 
         return redirect($this->resolveLeadIndexBackUrl($lead->lead_type));
     }

@@ -618,9 +618,11 @@
     </div>
 </section>
 
+@unless($lead->trashed())
 <section class="panel delete-panel">
     <div class="panel__body py-3">
-        <p class="text-muted small mb-2">{{ translate('This_action_will_permanently_remove_the_lead_and_its_related_data.') }}</p>
+        <p class="text-muted small mb-2">{{ translate('Deleted_leads_help') }}</p>
         <button type="button" class="ld-btn ld-btn-outline text-danger border-danger" data-bs-toggle="modal" data-bs-target="#deleteLeadModal">{{ translate('Delete_Lead') }}</button>
     </div>
 </section>
+@endunless

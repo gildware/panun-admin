@@ -22,6 +22,11 @@
             'count' => $all_bookings_menu_count ?? 0,
         ])
         @include('adminmodule::layouts.partials.top-nav._link', [
+            'href' => route('admin.booking.deleted'),
+            'label' => translate('Deleted_bookings'),
+            'active' => request()->is('admin/booking/deleted*'),
+        ])
+        @include('adminmodule::layouts.partials.top-nav._link', [
             'href' => route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']),
             'label' => translate('Repeat_booking'),
             'active' => request()->is('admin/booking/repeat*') || request()->is('admin/booking/create/repeat'),

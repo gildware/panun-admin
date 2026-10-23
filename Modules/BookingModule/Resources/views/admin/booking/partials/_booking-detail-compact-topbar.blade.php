@@ -1,4 +1,5 @@
 <div class="booking-detail-topbar">
+    @include('bookingmodule::admin.booking.partials._deleted-booking-banner', ['booking' => $booking])
     <nav class="breadcrumb-bar" aria-label="breadcrumb">
         <a href="{{ route('admin.booking.list') }}">{{ translate('Bookings') }}</a>
         <span class="material-icons">chevron_right</span>

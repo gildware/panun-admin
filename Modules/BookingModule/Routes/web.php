@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingCommentController;
+use Modules\BookingModule\Http\Controllers\Web\Admin\DeletedBookingController;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingConfigurationController;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingController;
 use Modules\BookingModule\Http\Controllers\Web\Admin\AppCustomRequestController;
@@ -14,6 +15,9 @@ use Modules\BookingModule\Http\Controllers\Web\Provider\BookingController as Pro
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
+        Route::get('deleted', [DeletedBookingController::class, 'index'])->middleware(['can:booking_view'])->name('deleted');
+        Route::post('deleted/{id}/restore', [DeletedBookingController::class, 'restore'])->middleware(['can:booking_delete'])->name('deleted.restore');
+        Route::delete('deleted/{id}', [DeletedBookingController::class, 'forceDestroy'])->middleware(['can:booking_delete'])->name('deleted.force');
         Route::any('repeat/list', [BookingController::class, 'repeatList'])->name('repeat_list');
         Route::match(['get', 'post'], 'create/repeat', [BookingController::class, 'createRepeat'])->name('create-repeat');
         Route::match(['get', 'post'], 'create', [BookingController::class, 'create'])->name('create');
