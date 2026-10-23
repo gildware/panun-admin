@@ -2,17 +2,22 @@
 
 namespace Modules\WhatsAppModule\Services;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\LeadManagement\Entities\AdSource;
+use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Services\LeadChangeLogService;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
+use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
@@ -420,6 +425,144 @@ class WhatsAppLeadLifecycleService
                 'created_by' => null,
             ]);
         }
+    }
+
+    /**
+     * Copy WhatsApp AI booking draft fields onto the CRM customer lead form
+     * (lead_type_histories.data). Does not overwrite non-empty staff-filled values.
+     */
+    public function syncCustomerDetailsFromWhatsAppBooking(Lead $lead, WhatsAppBooking $booking): void
+    {
+        if ($lead->lead_type !== Lead::TYPE_CUSTOMER) {
+            return;
+        }
+
+        try {
+            $this->applyWhatsAppBookingToCustomerHistory($lead, $booking);
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp AI → CRM lead sync failed', [
+                'lead_id' => $lead->id,
+                'booking_id' => $booking->booking_id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function applyWhatsAppBookingToCustomerHistory(Lead $lead, WhatsAppBooking $booking): void
+    {
+        $history = LeadTypeHistory::query()
+            ->where('lead_id', $lead->id)
+            ->where('type', Lead::TYPE_CUSTOMER)
+            ->latest()
+            ->first();
+
+        $oldData = ($history && is_array($history->data)) ? $history->data : [];
+        $newData = $oldData;
+
+        if (empty($newData['customer_lead_status_id'])) {
+            $newData['customer_lead_status_id'] = CustomerLeadStatus::defaultPendingStatusId();
+        }
+        if (empty($newData['booking_status'])) {
+            $newData['booking_status'] = 'pending';
+        }
+
+        $service = trim((string) ($booking->service ?? ''));
+        $serviceDesc = trim((string) ($booking->service_description ?? ''));
+        $address = trim((string) ($booking->address ?? ''));
+        $jobText = $serviceDesc !== '' ? $serviceDesc : $service;
+        if ($address !== '' && $jobText !== '' && stripos($jobText, $address) === false) {
+            $jobText = $jobText."\nAddress: ".$address;
+        } elseif ($address !== '' && $jobText === '') {
+            $jobText = 'Address: '.$address;
+        }
+        if ($jobText !== '') {
+            $this->fillIfEmpty($newData, 'service_description', mb_substr($jobText, 0, 1000));
+        }
+
+        if ($booking->prefered_datetime) {
+            try {
+                $dt = $booking->prefered_datetime instanceof Carbon
+                    ? $booking->prefered_datetime
+                    : Carbon::parse((string) $booking->prefered_datetime);
+                $this->fillIfEmpty($newData, 'estimated_service_at', $dt->format('Y-m-d\TH:i'));
+            } catch (\Throwable) {
+                // keep previous
+            }
+        }
+
+        $prefill = is_array($booking->admin_prefill_json) ? $booking->admin_prefill_json : [];
+        $catalogMap = [
+            'zone_id' => 'zone_id',
+            'category_id' => 'service_category',
+            'sub_category_id' => 'service_subcategory',
+            'service_id' => 'service_name',
+            'variant_key' => 'variant_key',
+        ];
+        foreach ($catalogMap as $prefillKey => $leadKey) {
+            $v = trim((string) ($prefill[$prefillKey] ?? ''));
+            if ($v !== '') {
+                $this->fillIfEmpty($newData, $leadKey, $v);
+            }
+        }
+
+        if ($this->isBlank($newData['zone_id'] ?? null) && $address !== '') {
+            $zm = app(WhatsAppZoneAddressMatcher::class)->match($address);
+            if (($zm['confidence'] ?? '') === 'high' && !empty($zm['zone_id'])) {
+                $newData['zone_id'] = (string) $zm['zone_id'];
+            }
+        }
+
+        if ($this->isBlank($newData['area_id'] ?? null) && $address !== '') {
+            $zoneId = !empty($newData['zone_id']) ? (string) $newData['zone_id'] : null;
+            $areaId = CustomerLeadArea::resolveId($address, $zoneId);
+            if ($areaId) {
+                $newData['area_id'] = $areaId;
+            }
+        }
+
+        if ($newData === $oldData) {
+            return;
+        }
+
+        $changeLog = app(LeadChangeLogService::class);
+        $changeLog->record(
+            (int) $lead->id,
+            $changeLog->buildTypeHistoryDiff(Lead::TYPE_CUSTOMER, $oldData, $newData),
+            null
+        );
+
+        if ($history) {
+            $history->update(['data' => $newData]);
+        } else {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_CUSTOMER,
+                'data' => $newData,
+                'created_by' => null,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function fillIfEmpty(array &$data, string $key, mixed $value): void
+    {
+        if ($this->isBlank($data[$key] ?? null) && !$this->isBlank($value)) {
+            $data[$key] = $value;
+        }
+    }
+
+    protected function isBlank(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+        if (is_string($value)) {
+            return trim($value) === '';
+        }
+
+        return false;
     }
 
     public function isLeadOpen(Lead $lead): bool
