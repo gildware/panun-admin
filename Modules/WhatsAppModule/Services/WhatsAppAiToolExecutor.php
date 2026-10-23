@@ -656,6 +656,7 @@ class WhatsAppAiToolExecutor
         if ($crmLead) {
             $booking->lead_id = $crmLead->id;
             $booking->save();
+            $this->leadLifecycle->syncCustomerDetailsFromWhatsAppBooking($crmLead, $booking->fresh() ?? $booking);
         }
 
         $conv = WhatsAppConversation::firstOrNew(['phone' => $phone]);
@@ -736,6 +737,10 @@ class WhatsAppAiToolExecutor
 
         $booking->status = WhatsAppBooking::STATUS_TENTATIVE_PENDING_HUMAN;
         $booking->save();
+
+        if ($crmLead) {
+            $this->leadLifecycle->syncCustomerDetailsFromWhatsAppBooking($crmLead, $booking->fresh() ?? $booking);
+        }
 
         $conv = WhatsAppConversation::firstOrNew(['phone' => $phone]);
         $conv->current_step = 'COMPLETED';
