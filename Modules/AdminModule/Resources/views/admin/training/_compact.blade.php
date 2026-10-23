@@ -204,6 +204,19 @@
     .lq-figure { margin: 8px 0 12px; }
     .lq-figure img { width: 100%; max-width: 720px; border-radius: 10px; display: block; background: #f8faf9; }
     .lq-figure figcaption { font-size: .78rem; color: var(--lms-muted); margin-top: 4px; }
+    .lq-pdf {
+        margin: 0 0 14px; border: 1px solid var(--lms-line); border-radius: 12px; overflow: hidden; background: #f8faf9;
+    }
+    .lq-pdf-bar {
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+        padding: 10px 12px; border-bottom: 1px solid var(--lms-line); background: #fff;
+    }
+    .lq-pdf-bar a { font-weight: 600; font-size: .88rem; }
+    .lq-pdf iframe, .lq-pdf embed, .lq-pdf object {
+        display: block; width: 100%; height: min(78vh, 920px); min-height: 520px; border: 0; background: #eef1f0;
+    }
+    .lq-pdf-link { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .lq-pdf-link a { font-weight: 700; }
     .lq-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
     .lq-do, .lq-dont { border-radius: 10px; padding: 10px 12px; }
     .lq-do { background: #f0fdf4; }

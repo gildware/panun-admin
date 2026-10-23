@@ -36,28 +36,6 @@
         @endif
     </div>
 </div>
-@if(! $isAi && is_array($lessonProgress?->quiz_answers) && $lesson->questions->isNotEmpty())
-    @php
-        $misses = $lesson->questions->filter(function ($question) use ($lessonProgress) {
-            $picked = $lessonProgress->quiz_answers[$question->id] ?? null;
-
-            return $picked === null || (int) $picked !== (int) $question->correct_index;
-        });
-    @endphp
-    @if($misses->isNotEmpty())
-        <div class="lq-miss">
-            <h3 class="h6">Review the ones you missed</h3>
-            <ol>
-                @foreach($misses as $question)
-                    <li>
-                        <div>{{ $question->prompt }}</div>
-                        <div><strong>Right answer:</strong> {{ $question->options[$question->correct_index] ?? '' }}</div>
-                        @if(filled($question->explanation))
-                            <div class="trn-meta">{{ $question->explanation }}</div>
-                        @endif
-                    </li>
-                @endforeach
-            </ol>
-        </div>
-    @endif
+@if(! $passed && $retake)
+    <p class="trn-meta text-center mt-3 mb-0">Answers are not shown. Retake the test and aim for every question correct.</p>
 @endif

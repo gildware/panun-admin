@@ -329,7 +329,7 @@ class PeopleWorkspaceController extends Controller
             'work_date' => ['required', 'date', 'before_or_equal:today'],
             'month' => ['nullable', 'date_format:Y-m'],
             'intent' => ['required', Rule::in(['submit', 'leave', 'week_off', 'clear_week_off'])],
-            'rows' => ['required_if:intent,submit', 'array', 'min:1', 'max:12'],
+            'rows' => ['nullable', 'array', 'max:12'],
             'rows.*.ticket_id' => ['nullable', 'string', 'max:80'],
             'rows.*.task' => ['nullable', 'string', 'max:180'],
             'rows.*.description' => ['nullable', 'string', 'max:500'],
@@ -428,7 +428,8 @@ class PeopleWorkspaceController extends Controller
         }
 
         if ($data['intent'] === 'submit') {
-            $timeError = $this->timesheetTimeError($data['rows'] ?? []);
+            $data['rows'] = $this->filledTimesheetRows($data['rows'] ?? []);
+            $timeError = $this->timesheetTimeError($data['rows']);
             if ($timeError !== null) {
                 Toastr::error($timeError);
 
@@ -1377,6 +1378,29 @@ class PeopleWorkspaceController extends Controller
         }
 
         return 'pending';
+    }
+
+    /**
+     * Drop blank extra rows so they are not counted on submit.
+     *
+     * @param  array<int, mixed>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function filledTimesheetRows(array $rows): array
+    {
+        $filled = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $ticket = trim((string) ($row['ticket_id'] ?? ''));
+            if ($ticket === '') {
+                continue;
+            }
+            $filled[] = $row;
+        }
+
+        return $filled;
     }
 
     /**

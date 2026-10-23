@@ -113,4 +113,12 @@ class LeadOpenStatusAndLatePenaltyRuleTest extends TestCase
             collect([2 => $status])
         ));
     }
+
+    public function test_booked_customer_lead_can_receive_the_next_call(): void
+    {
+        $this->assertTrue(LeadOpenStatusService::canReuseLeadForCall(Lead::TYPE_CUSTOMER, false, 'completed'));
+        $this->assertFalse(LeadOpenStatusService::canReuseLeadForCall(Lead::TYPE_CUSTOMER, false, 'cancel'));
+        $this->assertFalse(LeadOpenStatusService::canReuseLeadForCall(Lead::TYPE_INVALID, false, null));
+        $this->assertFalse(LeadOpenStatusService::canReuseLeadForCall(Lead::TYPE_UNKNOWN, true, null));
+    }
 }

@@ -104,10 +104,11 @@ class SuperfoneCallService
 
         $this->createdLead = null;
         $this->announceMissedCall = false;
+        $digits = self::lastTenDigits(self::clean($payload['cdr_phone'] ?? null));
         try {
-            $call = $this->persistCall($payload, $event, $uuid);
+            $call = $this->withPhoneLock($digits, fn () => $this->persistCall($payload, $event, $uuid));
         } catch (UniqueConstraintViolationException) {
-            $call = $this->persistCall($payload, $event, $uuid);
+            $call = $this->withPhoneLock($digits, fn () => $this->persistCall($payload, $event, $uuid));
         }
         $this->notifyCreatedLead();
         if ($call && $this->announceMissedCall) {
@@ -123,6 +124,25 @@ class SuperfoneCallService
         }
 
         return $call;
+    }
+
+    /**
+     * Serialize matching for the same phone so two Superfone events cannot
+     * each create an Unknown lead before the first one is visible.
+     */
+    private function withPhoneLock(string $digits, callable $callback): mixed
+    {
+        if (strlen($digits) < 8 || DB::connection()->getDriverName() !== 'mysql') {
+            return $callback();
+        }
+
+        $name = substr('sf-lead-'.$digits, 0, 64);
+        DB::select('SELECT GET_LOCK(?, 10) as l', [$name]);
+        try {
+            return $callback();
+        } finally {
+            DB::select('SELECT RELEASE_LOCK(?) as l', [$name]);
+        }
     }
 
     /**
@@ -640,12 +660,13 @@ class SuperfoneCallService
 
         $provider = $this->findProviderByDigits($digits);
         $leadMatches = $provider ? collect() : $this->leadsByDigits($digits);
-        $lead = $this->firstOpenLead($leadMatches);
+        $lead = $provider ? null : app(LeadOpenStatusService::class)->firstLeadForIncomingCall($leadMatches);
         $closedLeadOnly = self::freshLeadForClosedMatch($lead !== null, $leadMatches->isNotEmpty());
         $customer = $provider ? null : $this->findUserByPhoneDigits($digits, CUSTOMER_USER_TYPES);
         $openBookings = $customer
             ? $this->openBookingsForCustomer((string) $customer->id)->count()
             : 0;
+        $mintUnknown = self::shouldMintUnknownLead($lead !== null, $closedLeadOnly, $openBookings);
         $decision = self::decideLink(
             $provider !== null,
             $lead !== null,
@@ -674,7 +695,7 @@ class SuperfoneCallService
             return;
         }
 
-        if ($decision['party'] === self::LINK_CUSTOMER && $customer && ! $closedLeadOnly) {
+        if ($decision['party'] === self::LINK_CUSTOMER && $customer && ! $mintUnknown) {
             $call->customer_user_id = $customer->id;
             $call->called_party_type = LeadFollowup::CALLED_PARTY_CUSTOMER;
             $this->attachBookingIfSingle($call);
@@ -682,23 +703,35 @@ class SuperfoneCallService
             return;
         }
 
-        if ($decision['party'] === self::LINK_UNKNOWN || $closedLeadOnly) {
+        if (($decision['party'] === self::LINK_UNKNOWN || $mintUnknown) && $openBookings === 0) {
             $created = $this->createUnknownLead($call);
             $call->lead_id = $created->id;
             $call->called_party_type = LeadFollowup::CALLED_PARTY_CUSTOMER;
             if ($customer) {
                 $call->customer_user_id = $customer->id;
-                $this->attachBookingIfSingle($call);
             }
         }
     }
 
     /**
-     * A closed lead must not absorb the next call. Create a new lead instead.
+     * Mint an Unknown lead only when every existing lead for the phone is
+     * cancelled, invalid, or non-responsive. Booked and future leads are reused.
      */
-    public static function freshLeadForClosedMatch(bool $hasOpenLead, bool $hasAnyLead): bool
+    public static function freshLeadForClosedMatch(bool $hasLinkableLead, bool $hasAnyLead): bool
     {
-        return ! $hasOpenLead && $hasAnyLead;
+        return ! $hasLinkableLead && $hasAnyLead;
+    }
+
+    /**
+     * An open booking belongs on the call. Do not open a second lead for it.
+     */
+    public static function shouldMintUnknownLead(bool $hasLinkableLead, bool $onlyUnusableLeads, int $openBookings): bool
+    {
+        if ($hasLinkableLead || $openBookings > 0) {
+            return false;
+        }
+
+        return $onlyUnusableLeads;
     }
 
     public function linkToLead(SuperfoneCall $call, Lead $lead): SuperfoneCall
@@ -986,19 +1019,6 @@ class SuperfoneCallService
         $this->wherePhoneEndsWith($leadQuery, 'phone_number', $digits);
 
         return $leadQuery->get();
-    }
-
-    private function firstOpenLead(Collection $leads): ?Lead
-    {
-        if ($leads->isEmpty()) {
-            return null;
-        }
-
-        $meta = app(LeadOpenStatusService::class)->buildLeadStatusMeta($leads);
-
-        return $leads->first(
-            fn (Lead $lead) => (bool) ($meta[(int) $lead->id]['is_open'] ?? false)
-        );
     }
 
     private function findUserByPhoneDigits(string $digits, array $userTypes): ?User

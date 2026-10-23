@@ -29,11 +29,6 @@
                                         {{ $option }}
                                     </label>
                                 @endforeach
-                                @if($picked !== null)
-                                    <div class="small mt-2 {{ (int) $picked === (int) $question->correct_index ? 'text-success' : 'text-danger' }}">
-                                        {{ $question->explanation }}
-                                    </div>
-                                @endif
                             </div>
                         </div>
                     @endforeach
