@@ -99,6 +99,94 @@ class LeadOpenStatusService
     }
 
     /**
+     * Superfone should attach to this lead instead of minting an Unknown.
+     * Open leads win. Booked / future leads are reused. Invalid, cancelled,
+     * and non-responsive leads are not.
+     */
+    public function firstLeadForIncomingCall(Collection $leads): ?Lead
+    {
+        if ($leads->isEmpty()) {
+            return null;
+        }
+
+        $open = $this->firstOpenLead($leads);
+        if ($open) {
+            return $open;
+        }
+
+        foreach ($leads as $lead) {
+            if ($this->leadCanReceiveCall($lead)) {
+                return $lead;
+            }
+        }
+
+        return null;
+    }
+
+    public function firstOpenLead(Collection $leads): ?Lead
+    {
+        if ($leads->isEmpty()) {
+            return null;
+        }
+
+        $meta = $this->buildLeadStatusMeta($leads);
+
+        return $leads->first(
+            fn (Lead $lead) => (bool) ($meta[(int) $lead->id]['is_open'] ?? false)
+        );
+    }
+
+    /**
+     * Booked (completed) customer/provider leads stay on the same person.
+     * Cancelled, invalid, and non-responsive leads do not absorb the next call.
+     */
+    public function leadCanReceiveCall(Lead $lead): bool
+    {
+        $this->hydrateUnknownCloseState(collect([$lead]));
+
+        if ($lead->lead_type === Lead::TYPE_INVALID) {
+            return false;
+        }
+
+        if ($lead->isNonResponsive()) {
+            return false;
+        }
+
+        if (in_array($lead->lead_type, [Lead::TYPE_UNKNOWN, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
+            return true;
+        }
+
+        if (! in_array($lead->lead_type, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
+            return false;
+        }
+
+        $history = LeadTypeHistory::query()
+            ->where('lead_id', $lead->id)
+            ->where('type', $lead->lead_type)
+            ->orderByDesc('created_at')
+            ->first();
+        $data = ($history && is_array($history->data)) ? $history->data : [];
+
+        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            $statusId = $data['customer_lead_status_id'] ?? null;
+            if (! $statusId) {
+                return true;
+            }
+            $status = CustomerLeadStatus::query()->find($statusId);
+
+            return strtolower((string) ($status?->base_type ?? 'pending')) !== 'cancel';
+        }
+
+        $statusId = $data['provider_lead_status_id'] ?? null;
+        if (! $statusId) {
+            return true;
+        }
+        $status = ProviderLeadStatus::query()->find($statusId);
+
+        return strtolower((string) ($status?->base_type ?? 'pending')) !== 'cancel';
+    }
+
+    /**
      * @param Collection<int, CustomerLeadStatus>|null $customerStatuses
      * @param Collection<int, ProviderLeadStatus>|null $providerStatuses
      */

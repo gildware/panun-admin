@@ -174,7 +174,19 @@
                     @php
                         $open = $card['open'];
                         $useOld = $open && old('work_date') === $card['date'] && is_array(old('rows'));
-                        $rows = $useOld ? old('rows') : ($card['rows'] ?: [[]]);
+                        $rows = $useOld ? old('rows') : ($card['rows'] ?? []);
+                        $rows = array_values(array_filter(is_array($rows) ? $rows : [], function ($row) {
+                            if (! is_array($row)) {
+                                return false;
+                            }
+
+                            return trim((string) ($row['ticket_id'] ?? '')) !== ''
+                                || trim((string) ($row['task'] ?? '')) !== ''
+                                || trim((string) ($row['from_time'] ?? '')) !== ''
+                                || trim((string) ($row['to_time'] ?? '')) !== ''
+                                || (float) ($row['hours'] ?? 0) > 0
+                                || trim((string) ($row['description'] ?? '')) !== '';
+                        }));
                         $rowHours = 0.0;
                         $taskCount = 0;
                         foreach ($rows as $row) {
@@ -576,15 +588,21 @@
         if (to) to.title = (start !== null && end !== null && end <= start) ? 'To time has to be later than from time.' : '';
     }
 
+    function rowIsBlank(row) {
+        var snap = rowSnapshot(row);
+        return !snap.ticket && !snap.description && !snap.from && !snap.to && (Number(snap.hours) || 0) <= 0;
+    }
+
     function dayTotals(day) {
         var count = 0;
         var hours = 0;
         day.querySelectorAll('.ts-row').forEach(function (row) {
             var task = row.querySelector('.ts-task-select');
+            if (!task || !task.value) return;
             var hourInput = row.querySelector('.ts-hours');
             var amount = hourInput ? Number(hourInput.value) || 0 : 0;
             hours += amount;
-            if (task && task.value && amount > 0) count += 1;
+            if (amount > 0) count += 1;
         });
         return { count: count, hours: hours };
     }
@@ -633,8 +651,7 @@
         var rows = day.querySelectorAll('.ts-row');
         if (!rows.length) return true;
         for (var i = 0; i < rows.length; i++) {
-            var snap = rowSnapshot(rows[i]);
-            if (snap.ticket || snap.description || snap.from || snap.to || (Number(snap.hours) || 0) > 0) return false;
+            if (!rowIsBlank(rows[i])) return false;
         }
         return true;
     }
@@ -1102,12 +1119,21 @@
         if (!form.classList || !form.classList.contains('ts-day') || form.getAttribute('data-open') !== '1') return;
         var submitter = event.submitter;
         if (submitter && submitter.name === 'intent' && submitter.value !== 'submit') return;
+        form.querySelectorAll('.ts-row').forEach(function (row) {
+            var skip = rowIsBlank(row);
+            row.querySelectorAll('input, select, textarea').forEach(function (field) {
+                if (skip) field.setAttribute('data-ts-skip', field.disabled ? 'was' : '1');
+                if (skip) field.disabled = true;
+            });
+        });
         if (dayCanSubmit(form)) return;
+        form.querySelectorAll('[data-ts-skip]').forEach(function (field) {
+            if (field.getAttribute('data-ts-skip') === '1') field.disabled = false;
+            field.removeAttribute('data-ts-skip');
+        });
         event.preventDefault();
-        var totals = dayTotals(form);
-        if (minHours > 0 && totals.hours + 0.001 < minHours && window.toastr) {
-            toastr.error('A day needs at least ' + String(minHours) + ' hours.');
-        }
+        var hint = submitHint(form);
+        if (hint && window.toastr) window.toastr.error(hint.replace(/\.$/, ''));
     });
 
     var revokeModal = document.getElementById('revokeLeaveModal');
@@ -1234,28 +1260,9 @@
             var row = remove.closest('.ts-row');
             var body = row && row.parentElement;
             if (!row || !body) return;
-            if (body.querySelectorAll('.ts-row').length < 2) {
-                var task = row.querySelector('.ts-task-select');
-                var hours = row.querySelector('.ts-hours');
-                var desc = row.querySelector('.ts-desc');
-                var code = row.querySelector('.ts-code');
-                var type = row.querySelector('.ts-type');
-                if (task) setTaskValue(task, '');
-            if (hours) hours.value = '';
-            var from = row.querySelector('.ts-from');
-            var to = row.querySelector('.ts-to');
-            var view = row.querySelector('.ts-hours-view');
-            if (from) from.value = '';
-            if (to) { to.value = ''; to.title = ''; }
-            if (view) view.value = '';
-            if (window.peopleTimePaint) window.peopleTimePaint(row);
-            if (desc) desc.value = '';
-                if (code) code.value = '';
-                if (type) type.value = '';
-                applyTask(row);
-            } else {
-                row.remove();
-            }
+            var task = row.querySelector('.ts-task-select');
+            if (task && window.jQuery && jQuery(task).data('select2')) jQuery(task).select2('destroy');
+            row.remove();
             applyFilters();
             return;
         }

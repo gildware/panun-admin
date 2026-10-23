@@ -379,7 +379,9 @@
                 relative_urls: false,
                 plugins: 'lists link autoresize',
                 toolbar: 'undo redo | blocks | bold italic underline | bullist numlist | link | removeformat',
-                content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 15px; line-height: 1.6; }',
+                extended_valid_elements: 'iframe[src|width|height|style|class|title|frameborder|allow|allowfullscreen|loading],embed[src|type|width|height|style|class],object[data|type|width|height|style|class]',
+                valid_children: '+body[iframe|embed|object]',
+                content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 15px; line-height: 1.6; } iframe, embed, object { width: 100%; min-height: 420px; border: 1px solid #e5e7eb; border-radius: 8px; }',
                 setup: function (editor) {
                     editor.on('change input undo redo', function () {
                         editor.save();

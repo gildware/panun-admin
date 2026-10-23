@@ -105,6 +105,19 @@ class SuperfoneCallWebhookTest extends TestCase
         $this->assertFalse(SuperfoneCallService::freshLeadForClosedMatch(false, false));
     }
 
+    public function test_an_open_booking_is_linked_instead_of_minting_an_unknown_lead(): void
+    {
+        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(false, true, 1));
+        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(true, true, 0));
+        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(false, true, 2));
+        $this->assertTrue(SuperfoneCallService::shouldMintUnknownLead(false, true, 0));
+
+        $booked = SuperfoneCallService::decideLink(false, true, true, 'OUTBOUND', 1);
+        $this->assertSame('lead', $booked['party']);
+        $this->assertSame('one', $booked['booking']);
+        $this->assertFalse($booked['needs_lead_link']);
+    }
+
     public function test_an_inbound_stranger_becomes_an_unknown_lead(): void
     {
         $decision = SuperfoneCallService::decideLink(false, false, false, 'INBOUND', 0);

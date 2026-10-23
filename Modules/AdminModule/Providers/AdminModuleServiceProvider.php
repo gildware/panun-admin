@@ -40,6 +40,7 @@ class AdminModuleServiceProvider extends ServiceProvider
                 \Modules\AdminModule\Console\WorkflowGateTestCommand::class,
                 \Modules\AdminModule\Console\AccruePeopleLeaveCommand::class,
                 \Modules\AdminModule\Console\BuildLeadQualificationCourseCommand::class,
+                \Modules\AdminModule\Console\BuildServiceProviderAgreementCourseCommand::class,
             ]);
         }
     }
