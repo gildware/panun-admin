@@ -1984,7 +1984,7 @@ if (!function_exists('collectCashTransaction')) {
             $account->received_balance += $collect_amount;
             $account->save();
 
-            Transaction::create([
+            $adminReceivedTxn = Transaction::create([
                 'ref_trx_id' => $primary_transaction['id'],
                 'booking_id' => null,
                 'trx_type' => TRX_TYPE['received_commission'],
@@ -2003,7 +2003,7 @@ if (!function_exists('collectCashTransaction')) {
             $account->account_receivable -= $collect_amount;
             $account->save();
 
-            Transaction::create([
+            $adminReceivableTxn = Transaction::create([
                 'ref_trx_id' => $primary_transaction['id'],
                 'booking_id' => null,
                 'trx_type' => TRX_TYPE['receivable_commission'],
@@ -2017,7 +2017,7 @@ if (!function_exists('collectCashTransaction')) {
             ]);
 
             if ($recordLedger) {
-                ledger_record_in([
+                $ledger = ledger_record_in([
                     'amount' => $collect_amount,
                     'transaction_id' => $transaction_id,
                     'booking_id' => null,
@@ -2028,6 +2028,10 @@ if (!function_exists('collectCashTransaction')) {
                     'reference_note' => $reference_note,
                     'created_by' => auth()->id(),
                 ]);
+                $settlementRef = provider_settlement_ledger_trx_reference((string) $ledger->id);
+                Transaction::query()
+                    ->whereIn('id', [$primary_transaction->id, $adminReceivedTxn->id, $adminReceivableTxn->id])
+                    ->update(['reference_note' => $settlementRef]);
             }
         });
     }
@@ -2304,16 +2308,18 @@ if (!function_exists('recordPaymentToProvider')) {
                 throw new \InvalidArgumentException('Insufficient amount or invalid provider account.');
             }
 
+            $receivableTopUp = 0.0;
+            $payableTopUp = 0.0;
             if ($allowBookingBackedReceivableTopUp) {
-                $shortfall = max(0.0, $amount - (float) $provider_account->account_receivable);
-                if ($shortfall > 0.009) {
-                    $provider_account->account_receivable += $shortfall;
+                $receivableTopUp = max(0.0, $amount - (float) $provider_account->account_receivable);
+                if ($receivableTopUp > 0.009) {
+                    $provider_account->account_receivable += $receivableTopUp;
                 }
-                $adminLift = max(0.0, $amount - (float) $admin_account->account_payable);
-                if ($adminLift > 0.009) {
-                    $admin_account->account_payable += $adminLift;
+                $payableTopUp = max(0.0, $amount - (float) $admin_account->account_payable);
+                if ($payableTopUp > 0.009) {
+                    $admin_account->account_payable += $payableTopUp;
                 }
-                if ($shortfall > 0.009 || $adminLift > 0.009) {
+                if ($receivableTopUp > 0.009 || $payableTopUp > 0.009) {
                     $provider_account->save();
                     $admin_account->save();
                 }
@@ -2327,7 +2333,7 @@ if (!function_exists('recordPaymentToProvider')) {
                 ? \Modules\BookingModule\Services\AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField($transaction_id)
                 : null;
             $note = trim((string) ($reference_note ?? ''));
-            ledger_record_out([
+            $ledger = ledger_record_out([
                 'amount' => $amount,
                 'transaction_id' => $ledgerTxn !== '' ? $ledgerTxn : null,
                 'booking_id' => null,
@@ -2337,6 +2343,7 @@ if (!function_exists('recordPaymentToProvider')) {
                 'reference_note' => $note !== '' ? $note : null,
                 'created_by' => auth()->id(),
             ]);
+            $trxRef = provider_settlement_ledger_trx_reference((string) $ledger->id, $receivableTopUp, $payableTopUp);
 
             $account = Account::where('user_id', $provider_user_id)->first();
             $account->account_receivable -= $amount;
@@ -2353,6 +2360,7 @@ if (!function_exists('recordPaymentToProvider')) {
                 'to_user_id' => $provider_user_id,
                 'from_user_account' => ACCOUNT_STATES[3]['value'],
                 'to_user_account' => null,
+                'reference_note' => $trxRef,
             ]);
 
             $account = Account::where('user_id', $provider_user_id)->first();
@@ -2370,6 +2378,7 @@ if (!function_exists('recordPaymentToProvider')) {
                 'to_user_id' => $admin_user_id,
                 'from_user_account' => ACCOUNT_STATES[4]['value'],
                 'to_user_account' => null,
+                'reference_note' => $trxRef,
             ]);
 
             $admin_account_row = Account::where('user_id', $admin_user_id)->first();
@@ -2388,6 +2397,7 @@ if (!function_exists('recordPaymentToProvider')) {
                 'to_user_id' => $admin_user_id,
                 'from_user_account' => null,
                 'to_user_account' => ACCOUNT_STATES[2]['value'],
+                'reference_note' => $trxRef,
             ]);
         });
 
@@ -2397,6 +2407,338 @@ if (!function_exists('recordPaymentToProvider')) {
         }
 
         send_provider_settlement_received_notification($resolvedProviderId, $amount);
+    }
+}
+
+if (!function_exists('provider_settlement_ledger_trx_reference')) {
+    /**
+     * Link account transactions back to a provider settlement ledger row.
+     * Optional r/p suffixes are the silent receivable/payable top-up applied before an advance payout.
+     */
+    function provider_settlement_ledger_trx_reference(string $ledgerId, float $receivableTopUp = 0.0, float $payableTopUp = 0.0): string
+    {
+        $ref = 'psl:'.$ledgerId;
+        if ($receivableTopUp > 0.009 || $payableTopUp > 0.009) {
+            $ref .= '|r:'.number_format(max(0, $receivableTopUp), 2, '.', '');
+            $ref .= '|p:'.number_format(max(0, $payableTopUp), 2, '.', '');
+        }
+
+        return $ref;
+    }
+}
+
+if (!function_exists('provider_settlement_ledger_topups_from_reference')) {
+    /**
+     * @return array{0: float, 1: float} receivable top-up, admin payable top-up
+     */
+    function provider_settlement_ledger_topups_from_reference(?string $reference): array
+    {
+        $receivable = 0.0;
+        $payable = 0.0;
+        $reference = (string) $reference;
+        if (preg_match('/\|r:([0-9]+(?:\.[0-9]+)?)/', $reference, $match)) {
+            $receivable = round((float) $match[1], 2);
+        }
+        if (preg_match('/\|p:([0-9]+(?:\.[0-9]+)?)/', $reference, $match)) {
+            $payable = round((float) $match[1], 2);
+        }
+
+        return [$receivable, $payable];
+    }
+}
+
+if (!function_exists('provider_settlement_ledger_is_withdrawal_payout')) {
+    function provider_settlement_ledger_is_withdrawal_payout(LedgerTransaction $ledger): bool
+    {
+        return str_starts_with(ltrim((string) ($ledger->reference_note ?? '')), 'Provider withdrawal');
+    }
+}
+
+if (!function_exists('provider_settlement_ledger_is_revertible')) {
+    /**
+     * Manual “add payment to provider” (OUT) and “collect from provider” (IN).
+     * Approved withdrawal payouts stay on the withdraw-request flow.
+     */
+    function provider_settlement_ledger_is_revertible(LedgerTransaction $ledger): bool
+    {
+        if ($ledger->provider_id === null || $ledger->booking_id !== null) {
+            return false;
+        }
+
+        if ($ledger->type === LedgerTransaction::TYPE_OUT) {
+            return $ledger->reason === LedgerTransaction::REASON_PROVIDER_PAYOUT
+                && ! provider_settlement_ledger_is_withdrawal_payout($ledger);
+        }
+
+        return $ledger->type === LedgerTransaction::TYPE_IN;
+    }
+}
+
+if (!function_exists('provider_settlement_legacy_primary_for_ledger')) {
+    /**
+     * Pair an older settlement ledger row (no psl: reference) with its account transactions.
+     */
+    function provider_settlement_legacy_primary_for_ledger(LedgerTransaction $ledger, string $providerUserId): ?Transaction
+    {
+        $amount = round((float) $ledger->amount, 2);
+        $isPayout = $ledger->type === LedgerTransaction::TYPE_OUT;
+
+        $ledgers = LedgerTransaction::query()
+            ->where('provider_id', $ledger->provider_id)
+            ->when($isPayout, function ($query) {
+                $query->where('type', LedgerTransaction::TYPE_OUT)
+                    ->where('reason', LedgerTransaction::REASON_PROVIDER_PAYOUT)
+                    ->whereNull('booking_id');
+            }, function ($query) {
+                $query->where('type', LedgerTransaction::TYPE_IN)
+                    ->whereNull('booking_id');
+            })
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->filter(function (LedgerTransaction $row) use ($amount, $isPayout) {
+                if (abs(round((float) $row->amount, 2) - $amount) > 0.001) {
+                    return false;
+                }
+                if ($isPayout && provider_settlement_ledger_is_withdrawal_payout($row)) {
+                    return false;
+                }
+                if (! provider_settlement_ledger_is_revertible($row)) {
+                    return false;
+                }
+
+                return ! Transaction::query()->where('reference_note', 'like', 'psl:'.$row->id.'%')->exists();
+            })
+            ->values();
+
+        if ($ledgers->isEmpty()) {
+            return null;
+        }
+
+        $trxType = $isPayout ? TRX_TYPE['withdrawable_amount'] : TRX_TYPE['paid_commission'];
+        $fromAccount = $isPayout ? ACCOUNT_STATES[3]['value'] : ACCOUNT_STATES[2]['value'];
+
+        $primaries = Transaction::query()
+            ->whereNull('booking_id')
+            ->whereNull('ref_trx_id')
+            ->where('trx_type', $trxType)
+            ->where('from_user_id', $providerUserId)
+            ->where('from_user_account', $fromAccount)
+            ->whereRaw('ROUND(debit, 2) = ?', [number_format($amount, 2, '.', '')])
+            ->where(function ($query) {
+                $query->whereNull('reference_note')
+                    ->orWhere('reference_note', '')
+                    ->orWhere('reference_note', 'not like', 'psl:%');
+            })
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->filter(function (Transaction $tx) use ($isPayout) {
+                $children = Transaction::query()->where('ref_trx_id', $tx->id)->get();
+                if ($isPayout) {
+                    $hasWithdrawn = $children->contains(fn ($child) => $child->trx_type === TRX_TYPE['received_amount']
+                        && (string) $child->from_user_account === ACCOUNT_STATES[4]['value']);
+                    $hasPayable = $children->contains(fn ($child) => $child->trx_type === TRX_TYPE['paid_amount']
+                        && (string) $child->to_user_account === ACCOUNT_STATES[2]['value']);
+
+                    return $hasWithdrawn && $hasPayable;
+                }
+
+                $hasReceived = $children->contains(fn ($child) => $child->trx_type === TRX_TYPE['received_commission']
+                    && (string) $child->to_user_account === ACCOUNT_STATES[1]['value']);
+                $hasReceivable = $children->contains(fn ($child) => $child->trx_type === TRX_TYPE['receivable_commission']
+                    && (string) $child->from_user_account === ACCOUNT_STATES[3]['value']);
+
+                return $hasReceived && $hasReceivable;
+            })
+            ->values();
+
+        $pairs = [];
+        foreach ($ledgers as $row) {
+            foreach ($primaries as $tx) {
+                if (! $row->created_at || ! $tx->created_at) {
+                    continue;
+                }
+                $delta = abs($row->created_at->getTimestamp() - $tx->created_at->getTimestamp());
+                if ($delta <= 15) {
+                    $pairs[] = ['delta' => $delta, 'ledger_id' => (string) $row->id, 'tx' => $tx];
+                }
+            }
+        }
+        usort($pairs, function (array $a, array $b) {
+            return $a['delta'] <=> $b['delta'] ?: strcmp($a['ledger_id'], $b['ledger_id']);
+        });
+
+        $usedLedgers = [];
+        $usedTx = [];
+        $match = null;
+        foreach ($pairs as $pair) {
+            if (isset($usedLedgers[$pair['ledger_id']]) || isset($usedTx[$pair['tx']->id])) {
+                continue;
+            }
+            $usedLedgers[$pair['ledger_id']] = true;
+            $usedTx[$pair['tx']->id] = true;
+            if ($pair['ledger_id'] === (string) $ledger->id) {
+                $match = $pair['tx'];
+            }
+        }
+
+        return $match;
+    }
+}
+
+if (!function_exists('provider_settlement_transactions_for_ledger')) {
+    function provider_settlement_transactions_for_ledger(LedgerTransaction $ledger, string $providerUserId): \Illuminate\Support\Collection
+    {
+        $linked = Transaction::query()
+            ->where('reference_note', 'like', 'psl:'.$ledger->id.'%')
+            ->lockForUpdate()
+            ->get();
+        if ($linked->isNotEmpty()) {
+            return $linked->unique('id')->values();
+        }
+
+        $primary = provider_settlement_legacy_primary_for_ledger($ledger, $providerUserId);
+        if (! $primary) {
+            return collect();
+        }
+
+        $children = Transaction::query()->where('ref_trx_id', $primary->id)->lockForUpdate()->get();
+
+        return collect([$primary])->merge($children)->unique('id')->values();
+    }
+}
+
+if (!function_exists('provider_settlement_reverse_account_deltas')) {
+    /**
+     * Inverse of the account movements encoded on the given transactions.
+     *
+     * @param  \Illuminate\Support\Collection<int, Transaction>  $transactions
+     */
+    function provider_settlement_reverse_account_deltas(\Illuminate\Support\Collection $transactions): void
+    {
+        $accountDeltas = [];
+        foreach ($transactions as $tx) {
+            if ($tx->to_user_id && $tx->to_user_account && (float) $tx->credit > 0) {
+                $accountDeltas[$tx->to_user_id][$tx->to_user_account] = ($accountDeltas[$tx->to_user_id][$tx->to_user_account] ?? 0) - (float) $tx->credit;
+            }
+            if ($tx->from_user_id && $tx->from_user_account && (float) $tx->credit > 0 && empty($tx->to_user_account)) {
+                $accountDeltas[$tx->from_user_id][$tx->from_user_account] = ($accountDeltas[$tx->from_user_id][$tx->from_user_account] ?? 0) - (float) $tx->credit;
+            }
+            if ($tx->from_user_id && $tx->from_user_account && (float) $tx->debit > 0) {
+                $accountDeltas[$tx->from_user_id][$tx->from_user_account] = ($accountDeltas[$tx->from_user_id][$tx->from_user_account] ?? 0) + (float) $tx->debit;
+            }
+            if ($tx->to_user_id && $tx->to_user_account && (float) $tx->debit > 0 && empty($tx->from_user_account)) {
+                $accountDeltas[$tx->to_user_id][$tx->to_user_account] = ($accountDeltas[$tx->to_user_id][$tx->to_user_account] ?? 0) + (float) $tx->debit;
+            }
+        }
+
+        $allowed = ['balance_pending', 'received_balance', 'account_payable', 'account_receivable', 'total_withdrawn'];
+        foreach ($accountDeltas as $userId => $deltas) {
+            $account = Account::where('user_id', $userId)->lockForUpdate()->first();
+            if (! $account) {
+                throw new \RuntimeException('provider_settlement_not_revertible');
+            }
+            foreach ($deltas as $accountKey => $delta) {
+                if (! in_array($accountKey, $allowed, true)) {
+                    continue;
+                }
+                $next = round((float) ($account->$accountKey ?? 0) + (float) $delta, 2);
+                if ($next < -0.001) {
+                    throw new \RuntimeException(
+                        $accountKey === 'total_withdrawn'
+                            ? 'provider_settlement_withdrawn_short'
+                            : ($accountKey === 'received_balance'
+                                ? 'provider_settlement_received_short'
+                                : 'provider_settlement_not_revertible')
+                    );
+                }
+                $account->$accountKey = max(0, $next);
+            }
+            $account->save();
+        }
+    }
+}
+
+if (!function_exists('revertProviderSettlementLedger')) {
+    /**
+     * Remove one manual provider settlement (payout to provider or collection from provider)
+     * and reverse the account balances it moved.
+     *
+     * @throws \RuntimeException provider_settlement_not_found|provider_settlement_not_revertible|provider_settlement_transactions_missing|provider_settlement_withdrawn_short|provider_settlement_received_short
+     */
+    function revertProviderSettlementLedger(string $providerId, string $ledgerId): void
+    {
+        $ledgerId = trim($ledgerId);
+        if ($ledgerId === '') {
+            throw new \RuntimeException('provider_settlement_not_found');
+        }
+
+        $providerUserId = Provider::where('id', $providerId)->value('user_id');
+        if (! $providerUserId) {
+            throw new \RuntimeException('provider_settlement_not_found');
+        }
+
+        Account::$deferCashLimitSuspension = true;
+        try {
+            DB::transaction(function () use ($providerId, $ledgerId, $providerUserId) {
+            $ledger = LedgerTransaction::query()
+                ->where('provider_id', $providerId)
+                ->whereKey($ledgerId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $ledger) {
+                throw new \RuntimeException('provider_settlement_already_reverted');
+            }
+            if (! provider_settlement_ledger_is_revertible($ledger)) {
+                throw new \RuntimeException('provider_settlement_not_revertible');
+            }
+
+            $transactions = provider_settlement_transactions_for_ledger($ledger, (string) $providerUserId);
+            if ($transactions->count() < 3) {
+                throw new \RuntimeException('provider_settlement_transactions_missing');
+            }
+
+            provider_settlement_reverse_account_deltas($transactions);
+
+            $topUpReference = '';
+            foreach ($transactions as $tx) {
+                $note = (string) ($tx->reference_note ?? '');
+                if (str_contains($note, '|r:') || str_contains($note, '|p:')) {
+                    $topUpReference = $note;
+                    break;
+                }
+            }
+            [$receivableTopUp, $payableTopUp] = provider_settlement_ledger_topups_from_reference($topUpReference);
+            if ($receivableTopUp > 0.009 || $payableTopUp > 0.009) {
+                $providerAccount = Account::where('user_id', $providerUserId)->lockForUpdate()->first();
+                $adminUserId = User::where('user_type', ADMIN_USER_TYPES[0])->value('id');
+                $adminAccount = $adminUserId ? Account::where('user_id', $adminUserId)->lockForUpdate()->first() : null;
+                if (! $providerAccount || ! $adminAccount) {
+                    throw new \RuntimeException('provider_settlement_not_revertible');
+                }
+                $providerAccount->account_receivable = round((float) $providerAccount->account_receivable - $receivableTopUp, 2);
+                $adminAccount->account_payable = round((float) $adminAccount->account_payable - $payableTopUp, 2);
+                if ((float) $providerAccount->account_receivable < -0.001 || (float) $adminAccount->account_payable < -0.001) {
+                    throw new \RuntimeException('provider_settlement_not_revertible');
+                }
+                $providerAccount->account_receivable = max(0, (float) $providerAccount->account_receivable);
+                $adminAccount->account_payable = max(0, (float) $adminAccount->account_payable);
+                $providerAccount->save();
+                $adminAccount->save();
+            }
+
+            Transaction::query()->whereIn('id', $transactions->pluck('id'))->delete();
+            $ledger->delete();
+            });
+        } finally {
+            Account::$deferCashLimitSuspension = false;
+        }
+
+        provider_apply_cash_limit_suspension_for_provider($providerId, sendNotifications: false);
     }
 }
 

@@ -35,6 +35,11 @@
                     'active' => request()->routeIs('admin.calls.index', 'admin.calls.show'),
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.calls.report'),
+                    'label' => translate('Call_report'),
+                    'active' => request()->routeIs('admin.calls.report'),
+                ])
+                @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.calls.api-logs'),
                     'label' => translate('API_logs'),
                     'active' => request()->is('admin/calls/api-logs*'),

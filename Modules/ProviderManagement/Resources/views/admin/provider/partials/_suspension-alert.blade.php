@@ -1,6 +1,11 @@
 @php
     use Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement;
 
+    if ($provider && (int) ($provider->is_suspended ?? 0) === 1) {
+        provider_apply_cash_limit_suspension_for_provider($provider, sendNotifications: false);
+        $provider->refresh();
+    }
+
     $suspensionItems = $provider
         ? (ProviderManualPerformanceEnforcement::summarize($provider)['items'] ?? [])
         : [];

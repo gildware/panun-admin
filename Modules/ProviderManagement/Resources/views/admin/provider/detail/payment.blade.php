@@ -419,6 +419,9 @@
                     </div>
 
                     @if($paymentSubActive === 'ledger')
+                    @php
+                        $canRevertProviderSettlement = \Illuminate\Support\Facades\Gate::check('provider_update');
+                    @endphp
                     {{-- 1. Provider Ledger: company sent to provider / company received from provider --}}
                     <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap mb-3">
                         <h4 class="mb-0">{{ translate('Provider_Ledger') }}</h4>
@@ -439,6 +442,9 @@
                                     <th>{{ translate('Transaction_ID') }}</th>
                                     <th>{{ translate('Reference') }}</th>
                                     <th>{{ translate('Entry_by') }}</th>
+                                    @if($canRevertProviderSettlement)
+                                        <th>{{ translate('Action') }}</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody>
@@ -470,10 +476,27 @@
                                             @endif
                                         </td>
                                         <td>{{ $entry->resolvedEntryByLabel() }}</td>
+                                        @if($canRevertProviderSettlement)
+                                            <td class="text-nowrap">
+                                                @if(provider_settlement_ledger_is_revertible($entry))
+                                                    <button type="button"
+                                                            class="btn btn-outline-danger btn-sm text-capitalize"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#revertProviderSettlementModal"
+                                                            data-ledger-id="{{ $entry->id }}"
+                                                            data-kind="{{ $entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT ? 'payout' : 'collect' }}"
+                                                            data-amount-line="{{ with_currency_symbol($entry->amount) }}">
+                                                        {{ translate('Revert_provider_settlement') }}
+                                                    </button>
+                                                @else
+                                                    —
+                                                @endif
+                                            </td>
+                                        @endif
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="text-center text-muted py-4">{{ translate('No_ledger_entries') }}</td>
+                                        <td colspan="{{ $canRevertProviderSettlement ? 10 : 9 }}" class="text-center text-muted py-4">{{ translate('No_ledger_entries') }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -900,6 +923,67 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="modal fade" id="revertProviderSettlementModal" tabindex="-1" aria-labelledby="revertProviderSettlementModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content border-0 shadow">
+                                    <div class="modal-header border-bottom-0 pb-0">
+                                        <h5 class="modal-title d-flex align-items-center gap-2 text-danger fz-16 mb-0" id="revertProviderSettlementModalLabel">
+                                            <span class="material-symbols-outlined" aria-hidden="true">undo</span>
+                                            {{ translate('Revert_provider_settlement') }}
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                    </div>
+                                    <div class="modal-body pt-2">
+                                        <div class="alert alert-warning mb-3 fz-12" role="alert" id="revertProviderSettlementConfirmPayout">
+                                            {{ translate('Revert_provider_settlement_confirm_payout') }}
+                                        </div>
+                                        <div class="alert alert-warning mb-3 fz-12 d-none" role="alert" id="revertProviderSettlementConfirmCollect">
+                                            {{ translate('Revert_provider_settlement_confirm_collect') }}
+                                        </div>
+                                        <p class="text-muted fz-12 mb-0 fw-medium" id="revertProviderSettlementSummary"></p>
+                                    </div>
+                                    <div class="modal-footer border-top-0 pt-0">
+                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                        <form method="post" action="{{ route('admin.provider.details.revert_settlement_payment', $provider->id) }}" class="d-inline" id="revertProviderSettlementForm">
+                                            @csrf
+                                            <input type="hidden" name="ledger_id" id="revertProviderSettlementLedgerId" value="">
+                                            <button type="submit" class="btn btn-danger">{{ translate('Revert_provider_settlement') }}</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <script>
+                            (function () {
+                                var confirmEl = document.getElementById('revertProviderSettlementModal');
+                                if (!confirmEl) return;
+                                confirmEl.addEventListener('show.bs.modal', function (event) {
+                                    var trigger = event.relatedTarget;
+                                    var idField = document.getElementById('revertProviderSettlementLedgerId');
+                                    var summary = document.getElementById('revertProviderSettlementSummary');
+                                    var payoutNote = document.getElementById('revertProviderSettlementConfirmPayout');
+                                    var collectNote = document.getElementById('revertProviderSettlementConfirmCollect');
+                                    if (!trigger || !idField) return;
+                                    var kind = trigger.getAttribute('data-kind') || 'payout';
+                                    idField.value = trigger.getAttribute('data-ledger-id') || '';
+                                    if (summary) summary.textContent = trigger.getAttribute('data-amount-line') || '';
+                                    if (payoutNote) payoutNote.classList.toggle('d-none', kind !== 'payout');
+                                    if (collectNote) collectNote.classList.toggle('d-none', kind !== 'collect');
+                                });
+                                var form = document.getElementById('revertProviderSettlementForm');
+                                if (form) {
+                                    form.addEventListener('submit', function () {
+                                        var btn = form.querySelector('button[type="submit"]');
+                                        if (btn) {
+                                            if (btn.disabled) return false;
+                                            btn.disabled = true;
+                                        }
+                                        return true;
+                                    });
+                                }
+                            })();
+                        </script>
 
                         <div class="modal fade" id="providerPaymentReminderWaModal" tabindex="-1" aria-labelledby="providerPaymentReminderWaModalLabel" aria-hidden="true"
                              data-preview-url="{{ route('admin.provider.details.whatsapp.provider_payment_reminder.preview', $provider->id) }}">

@@ -149,6 +149,12 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                 </a>
                             </li>
                             <li>
+                                <a href="{{ route('admin.calls.report') }}"
+                                   class="{{ request()->routeIs('admin.calls.report') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('Call_report') }}</span>
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ route('admin.calls.api-logs') }}"
                                    class="{{ request()->is('admin/calls/api-logs*') ? 'active-menu' : '' }}">
                                     <span class="link-title">{{ translate('API_logs') }}</span>

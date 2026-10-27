@@ -17,7 +17,9 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\SuperfoneCall;
 use Modules\LeadManagement\Entities\SuperfoneCallContact;
+use Modules\LeadManagement\Services\SuperfoneCallReport;
 use Modules\LeadManagement\Services\SuperfoneCallService;
+use Modules\LeadManagement\Services\SuperfoneLeadCharts;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SuperfoneCallController extends Controller
@@ -26,7 +28,7 @@ class SuperfoneCallController extends Controller
     {
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $sortable = [
             'started_at' => 'superfone_calls.started_at',
@@ -129,7 +131,9 @@ class SuperfoneCallController extends Controller
         }
         $query->orderByDesc('superfone_calls.id');
 
-        $calls = $query->paginate(25)->withQueryString();
+        $rowsOnly = $request->boolean('rows');
+        $page = $rowsOnly ? max(1, (int) $request->query('page', 1)) : 1;
+        $calls = $query->paginate(20, ['*'], 'page', $page)->withQueryString();
         $awaitingCallbackIds = SuperfoneCall::query()
             ->awaitingCallback()
             ->whereIn('superfone_calls.id', $calls->getCollection()->pluck('id'))
@@ -137,12 +141,14 @@ class SuperfoneCallController extends Controller
             ->flip()
             ->all();
         $contactMarks = SuperfoneCallContact::marksForCalls($calls->getCollection());
-        $agents = SuperfoneCall::query()
-            ->whereNotNull('staff_name')
-            ->where('staff_name', '!=', '')
-            ->distinct()
-            ->orderBy('staff_name')
-            ->pluck('staff_name');
+        $agents = $rowsOnly
+            ? collect()
+            : SuperfoneCall::query()
+                ->whereNotNull('staff_name')
+                ->where('staff_name', '!=', '')
+                ->distinct()
+                ->orderBy('staff_name')
+                ->pluck('staff_name');
 
         $bookingChoices = [];
         foreach ($calls as $call) {
@@ -155,14 +161,33 @@ class SuperfoneCallController extends Controller
             }
         }
 
-        return view('leadmanagement::admin.calls.index', [
+        $rowData = [
             'calls' => $calls,
             'awaitingCallbackIds' => $awaitingCallbackIds,
             'contactMarks' => $contactMarks,
+            'bookingChoices' => $bookingChoices,
+            'rowsOnly' => $rowsOnly,
+        ];
+
+        if ($rowsOnly) {
+            return response()->json([
+                'html' => view('leadmanagement::admin.calls._rows', $rowData)->render(),
+                'has_more' => $calls->hasMorePages(),
+                'next_page' => $calls->currentPage() + 1,
+            ]);
+        }
+
+        return view('leadmanagement::admin.calls.index', $rowData + [
             'agents' => $agents,
             'sort' => $sort,
             'dir' => $direction,
-            'bookingChoices' => $bookingChoices,
+        ]);
+    }
+
+    public function report(Request $request, SuperfoneCallReport $report, SuperfoneLeadCharts $leadCharts): View
+    {
+        return view('leadmanagement::admin.calls.report', $report->build() + [
+            'leadCharts' => $leadCharts->build($request),
         ]);
     }
 

@@ -99,6 +99,9 @@
         if (localStorage.getItem('admin_top_chrome_mode') === 'auto-hide') {
             document.body.classList.add('top-chrome-auto-hide');
         }
+        if (localStorage.getItem('admin_top_chrome_hidden') === '1') {
+            document.body.classList.add('top-chrome-hidden');
+        }
     })();
 </script>
 
@@ -150,7 +153,7 @@
         @yield('content')
     @endif
 
-    @unless(request()->routeIs('admin.lead.reports.inbound.export'))
+    @unless(request()->routeIs('admin.lead.reports.inbound.export', 'admin.calls.index'))
         @include('adminmodule::layouts.partials._footer')
     @endunless
 

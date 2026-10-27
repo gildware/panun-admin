@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <style>
-        .calls-filter-bar { display: flex; align-items: flex-end; flex-wrap: nowrap; gap: 0.4rem; width: 100%; margin-bottom: 0.65rem; }
+        .calls-filter-bar { display: flex; align-items: flex-end; flex-wrap: nowrap; gap: 0.4rem; width: 100%; margin-bottom: 0; }
         .calls-filter-field { display: flex; flex-direction: column; gap: 0.15rem; flex: 1 1 0; width: 0; min-width: 0; }
         .calls-filter-field--search { flex: 1.6 1 0; }
         .calls-filter-field--range { flex: 1.8 1 0; }
@@ -21,9 +21,10 @@
         .calls-sort-btn.is-active { border-color: #111827; color: #111827; }
         .calls-sort .dropdown-item { font-size: 0.8rem; }
         .calls-sort .dropdown-item.active { font-weight: 700; background: #f3f5f8; color: #111827; }
-        .calls-list-card .card-body { padding: 0.5rem 0.75rem 0.75rem; }
+        .calls-filter-card .card-body { padding: 0.65rem 0.75rem; }
+        .calls-list-card .card-body { padding: 0; }
         .calls-list-card { overflow: hidden; }
-        .calls-list-scroll { max-height: calc(100vh - 22rem); overflow-x: auto; overflow-y: auto; }
+        .calls-list-scroll { max-height: calc(100dvh - 16.5rem); overflow-x: auto; overflow-y: auto; }
         .calls-list-table thead th { position: sticky; top: 0; z-index: 2; background: #fff; box-shadow: inset 0 -1px 0 #e5e7eb; }
         .calls-list-table { width: 100%; min-width: 1440px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
         .calls-list-table td.calls-call-id-cell { overflow: visible; text-overflow: clip; text-align: center; }
@@ -71,7 +72,10 @@
         .booking-chip:hover { border-color: #cbd5e1; }
         .calls-list-table thead th { font-size: 0.75rem; font-weight: 600; }
         .calls-list-table .material-icons { font-size: 16px; line-height: 1; vertical-align: middle; }
-        .calls-list-card .pagination { margin-bottom: 0; }
+        .calls-scroll-sentinel { display: flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 36px; color: #6b7280; font-size: 0.75rem; }
+        .calls-scroll-sentinel[hidden] { display: none; }
+        .calls-scroll-sentinel__spin { width: 14px; height: 14px; border: 2px solid #d1d5db; border-top-color: #4b5563; border-radius: 50%; animation: calls-scroll-spin 0.7s linear infinite; }
+        @keyframes calls-scroll-spin { to { transform: rotate(360deg); } }
         .call-pill {
             display: inline-flex;
             align-items: center;
@@ -174,11 +178,7 @@
 
     <div class="main-content">
         <div class="container-fluid">
-            <div class="page-title-wrap mb-2">
-                <h2 class="page-title mb-0">{{ translate('Calls') }}</h2>
-            </div>
-
-            <div class="card calls-list-card">
+            <div class="card calls-filter-card mb-3">
                 <div class="card-body">
             <form method="get" action="{{ route('admin.calls.index') }}" class="calls-filter-bar" id="calls-filter-form">
                 @if($directionReset)
@@ -303,7 +303,12 @@
                     </ul>
                 </div>
             </form>
-                <div class="calls-list-scroll">
+                </div>
+            </div>
+
+            <div class="card calls-list-card">
+                <div class="card-body">
+                <div class="calls-list-scroll" id="calls-list-scroll" data-has-more="{{ $calls->hasMorePages() ? '1' : '0' }}" data-next-page="2">
                     <table class="table table-striped table-hover table-sm align-middle mb-0 calls-list-table">
                         <colgroup>
                             <col style="width: 11%">
@@ -343,199 +348,21 @@
                             <th class="calls-actions-cell">{{ translate('Actions') }}</th>
                         </tr>
                         </thead>
-                        <tbody>
-                        @forelse($calls as $call)
-                            @php
-                                $contactMark = $contactMarks[$call->id] ?? null;
-                                $needsCallback = isset($awaitingCallbackIds[$call->id]) && $contactMark === null;
-                            @endphp
-                            <tr @class([
-                                'calls-row--needs-callback' => $needsCallback,
-                                'calls-row--contacted' => $contactMark && $contactMark->channel !== 'not_picked',
-                                'calls-row--not-picked' => $contactMark && $contactMark->channel === 'not_picked',
-                            ]) @if($needsCallback) title="{{ translate('Needs_callback') }}" @elseif($contactMark) title="{{ $contactMark->channelLabel() }}" @endif>
-                                <td>
-                                    <a href="{{ route('admin.calls.show', $call) }}">
-                                        {{ $call->formatIst('started_at') }}
-                                    </a>
-                                </td>
-                                <td class="calls-call-id-cell">
-                                    @if($call->cdr_uuid)
-                                        <button type="button"
-                                                class="btn btn-outline-secondary calls-copy-id"
-                                                data-call-id="{{ $call->cdr_uuid }}"
-                                                data-bs-toggle="tooltip"
-                                                data-bs-placement="top"
-                                                data-bs-title="{{ translate('Copy_call_id') }}"
-                                                title="{{ translate('Copy_call_id') }}"
-                                                aria-label="{{ translate('Copy_call_id') }}">
-                                            <span class="material-icons" aria-hidden="true">content_copy</span>
-                                        </button>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    @if($call->direction === 'INBOUND')
-                                        <span class="call-pill call-pill--in">
-                                            <span class="material-icons">call_received</span>
-                                            {{ translate('Inbound') }}
-                                        </span>
-                                    @elseif($call->direction === 'OUTBOUND')
-                                        <span class="call-pill call-pill--out">
-                                            <span class="material-icons">call_made</span>
-                                            {{ translate('Outbound') }}
-                                        </span>
-                                    @else
-                                        {{ $call->directionLabel() }}
-                                    @endif
-                                </td>
-                                <td title="{{ $call->customer_phone }}">{{ $call->customer_phone ?: '—' }}</td>
-                                <td title="{{ $call->staff_name }}">{{ $call->staff_name ?: '—' }}</td>
-                                <td class="calls-result-cell">
-                                    @php
-                                        $outcome = $call->outcome ?: 'unknown';
-                                        if ($outcome === 'missed' && $call->direction === 'OUTBOUND') {
-                                            $outcome = 'unanswered';
-                                        }
-                                        $outcomeIcon = match ($outcome) {
-                                            'answered' => 'call',
-                                            'missed' => 'phone_missed',
-                                            'unanswered' => 'call_end',
-                                            'other' => 'phone_disabled',
-                                            default => 'help_outline',
-                                        };
-                                        $outcomeClass = match ($outcome) {
-                                            'answered' => 'call-pill--answered',
-                                            'missed' => 'call-pill--missed',
-                                            'unanswered' => 'call-pill--unanswered',
-                                            'other' => 'call-pill--other',
-                                            default => 'call-pill--unknown',
-                                        };
-                                    @endphp
-                                    <span class="calls-result-pills">
-                                        <span class="call-pill {{ $outcomeClass }}">
-                                            <span class="material-icons">{{ $outcomeIcon }}</span>
-                                            {{ $call->outcomeLabel() }}
-                                        </span>
-                                        @if($needsCallback)
-                                            <span class="call-pill call-pill--needs-callback">
-                                                <span class="material-icons">phone_callback</span>
-                                                {{ translate('Needs_callback') }}
-                                            </span>
-                                        @elseif($contactMark)
-                                            <span class="call-pill call-pill--contact-{{ $contactMark->channel }}">
-                                                <span class="material-icons">{{ $contactMark->channelIcon() }}</span>
-                                                {{ $contactMark->channelLabel() }}
-                                            </span>
-                                        @endif
-                                    </span>
-                                </td>
-                                <td>{{ $call->durationLabel() }}</td>
-                                <td>
-                                    @if($call->hasRecording())
-                                        <button type="button"
-                                                class="call-pill call-pill--rec calls-play-recording"
-                                                title="{{ translate('Play_recording') }}"
-                                                data-recording-url="{{ route('admin.calls.recording', $call) }}"
-                                                data-recording-title="{{ $call->customer_phone ?: translate('Recording') }}">
-                                            <span class="material-icons">mic</span>
-                                        </button>
-                                    @elseif($call->summary_text)
-                                        <span class="call-pill call-pill--note" title="{{ translate('Summary') }}">
-                                            <span class="material-icons">notes</span>
-                                        </span>
-                                    @else
-                                        —
-                                    @endif
-                                </td>
-                                <td>
-                                    @php
-                                        $partyProvider = trim((string) ($call->provider->company_name ?? $call->provider->contact_person_name ?? ''));
-                                        $partyCustomer = trim((string) (($call->customer->first_name ?? '').' '.($call->customer->last_name ?? '')));
-                                    @endphp
-                                    @if($call->provider)
-                                        <span class="party-pill party-pill--provider" title="{{ $partyProvider }}">{{ translate('Provider') }}{{ $partyProvider !== '' ? ' · '.$partyProvider : '' }}</span>
-                                    @elseif($call->customer)
-                                        <span class="party-pill party-pill--customer" title="{{ $partyCustomer }}">{{ translate('Customer') }}{{ $partyCustomer !== '' ? ' · '.$partyCustomer : '' }}</span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-                                <td class="calls-lead-cell">
-                                    @include('leadmanagement::admin.calls._lead_cell', [
-                                        'call' => $call,
-                                        'openBookings' => $bookingChoices[$call->id] ?? collect(),
-                                    ])
-                                </td>
-                                <td class="calls-booking-cell">
-                                    @if($call->booking)
-                                        @php $bookingStatus = (string) ($call->booking->booking_status ?: 'pending'); @endphp
-                                        <a class="booking-chip booking-chip--{{ $bookingStatus }}" href="{{ route('admin.booking.details', [$call->booking_id, 'web_page' => 'details']) }}">
-                                            <span class="booking-chip__id">{{ $call->booking->readable_id ?: translate('Booking') }}</span>
-                                            <span class="booking-chip__status">{{ translate(ucfirst(str_replace('_', ' ', $bookingStatus))) }}</span>
-                                        </a>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-                                <td class="calls-actions-cell">
-                                    <div class="calls-actions-stack">
-                                    @if($needsCallback)
-                                        <button type="button"
-                                                class="btn btn-outline-danger calls-contact-btn"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#call-contact-modal"
-                                                data-contact-action="{{ route('admin.calls.contact', $call) }}"
-                                                data-contact-phone="{{ $call->customer_phone }}">
-                                            {{ translate('Mark_contacted') }}
-                                        </button>
-                                    @endif
-                                    @if(!$call->lead && !$call->booking)
-                                        @php
-                                            $linkProvider = trim((string) ($call->provider->company_name ?? $call->provider->contact_person_name ?? ''));
-                                            $linkCustomer = trim((string) (($call->customer->first_name ?? '').' '.($call->customer->last_name ?? '')));
-                                            if ($call->provider) {
-                                                $linkParty = 'provider';
-                                                $linkPartyName = $linkProvider !== '' ? $linkProvider : translate('Provider');
-                                            } elseif ($call->customer) {
-                                                $linkParty = 'customer';
-                                                $linkPartyName = $linkCustomer !== '' ? $linkCustomer : translate('Customer');
-                                            } else {
-                                                $linkParty = 'none';
-                                                $linkPartyName = '';
-                                            }
-                                        @endphp
-                                        <button type="button"
-                                                class="btn btn--primary calls-link-lead-btn"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#call-link-lead-modal"
-                                                data-phone="{{ $call->customer_phone }}"
-                                                data-party="{{ $linkParty }}"
-                                                data-party-name="{{ $linkPartyName }}"
-                                                data-options-url="{{ route('admin.calls.link-options', $call) }}"
-                                                data-lead-action="{{ route('admin.calls.link', $call) }}"
-                                                data-booking-action="{{ route('admin.calls.booking', $call) }}">
-                                            {{ translate('Link_call') }}
-                                        </button>
-                                    @else
-                                        <form method="post" action="{{ route('admin.calls.unmatch', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Unmatch_this_call')));">
-                                            @csrf
-                                            <button type="submit" class="btn btn--danger calls-unmatch-btn">{{ translate('Unmatch') }}</button>
-                                        </form>
-                                    @endif
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
+                        <tbody id="calls-list-body">
+                        @if($calls->isEmpty())
                             <tr>
                                 <td colspan="12" class="text-center text-muted py-3">{{ translate('No_calls_yet') }}</td>
                             </tr>
-                        @endforelse
+                        @else
+                            @include('leadmanagement::admin.calls._rows')
+                        @endif
                         </tbody>
                     </table>
+                    <div id="calls-scroll-sentinel" class="calls-scroll-sentinel" hidden>
+                        <span class="calls-scroll-sentinel__spin" aria-hidden="true"></span>
+                        <span>{{ translate('Loading') }}…</span>
+                    </div>
                 </div>
-                    <div class="mt-2">{{ $calls->links() }}</div>
                 </div>
             </div>
         </div>
@@ -717,19 +544,19 @@
             var title = document.getElementById('call-recording-title');
             if (!modalEl || !audio || !window.bootstrap) return;
 
-            document.querySelectorAll('.calls-play-recording').forEach(function (button) {
-                button.addEventListener('click', function () {
-                    if (error) error.classList.add('d-none');
-                    if (title) title.textContent = button.getAttribute('data-recording-title') || '';
-                    audio.src = button.getAttribute('data-recording-url') || '';
-                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
-                    var play = audio.play();
-                    if (play && typeof play.catch === 'function') {
-                        play.catch(function () {
-                            if (error) error.classList.remove('d-none');
-                        });
-                    }
-                });
+            document.addEventListener('click', function (event) {
+                var button = event.target.closest('.calls-play-recording');
+                if (!button) return;
+                if (error) error.classList.add('d-none');
+                if (title) title.textContent = button.getAttribute('data-recording-title') || '';
+                audio.src = button.getAttribute('data-recording-url') || '';
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                var play = audio.play();
+                if (play && typeof play.catch === 'function') {
+                    play.catch(function () {
+                        if (error) error.classList.remove('d-none');
+                    });
+                }
             });
 
             audio.addEventListener('error', function () {
@@ -755,40 +582,113 @@
                     tip.setContent({ '.tooltip-inner': text });
                 }
             };
-            document.querySelectorAll('.calls-copy-id').forEach(function (button) {
-                button.addEventListener('click', function () {
-                    var id = button.getAttribute('data-call-id') || '';
-                    if (!id) return;
-                    var finish = function () {
-                        var icon = button.querySelector('.material-icons');
-                        button.classList.add('is-copied');
-                        setTip(button, copiedLabel);
-                        if (icon) icon.textContent = 'check';
-                        setTimeout(function () {
-                            button.classList.remove('is-copied');
-                            setTip(button, copyLabel);
-                            if (icon) icon.textContent = 'content_copy';
-                        }, 1200);
-                    };
-                    var fallback = function () {
-                        var input = document.createElement('textarea');
-                        input.value = id;
-                        input.setAttribute('readonly', '');
-                        input.style.position = 'fixed';
-                        input.style.left = '-9999px';
-                        document.body.appendChild(input);
-                        input.select();
-                        document.execCommand('copy');
-                        input.remove();
-                        finish();
-                    };
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(id).then(finish).catch(fallback);
-                    } else {
-                        fallback();
+            document.addEventListener('click', function (event) {
+                var button = event.target.closest('.calls-copy-id');
+                if (!button) return;
+                var id = button.getAttribute('data-call-id') || '';
+                if (!id) return;
+                var finish = function () {
+                    var icon = button.querySelector('.material-icons');
+                    button.classList.add('is-copied');
+                    setTip(button, copiedLabel);
+                    if (icon) icon.textContent = 'check';
+                    setTimeout(function () {
+                        button.classList.remove('is-copied');
+                        setTip(button, copyLabel);
+                        if (icon) icon.textContent = 'content_copy';
+                    }, 1200);
+                };
+                var fallback = function () {
+                    var input = document.createElement('textarea');
+                    input.value = id;
+                    input.setAttribute('readonly', '');
+                    input.style.position = 'fixed';
+                    input.style.left = '-9999px';
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    input.remove();
+                    finish();
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(id).then(finish).catch(fallback);
+                } else {
+                    fallback();
+                }
+            });
+        })();
+
+        (function () {
+            var scroller = document.getElementById('calls-list-scroll');
+            var body = document.getElementById('calls-list-body');
+            var sentinel = document.getElementById('calls-scroll-sentinel');
+            if (!scroller || !body || !sentinel || scroller.getAttribute('data-has-more') !== '1') return;
+
+            var nextPage = 2;
+            var loading = false;
+            var done = false;
+            var failed = false;
+
+            var bindTips = function (root) {
+                if (!window.bootstrap || !bootstrap.Tooltip) return;
+                root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+                    if (!bootstrap.Tooltip.getInstance(el)) {
+                        new bootstrap.Tooltip(el);
                     }
                 });
+            };
+
+            var nearEnd = function () {
+                return scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 160;
+            };
+
+            var loadMore = function () {
+                if (loading || done) return;
+                if (!nearEnd() && scroller.scrollHeight > scroller.clientHeight + 8) return;
+                loading = true;
+                sentinel.hidden = false;
+                var url = new URL(window.location.href);
+                url.searchParams.set('rows', '1');
+                url.searchParams.set('page', String(nextPage));
+                fetch(url.toString(), {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                }).then(function (response) {
+                    if (!response.ok) throw new Error('load failed');
+                    return response.json();
+                }).then(function (data) {
+                    var html = (data && data.html) ? data.html.trim() : '';
+                    if (html !== '') {
+                        var template = document.createElement('template');
+                        template.innerHTML = '<table><tbody>' + html + '</tbody></table>';
+                        var rows = template.content.querySelectorAll('tr');
+                        rows.forEach(function (row) {
+                            body.appendChild(row);
+                        });
+                        bindTips(body);
+                    }
+                    if (!data || !data.has_more || html === '') {
+                        done = true;
+                    } else {
+                        nextPage = data.next_page || (nextPage + 1);
+                    }
+                }).catch(function () {
+                    failed = true;
+                }).then(function () {
+                    loading = false;
+                    sentinel.hidden = true;
+                    if (!done && !failed && nearEnd()) loadMore();
+                });
+            };
+
+            scroller.addEventListener('scroll', function () {
+                failed = false;
+                if (nearEnd()) loadMore();
             });
+            loadMore();
         })();
     </script>
 @endpush

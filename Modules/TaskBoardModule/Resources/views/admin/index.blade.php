@@ -18,7 +18,8 @@
             max-height: var(--tb-board-height);
             overflow: hidden;
         }
-        body.nav-top.top-chrome-auto-hide .task-board-page {
+        body.nav-top.top-chrome-auto-hide .task-board-page,
+        body.nav-top.top-chrome-hidden .task-board-page {
             --tb-board-height: calc(100dvh - var(--top-chrome-main-padding-collapsed, 2rem) - var(--tb-footer-space));
         }
         body:not(.nav-top) .task-board-page {
