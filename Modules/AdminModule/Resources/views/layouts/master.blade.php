@@ -96,6 +96,9 @@
         if (localStorage.getItem('admin_top_chrome_mode') === 'auto-hide') {
             document.body.classList.add('top-chrome-auto-hide');
         }
+        if (localStorage.getItem('admin_top_chrome_hidden') === '1') {
+            document.body.classList.add('top-chrome-hidden');
+        }
     })();
 </script>
 

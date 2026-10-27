@@ -153,6 +153,7 @@ Route::group([
 
     Route::group(['prefix' => 'calls', 'as' => 'calls.', 'middleware' => ['can:lead_view']], function () {
         Route::get('/', [SuperfoneCallController::class, 'index'])->name('index');
+        Route::get('report', [SuperfoneCallController::class, 'report'])->name('report');
         Route::get('lead-search', [SuperfoneCallController::class, 'searchLeads'])->name('lead-search');
         Route::get('booking-search', [SuperfoneCallController::class, 'searchBookings'])->name('booking-search');
         Route::get('api-logs', [SuperfoneApiLogController::class, 'index'])->name('api-logs');

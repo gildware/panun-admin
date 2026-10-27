@@ -2258,6 +2258,44 @@ class ProviderController extends Controller
     }
 
     /**
+     * Undo one manual payout to the provider or one collection from the provider.
+     */
+    public function revertProviderSettlementPayment(string $id, Request $request): RedirectResponse
+    {
+        $this->authorize('provider_update');
+
+        $validated = $request->validate([
+            'ledger_id' => ['required', 'uuid'],
+        ]);
+
+        $provider = $this->provider->find($id);
+        if (! $provider) {
+            Toastr::error(translate('Provider_or_account_not_found'));
+
+            return back();
+        }
+
+        try {
+            revertProviderSettlementLedger((string) $provider->id, (string) $validated['ledger_id']);
+        } catch (\RuntimeException $e) {
+            $message = match ($e->getMessage()) {
+                'provider_settlement_already_reverted' => translate('Revert_provider_settlement_already_reverted'),
+                'provider_settlement_transactions_missing' => translate('Revert_provider_settlement_transactions_missing'),
+                'provider_settlement_withdrawn_short' => translate('Revert_provider_settlement_withdrawn_short'),
+                'provider_settlement_received_short' => translate('Revert_provider_settlement_received_short'),
+                default => translate('Revert_provider_settlement_not_revertible'),
+            };
+            Toastr::error($message);
+
+            return back();
+        }
+
+        Toastr::success(translate('Revert_provider_settlement_success'));
+
+        return redirect()->route('admin.provider.details', [$id, 'web_page' => 'payment', 'payment_sub' => 'ledger']);
+    }
+
+    /**
      * JSON preview for provider payment reminder WhatsApp (Meta template).
      */
     public function whatsappProviderPaymentReminderPreview(string $id, Request $request): JsonResponse

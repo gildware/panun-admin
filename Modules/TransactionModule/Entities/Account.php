@@ -22,6 +22,12 @@ class Account extends Model
 
     protected $fillable = ['user_id','balance_pending','received_balance','account_payable','account_receivable','total_withdrawn'];
 
+    /**
+     * Skip the cash-limit check while a settlement revert is rewriting balances.
+     * The revert applies the check once, after the ledger row is gone.
+     */
+    public static bool $deferCashLimitSuspension = false;
+
     protected static function newFactory()
     {
         return \Modules\TransactionModule\Database\factories\AccountFactory::new();
@@ -44,6 +50,9 @@ class Account extends Model
         });
 
         self::updated(function ($model) {
+            if (self::$deferCashLimitSuspension) {
+                return;
+            }
             if ($model->isDirty('account_payable') || $model->isDirty('account_receivable')) {
                 $provider = Provider::where('user_id', $model->user_id)->first();
                 if ($provider) {

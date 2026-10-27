@@ -1311,7 +1311,7 @@ if (!function_exists('provider_apply_cash_limit_suspension_for_provider')) {
             return;
         }
 
-        if ($wasSuspended && \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::isCashLimitSuspended($provider)) {
+        if ($wasSuspended && \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::shouldReleaseCashLimitSuspension($provider)) {
             $provider->is_suspended = 0;
             $provider->save();
 

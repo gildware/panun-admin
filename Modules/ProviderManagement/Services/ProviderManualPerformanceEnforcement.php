@@ -37,7 +37,32 @@ class ProviderManualPerformanceEnforcement
             return false;
         }
 
-        return ! self::isPerformanceSuspended($provider) && ! self::isPerformanceBlacklisted($provider);
+        if (self::isPerformanceSuspended($provider) || self::isPerformanceBlacklisted($provider)) {
+            return false;
+        }
+
+        return provider_warning_amount_calculate_for_provider($provider) === '100_percent';
+    }
+
+    /**
+     * Cash-limit suspension can be cleared when the provider is under the limit.
+     * Performance suspensions and blacklists are left alone.
+     */
+    public static function shouldReleaseCashLimitSuspension(Provider $provider): bool
+    {
+        if ((int) ($provider->is_suspended ?? 0) !== 1) {
+            return false;
+        }
+
+        if (! self::isCashLimitSuspensionConfigEnabled()) {
+            return false;
+        }
+
+        if (self::isPerformanceSuspended($provider) || self::isPerformanceBlacklisted($provider)) {
+            return false;
+        }
+
+        return provider_warning_amount_calculate_for_provider($provider) !== '100_percent';
     }
 
     public static function isAdminManualSuspended(Provider $provider): bool

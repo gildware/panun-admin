@@ -125,6 +125,60 @@
     }
 
     var CHROME_MODE_KEY = 'admin_top_chrome_mode';
+    var CHROME_HIDDEN_KEY = 'admin_top_chrome_hidden';
+
+    function isChromeHidden() {
+        return document.body.classList.contains('top-chrome-hidden');
+    }
+
+    function applyChromeVisibility(hidden) {
+        document.body.classList.toggle('top-chrome-hidden', hidden);
+
+        var chrome = getChrome();
+        if (chrome) {
+            if (hidden) {
+                chrome.setAttribute('aria-hidden', 'true');
+                chrome.setAttribute('inert', '');
+            } else {
+                chrome.removeAttribute('aria-hidden');
+                chrome.removeAttribute('inert');
+            }
+        }
+
+        try {
+            localStorage.setItem(CHROME_HIDDEN_KEY, hidden ? '1' : '0');
+        } catch (error) {}
+
+        var toggle = document.getElementById('top-chrome-visibility-toggle');
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+            var label = hidden
+                ? (toggle.getAttribute('data-label-show') || 'Show header')
+                : (toggle.getAttribute('data-label-hide') || 'Hide header');
+            toggle.title = label;
+            toggle.setAttribute('aria-label', label);
+        }
+
+        if (hidden) {
+            closeDropdowns();
+            disposeChromeBootstrapDropdowns();
+            document.body.classList.remove('top-chrome-expanded');
+        }
+    }
+
+    function bindChromeVisibilityToggle() {
+        var toggle = document.getElementById('top-chrome-visibility-toggle');
+        if (!toggle || toggle.dataset.visibilityBound === '1') {
+            return;
+        }
+
+        toggle.dataset.visibilityBound = '1';
+        applyChromeVisibility(isChromeHidden());
+
+        toggle.addEventListener('click', function () {
+            applyChromeVisibility(!isChromeHidden());
+        });
+    }
 
     function isChromeAutoHideEnabled() {
         return document.body.classList.contains('top-chrome-auto-hide');
@@ -242,6 +296,7 @@
         bound = true;
         bindChromeAutoHide();
         bindChromeModeToggle();
+        bindChromeVisibilityToggle();
 
         document.addEventListener('click', function (e) {
             if (!document.body.classList.contains('nav-top')) {
@@ -309,6 +364,8 @@
         bindNavImageFallbacks(document.querySelector('.top-chrome'));
         bindChromeAutoHide();
         bindChromeModeToggle();
+        bindChromeVisibilityToggle();
+        applyChromeVisibility(isChromeHidden());
         syncChromeExpandedState();
     });
 })();

@@ -12,6 +12,7 @@
 @endif
 
 @once
+@if(empty($rowsOnly))
     <style>
         .calls-lead-line { display: inline-flex; align-items: center; gap: 0.4rem; max-width: 100%; }
         .party-pill { display: inline-flex; align-items: center; padding: 0.22rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
@@ -356,4 +357,5 @@
         }
     </script>
     @endpush
+@endif
 @endonce

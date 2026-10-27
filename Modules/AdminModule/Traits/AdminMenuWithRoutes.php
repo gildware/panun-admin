@@ -1126,6 +1126,14 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Call_report',
+                'uri' => 'admin/calls/report',
+                'full_route' => url('admin/calls/report'),
+                'page_title' => 'Call_report',
+                "keywords" => 'Call report, missed, answered, unallocated, inbound, outbound, employee, company',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'API_logs',
                 'uri' => 'admin/calls/api-logs',
                 'full_route' => url('admin/calls/api-logs'),

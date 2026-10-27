@@ -61,6 +61,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('details/{id}/expertise', [ProviderController::class, 'updateExpertise'])->name('details.expertise.update');
         Route::post('details/{id}/add-payment', [ProviderController::class, 'addPaymentToProvider'])->name('details.add_payment');
         Route::post('details/{id}/collect-amount', [ProviderController::class, 'collectAmountFromProvider'])->name('details.collect_amount');
+        Route::post('details/{id}/revert-settlement-payment', [ProviderController::class, 'revertProviderSettlementPayment'])->name('details.revert_settlement_payment');
         Route::post('details/{id}/whatsapp/provider-payment-reminder/preview', [ProviderController::class, 'whatsappProviderPaymentReminderPreview'])->name('details.whatsapp.provider_payment_reminder.preview');
         Route::post('details/{id}/whatsapp/provider-payment-reminder/send', [ProviderController::class, 'whatsappProviderPaymentReminderSend'])->name('details.whatsapp.provider_payment_reminder.send');
         Route::any('download', [ProviderController::class, 'download'])->name('download');
