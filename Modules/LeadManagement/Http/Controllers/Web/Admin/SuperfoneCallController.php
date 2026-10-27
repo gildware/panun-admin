@@ -184,11 +184,36 @@ class SuperfoneCallController extends Controller
         ]);
     }
 
-    public function report(Request $request, SuperfoneCallReport $report, SuperfoneLeadCharts $leadCharts): View
+    public function report(Request $request, SuperfoneCallReport $report, SuperfoneLeadCharts $leadCharts)
     {
-        return view('leadmanagement::admin.calls.report', $report->build() + [
-            'leadCharts' => $leadCharts->build($request),
-        ]);
+        try {
+            $data = $report->build();
+            try {
+                $data['leadCharts'] = $leadCharts->build($request);
+            } catch (\Throwable $e) {
+                report($e);
+                $data['leadCharts'] = [
+                    'filters' => ['period' => 'overall', 'category' => null, 'service' => null, 'zone' => null],
+                    'options' => ['categories' => [], 'services' => [], 'zones' => []],
+                    'total' => 0,
+                    'types' => ['summary' => []],
+                    'customer' => ['total' => 0, 'summary' => []],
+                    'provider' => ['total' => 0, 'summary' => []],
+                    'bookings' => ['total' => 0, 'lead_count' => 0, 'summary' => []],
+                    'breakdown' => [
+                        'category' => ['categories' => [], 'series' => []],
+                        'service' => ['categories' => [], 'series' => []],
+                        'zone' => ['categories' => [], 'series' => []],
+                    ],
+                ];
+            }
+
+            return response(view('leadmanagement::admin.calls.report', $data)->render());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response($e::class.': '.$e->getMessage(), 500);
+        }
     }
 
     public function searchLeads(Request $request): JsonResponse

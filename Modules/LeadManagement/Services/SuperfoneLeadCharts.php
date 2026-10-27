@@ -5,6 +5,7 @@ namespace Modules\LeadManagement\Services;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
@@ -132,17 +133,20 @@ class SuperfoneLeadCharts
         }
 
         $latest = [];
-        $histories = LeadTypeHistory::query()
-            ->whereIn('lead_id', $leadIds)
-            ->whereIn('type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get(['lead_id', 'type', 'data']);
+        foreach (array_chunk(array_values($leadIds), 400) as $chunk) {
+            $histories = DB::table('lead_type_histories')
+                ->whereIn('lead_id', $chunk)
+                ->whereIn('type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
+                ->orderByDesc('id')
+                ->get(['lead_id', 'type', 'data']);
 
-        foreach ($histories as $history) {
-            $key = $history->lead_id.'|'.$history->type;
-            if (! isset($latest[$key])) {
-                $latest[$key] = is_array($history->data) ? $history->data : [];
+            foreach ($histories as $history) {
+                $key = $history->lead_id.'|'.$history->type;
+                if (isset($latest[$key])) {
+                    continue;
+                }
+                $decoded = json_decode((string) $history->data, true);
+                $latest[$key] = is_array($decoded) ? $decoded : [];
             }
         }
 
