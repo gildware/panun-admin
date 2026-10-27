@@ -59,16 +59,11 @@ class SuperfoneCallReport
     {
         $nameSql = "CASE WHEN staff_name IS NULL OR TRIM(staff_name) = '' THEN '' ELSE staff_name END";
 
-        $query = SuperfoneCall::query()
-            ->selectRaw($nameSql.' as bucket')
-            ->selectRaw($this->metricSql())
-            ->groupBy(DB::raw($nameSql))
-            ->orderByDesc('total')
-            ->orderBy('bucket');
-
-        if ($from !== null && $to !== null) {
-            $query->whereBetween('started_at', [$from, $to]);
-        }
+        $query = $this->aggregate($nameSql, function ($inner) use ($from, $to) {
+            if ($from !== null && $to !== null) {
+                $inner->whereBetween('started_at', [$from, $to]);
+            }
+        })->orderByDesc('total')->orderBy('bucket');
 
         return $query->get()->map(function ($row) use ($emptyLabel) {
             $cast = $this->cast($row);
@@ -205,6 +200,38 @@ class SuperfoneCallReport
         ];
     }
 
+    /**
+     * Group by an expression without tripping MySQL ONLY_FULL_GROUP_BY.
+     * The expression becomes a plain column of a subquery, then the totals group by that column.
+     */
+    private function aggregate(string $bucketSql, ?callable $constrain = null)
+    {
+        return DB::query()
+            ->fromSub($this->callBuckets($bucketSql, ['direction', 'outcome', 'disposition', 'duration_seconds'], null, $constrain), 'calls')
+            ->selectRaw('bucket')
+            ->selectRaw($this->metricSql())
+            ->groupBy('bucket');
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function callBuckets(string $bucketSql, array $columns = [], ?string $extraSelect = null, ?callable $constrain = null)
+    {
+        $inner = SuperfoneCall::query()->selectRaw($bucketSql.' as bucket');
+        if ($columns !== []) {
+            $inner->addSelect($columns);
+        }
+        if ($extraSelect !== null) {
+            $inner->selectRaw($extraSelect);
+        }
+        if ($constrain !== null) {
+            $constrain($inner);
+        }
+
+        return $inner;
+    }
+
     private function metricSql(): string
     {
         $channel = "UPPER(REPLACE(REPLACE(COALESCE(disposition, ''), '_', ''), ' ', '')) IN ('CHANUNAVAIL', 'CHANNELNOTAVAILABLE', 'CHANNELUNAVAILABLE', 'CHANNELUNAVAIL')";
@@ -299,14 +326,9 @@ SQL;
             default => 30,
         };
 
-        $rows = SuperfoneCall::query()
-            ->selectRaw($bucketSql.' as bucket')
-            ->selectRaw($this->metricSql())
-            ->where('started_at', '>=', '2000-01-01 00:00:00')
-            ->groupBy(DB::raw($bucketSql))
-            ->orderByDesc('bucket')
-            ->limit($limit)
-            ->get()
+        $rows = $this->aggregate($bucketSql, function ($inner) {
+            $inner->where('started_at', '>=', '2000-01-01 00:00:00');
+        })->orderByDesc('bucket')->limit($limit)->get()
             ->map(function ($row) use ($grain) {
                 $cast = $this->cast($row);
                 $cast['label'] = $this->periodLabel((string) $row->bucket, $grain);
@@ -352,12 +374,9 @@ SQL;
      */
     private function byHour(): array
     {
-        $found = SuperfoneCall::query()
-            ->selectRaw('HOUR(started_at) as bucket')
-            ->selectRaw($this->metricSql())
-            ->where('started_at', '>=', '2000-01-01 00:00:00')
-            ->groupBy(DB::raw('HOUR(started_at)'))
-            ->get()
+        $found = $this->aggregate('HOUR(started_at)', function ($inner) {
+            $inner->where('started_at', '>=', '2000-01-01 00:00:00');
+        })->get()
             ->keyBy(fn ($row) => (int) $row->bucket);
 
         $rows = [];
@@ -386,23 +405,24 @@ SQL;
         $nameSql = "CASE WHEN staff_name IS NULL OR TRIM(staff_name) = '' THEN '' ELSE staff_name END";
         $unallocated = "UPPER(COALESCE(disposition, '')) <> 'UNALLOCATED'";
 
-        $rows = SuperfoneCall::query()
-            ->selectRaw($nameSql.' as bucket')
+        $rows = DB::query()
+            ->fromSub($this->callBuckets($nameSql, ['direction', 'outcome', 'disposition', 'started_at']), 'calls')
+            ->selectRaw('bucket')
             ->selectRaw('COUNT(*) as total')
             ->selectRaw('SUM(started_at BETWEEN ? AND ?) as today_total', [$from, $to])
             ->selectRaw("SUM(direction = 'INBOUND' AND COALESCE(outcome, '') <> 'answered' AND {$unallocated} AND started_at BETWEEN ? AND ?) as today_missed", [$from, $to])
             ->selectRaw('MIN(CASE WHEN started_at BETWEEN ? AND ? THEN started_at END) as first_today', [$from, $to])
             ->selectRaw('MAX(CASE WHEN started_at BETWEEN ? AND ? THEN started_at END) as last_today', [$from, $to])
-            ->groupBy(DB::raw($nameSql))
+            ->groupBy('bucket')
             ->get();
 
         $usual = [];
-        SuperfoneCall::query()
-            ->selectRaw($nameSql.' as bucket')
-            ->selectRaw('HOUR(started_at) as hour_bucket')
-            ->selectRaw('COUNT(*) as total')
-            ->where('started_at', '>=', '2000-01-01 00:00:00')
-            ->groupBy(DB::raw($nameSql), DB::raw('HOUR(started_at)'))
+        DB::query()
+            ->fromSub($this->callBuckets($nameSql, [], 'HOUR(started_at) as hour_bucket', function ($inner) {
+                $inner->where('started_at', '>=', '2000-01-01 00:00:00');
+            }), 'calls')
+            ->selectRaw('bucket, hour_bucket, COUNT(*) as total')
+            ->groupBy('bucket', 'hour_bucket')
             ->orderBy('hour_bucket')
             ->get()
             ->each(function ($row) use (&$usual) {
