@@ -19,6 +19,7 @@ class SuperfoneMissedCallBadgeTest extends TestCase
             $table->id();
             $table->string('cdr_uuid', 64)->unique();
             $table->string('direction', 16)->nullable();
+            $table->string('disposition', 64)->nullable();
             $table->string('outcome', 16)->nullable();
             $table->dateTime('started_at')->nullable();
             $table->string('customer_phone_digits', 20)->nullable();
@@ -121,11 +122,63 @@ class SuperfoneMissedCallBadgeTest extends TestCase
         $this->assertSame(1, SuperfoneCall::query()->awaitingCallback()->count());
     }
 
-    private function storeCall(string $uuid, string $direction, string $outcome, ?string $digits, string $startedAt): SuperfoneCall
+    public function test_an_unallocated_inbound_call_needs_a_callback(): void
+    {
+        $this->storeCall('unallocated', 'INBOUND', 'other', '9876543210', '2026-10-21 10:00:00', 'UNALLOCATED');
+        $this->storeCall('outbound-unallocated', 'OUTBOUND', 'other', '9000000002', '2026-10-21 10:05:00', 'UNALLOCATED');
+        $this->storeCall('answered', 'INBOUND', 'answered', '9000000001', '2026-10-21 10:06:00', 'ANSWER');
+
+        $open = SuperfoneCall::query()->awaitingCallback()->pluck('cdr_uuid')->all();
+
+        $this->assertSame(['unallocated'], $open);
+        $this->assertSame(0, SuperfoneCall::query()->missed()->count());
+    }
+
+    public function test_one_outbound_clears_earlier_misses_and_unallocated_calls_together(): void
+    {
+        $this->storeCall('miss', 'INBOUND', 'missed', '9876543210', '2026-10-21 10:00:00');
+        $this->storeCall('unallocated', 'INBOUND', 'other', '9876543210', '2026-10-21 10:05:00', 'UNALLOCATED');
+        $this->storeCall('other-unallocated', 'INBOUND', 'other', '9000000001', '2026-10-21 10:06:00', 'UNALLOCATED');
+
+        $this->assertSame(3, SuperfoneCall::query()->awaitingCallback()->count());
+
+        $this->storeCall('callback', 'OUTBOUND', 'unanswered', '9876543210', '2026-10-21 10:10:00');
+
+        $this->assertSame(['other-unallocated'], SuperfoneCall::query()->awaitingCallback()->pluck('cdr_uuid')->all());
+    }
+
+    public function test_a_manual_contact_clears_earlier_unallocated_calls_from_that_number(): void
+    {
+        $this->storeCall('unallocated-1', 'INBOUND', 'other', '9876543210', '2026-10-21 10:00:00', 'UNALLOCATED');
+        $marked = $this->storeCall('unallocated-2', 'INBOUND', 'other', '9876543210', '2026-10-21 10:10:00', 'UNALLOCATED');
+        $this->storeCall('other-unallocated', 'INBOUND', 'other', '9000000001', '2026-10-21 10:12:00', 'UNALLOCATED');
+
+        SuperfoneCallContact::query()->create([
+            'superfone_call_id' => $marked->id,
+            'customer_phone_digits' => '9876543210',
+            'channel' => 'phone',
+            'remarks' => 'Called back',
+            'contacted_at' => '2026-10-21 10:15:00',
+        ]);
+
+        $this->assertSame(['other-unallocated'], SuperfoneCall::query()->awaitingCallback()->pluck('cdr_uuid')->all());
+    }
+
+    public function test_an_unallocated_call_after_the_callback_counts_again(): void
+    {
+        $this->storeCall('early', 'INBOUND', 'other', '9876543210', '2026-10-21 10:00:00', 'UNALLOCATED');
+        $this->storeCall('callback', 'OUTBOUND', 'answered', '9876543210', '2026-10-21 10:05:00');
+        $this->storeCall('later', 'INBOUND', 'other', '9876543210', '2026-10-21 10:10:00', 'UNALLOCATED');
+
+        $this->assertSame(['later'], SuperfoneCall::query()->awaitingCallback()->pluck('cdr_uuid')->all());
+    }
+
+    private function storeCall(string $uuid, string $direction, string $outcome, ?string $digits, string $startedAt, ?string $disposition = null): SuperfoneCall
     {
         return SuperfoneCall::query()->create([
             'cdr_uuid' => $uuid,
             'direction' => $direction,
+            'disposition' => $disposition,
             'outcome' => $outcome,
             'customer_phone_digits' => $digits,
             'started_at' => $startedAt,
