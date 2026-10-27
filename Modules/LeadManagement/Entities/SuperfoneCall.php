@@ -117,13 +117,24 @@ class SuperfoneCall extends Model
     }
 
     /**
-     * Missed calls that still raise the Calls badge. One later outbound call, or a
-     * manual "mark contacted", clears every earlier miss from that number.
-     * The call rows stay missed.
+     * Inbound calls that still raise the Calls badge: misses, and calls Superfone
+     * never assigned to an agent. One later outbound call, or a manual
+     * "mark contacted", clears every earlier one from that number.
+     * The call rows keep their own result.
      */
     public function scopeAwaitingCallback($query)
     {
-        return $query->missed()->where(function ($open) {
+        return $query->where(function ($candidate) {
+            $candidate->where('outcome', 'missed')
+                ->orWhere(function ($unallocated) {
+                    $unallocated->where('disposition', 'UNALLOCATED')
+                        ->where(function ($notAnswered) {
+                            $notAnswered->whereNull('outcome')->orWhere('outcome', '!=', 'answered');
+                        });
+                });
+        })->where(function ($inbound) {
+            $inbound->whereNull('direction')->orWhere('direction', '!=', 'OUTBOUND');
+        })->where(function ($open) {
             $open->where(function ($withoutNumber) {
                 $withoutNumber->where(function ($blank) {
                     $blank->whereNull('superfone_calls.customer_phone_digits')
