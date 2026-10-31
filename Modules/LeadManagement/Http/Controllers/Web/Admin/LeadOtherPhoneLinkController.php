@@ -224,6 +224,43 @@ class LeadOtherPhoneLinkController extends Controller
         return redirect()->route('admin.lead.deleted');
     }
 
+    /**
+     * Move remaining history from a lead whose phone is already linked into the
+     * linked provider lead, then archive the source (fixes incomplete merges).
+     */
+    public function finishMerge(Request $request, int $id): RedirectResponse|\Illuminate\Http\Response
+    {
+        $lead = Lead::query()->findOrFail($id);
+        if ($lead->trashed()) {
+            toastr()->error(translate('Cannot_link_other_phone_on_deleted_lead') ?: 'Cannot merge a deleted lead');
+
+            return redirect()->route('admin.lead.show', $id);
+        }
+
+        try {
+            $result = $this->linker->finishMergeIntoLinkedProviderLead($lead);
+        } catch (\InvalidArgumentException $e) {
+            toastr()->error($e->getMessage());
+
+            return redirect()->back();
+        } catch (\Throwable $e) {
+            report($e);
+            toastr()->error(translate('Something_went_wrong') ?: 'Something went wrong');
+
+            return redirect()->back();
+        }
+
+        toastr()->success($result['message']);
+
+        if ($request->boolean('in_modal')) {
+            return response()->view('leadmanagement::admin.leads.partials._close-preview-modal', [
+                'message' => $result['message'],
+            ]);
+        }
+
+        return redirect()->route('admin.lead.show', $result['redirect_lead_id']);
+    }
+
     public function checkPhone(Request $request): JsonResponse
     {
         $digits = PartyPhoneDirectory::normalizeDigits((string) $request->query('phone', ''));

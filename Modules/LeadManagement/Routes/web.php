@@ -102,6 +102,9 @@ Route::group([
         Route::post('{id}/other-phone', [LeadOtherPhoneLinkController::class, 'store'])
             ->middleware(['can:lead_update'])
             ->name('other-phone.store');
+        Route::post('{id}/other-phone/finish-merge', [LeadOtherPhoneLinkController::class, 'finishMerge'])
+            ->middleware(['can:lead_update'])
+            ->name('other-phone.finish-merge');
 
         Route::get('configuration', [LeadConfigurationController::class, 'index'])->middleware(['can:lead_configuration_view'])->name('configuration.index');
         Route::post('configuration', [LeadConfigurationController::class, 'store'])->middleware(['can:lead_configuration_add'])->name('configuration.store');
