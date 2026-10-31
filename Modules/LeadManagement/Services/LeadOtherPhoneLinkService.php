@@ -749,7 +749,9 @@ class LeadOtherPhoneLinkService
         $lead->deleted_by = Auth::id();
         $lead->deletion_reason = $reason;
         $lead->save();
-        $lead->delete();
+        if (! $lead->trashed()) {
+            $lead->delete();
+        }
     }
 
     private function wherePhoneEndsWith($query, string $column, string $digits): void
