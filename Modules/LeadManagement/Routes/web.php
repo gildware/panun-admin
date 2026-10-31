@@ -40,6 +40,7 @@ Route::group([
         Route::post('{id}/hunting/unpublish', [LeadHuntingBoardController::class, 'unpublish'])->middleware(['can:lead_update'])->name('hunting.unpublish');
         Route::get('create', [LeadController::class, 'create'])->middleware(['can:lead_add'])->name('create');
         Route::get('create/from-whatsapp-provider/{lead_id}', [LeadController::class, 'createFromWhatsAppProvider'])->middleware(['can:lead_add'])->name('create-from-whatsapp-provider');
+        Route::get('create/from-phone/{id}', [LeadController::class, 'createForPhone'])->middleware(['can:lead_add'])->name('create-for-phone');
         Route::post('store', [LeadController::class, 'store'])->middleware(['can:lead_add'])->name('store');
         Route::get('open-by-phone', [LeadController::class, 'openLeadsByPhone'])->middleware(['can:lead_add'])->name('open-by-phone');
 
