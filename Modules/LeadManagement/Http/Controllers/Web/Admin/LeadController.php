@@ -2052,7 +2052,31 @@ class LeadController extends Controller
         return $this->redirectToLeadShow($request, $lead->id);
     }
 
-    public function show($id): View
+    public function show($id): View|\Illuminate\Http\Response
+    {
+        try {
+            $view = $this->renderLeadShow($id);
+            // Force render so Blade/provider-only view errors are catchable.
+            $html = $view->render();
+            if (request()->boolean('diag') && request()->user()) {
+                return response($html, 200, ['Content-Type' => 'text/html; charset=utf-8']);
+            }
+
+            return response($html);
+        } catch (\Throwable $e) {
+            report($e);
+            if (request()->boolean('diag') && request()->user()) {
+                return response(
+                    "LEAD_SHOW_ERROR\n".$e->getMessage()."\n".$e->getFile().':'.$e->getLine()."\n\n".$e->getTraceAsString(),
+                    500,
+                    ['Content-Type' => 'text/plain; charset=utf-8']
+                );
+            }
+            throw $e;
+        }
+    }
+
+    protected function renderLeadShow($id): View
     {
         $leadQuery = Lead::with([
             'source',
@@ -2200,9 +2224,15 @@ class LeadController extends Controller
             $ctwaService->forLeadPhone($lead->phone_number)
         );
 
-        $panelProviderMatch = $lead->lead_type === Lead::TYPE_PROVIDER
-            ? app(ProviderLeadPanelMatchService::class)->matchForLead($lead)
-            : null;
+        $panelProviderMatch = null;
+        if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            try {
+                $panelProviderMatch = app(ProviderLeadPanelMatchService::class)->matchForLead($lead);
+            } catch (\Throwable $e) {
+                report($e);
+                $panelProviderMatch = null;
+            }
+        }
 
         $followupService = app(LeadFollowupService::class);
         $hasPendingFollowup = $followupService->leadHasPendingFollowup($lead, (bool) $leadOpenStatus);

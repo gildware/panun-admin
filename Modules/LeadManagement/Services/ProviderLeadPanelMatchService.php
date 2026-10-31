@@ -50,16 +50,22 @@ class ProviderLeadPanelMatchService
      */
     public function getProviderPhoneMap(): array
     {
-        $ttl = (int) config('whatsappmodule.system_phone_match_cache_ttl', 300);
-        if ($ttl > 0) {
-            return Cache::remember(
-                'lead_provider_panel_phone_map_v1',
-                $ttl,
-                fn () => $this->buildProviderPhoneMap()
-            );
-        }
+        try {
+            $ttl = (int) config('whatsappmodule.system_phone_match_cache_ttl', 300);
+            if ($ttl > 0) {
+                return Cache::remember(
+                    'lead_provider_panel_phone_map_v1',
+                    $ttl,
+                    fn () => $this->buildProviderPhoneMap()
+                );
+            }
 
-        return $this->buildProviderPhoneMap();
+            return $this->buildProviderPhoneMap();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /**
