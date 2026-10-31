@@ -31,7 +31,7 @@ class AdminWorkspace
     /**
      * Workspaces the signed-in person can open. Operations, HR, and Training
      * stay available. Marketing, Settings, and Accounts appear only when that
-     * person can use them. The Employee role never gets Settings or Accounts.
+     * person can use them. Front-line staff never get Settings or Accounts.
      *
      * @return array<int, string>
      */
@@ -196,8 +196,11 @@ class AdminWorkspace
     }
 
     /**
-     * Live staff on the Employee role work in Operations, HR, and Training.
-     * Settings and Accounts stay with super admin and the specialist roles.
+     * Front-line staff work in Operations, HR, and Training.
+     * Settings and Accounts stay with super admin and specialist roles.
+     *
+     * Live support people often have Customer Support, Employee, or both.
+     * Any mix of those roles must still be treated as front-line.
      */
     public static function isOperationsEmployee(): bool
     {
@@ -211,7 +214,9 @@ class AdminWorkspace
             return false;
         }
 
-        return $roles->every(fn ($role) => $role->role_name === 'Employee');
+        $frontline = ['Employee', 'Member', 'Customer Support'];
+
+        return $roles->every(fn ($role) => in_array($role->role_name, $frontline, true));
     }
 
     private static function userCanEnterSettings(): bool
