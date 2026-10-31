@@ -50,6 +50,76 @@
         </ul>
     </div>
 
+    <div class="action-card" id="lead-other-phone-card">
+        <div class="action-card__head">
+            <span class="action-card__title">
+                <span class="material-icons">phonelink_setup</span>
+                {{ translate('Other_phones') ?: 'Other phones' }}
+            </span>
+        </div>
+        <div class="action-card__body">
+            @php $linkedPhoneInfo = $linkedPhoneInfo ?? ['other_phones' => [], 'linked_as' => null]; @endphp
+
+            @if(!empty($linkedPhoneInfo['linked_as']))
+                <div class="mb-2">
+                    <span class="chip chip--info">{{ translate('Linked_as_other_phone') ?: 'Linked as other phone' }}</span>
+                    <div class="small text-muted mt-1 mb-0">
+                        {{ translate('Belongs_to') ?: 'Belongs to' }}:
+                        <strong>{{ $linkedPhoneInfo['linked_as']['owner_label'] ?? '—' }}</strong>
+                        @if(($linkedPhoneInfo['linked_as']['owner_type'] ?? '') === 'provider_lead' && !empty($linkedPhoneInfo['linked_as']['owner_id']))
+                            · <a href="{{ route('admin.lead.show', $linkedPhoneInfo['linked_as']['owner_id']) }}" @if(!empty($inModal)) target="_top" @endif>#{{ $linkedPhoneInfo['linked_as']['owner_id'] }}</a>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            @if(!empty($linkedPhoneInfo['other_phones']))
+                <ul class="list-unstyled mb-2 small">
+                    @foreach($linkedPhoneInfo['other_phones'] as $otherPhone)
+                        <li class="mb-2 pb-2 {{ !$loop->last ? 'border-bottom' : '' }}">
+                            <a href="tel:{{ preg_replace('/\s+/', '', $otherPhone['display'] ?? '') }}" class="fw-semibold text-decoration-none">
+                                {{ $otherPhone['display'] ?? $otherPhone['phone_digits'] }}
+                            </a>
+                            @if(!empty($otherPhone['linked_from_label']))
+                                <div class="text-muted">
+                                    {{ translate('From_lead') ?: 'From lead' }}:
+                                    @if(!empty($otherPhone['linked_from_lead_id']))
+                                        <a href="{{ route('admin.lead.show', $otherPhone['linked_from_lead_id']) }}" @if(!empty($inModal)) target="_top" @endif>{{ $otherPhone['linked_from_label'] }}</a>
+                                    @else
+                                        {{ $otherPhone['linked_from_label'] }}
+                                    @endif
+                                </div>
+                            @endif
+                            @if(!empty($otherPhone['created_by_name']) || !empty($otherPhone['created_at']))
+                                <div class="text-muted">
+                                    {{ translate('Linked_by') ?: 'Linked by' }}
+                                    {{ $otherPhone['created_by_name'] ?? '—' }}
+                                    @if(!empty($otherPhone['created_at']))
+                                        · {{ $otherPhone['created_at'] }}
+                                    @endif
+                                </div>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            @elseif(empty($linkedPhoneInfo['linked_as']))
+                <p class="text-muted small mb-2">{{ translate('Link_as_other_phone_help_short') }}</p>
+            @endif
+
+            @unless($lead->trashed())
+                @can('lead_update')
+                    <button type="button"
+                            class="ld-btn ld-btn-primary w-100 justify-content-center"
+                            data-bs-toggle="modal"
+                            data-bs-target="#linkOtherPhoneModal">
+                        <span class="material-icons">link</span>
+                        {{ translate('Link_as_other_phone') }}
+                    </button>
+                @endcan
+            @endunless
+        </div>
+    </div>
+
     <div class="action-card" id="lead-assignee-card">
         <div class="action-card__head d-flex justify-content-between align-items-center">
             <span class="action-card__title">
