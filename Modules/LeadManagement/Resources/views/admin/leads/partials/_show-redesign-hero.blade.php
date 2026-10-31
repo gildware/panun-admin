@@ -65,6 +65,53 @@
                     <span class="material-icons">phone</span>
                     {{ $lead->phone_number }}
                 </a>
+                @php $linkedPhoneInfo = $linkedPhoneInfo ?? ['other_phones' => [], 'linked_as' => null]; @endphp
+                @if(!empty($linkedPhoneInfo['linked_as']))
+                    <div class="lead-other-phones mt-2">
+                        <span class="chip chip--info">{{ translate('Linked_as_other_phone') ?: 'Linked as other phone' }}</span>
+                        <div class="small text-muted mt-1">
+                            {{ translate('Belongs_to') ?: 'Belongs to' }}:
+                            <strong>{{ $linkedPhoneInfo['linked_as']['owner_label'] ?? '—' }}</strong>
+                            @if(($linkedPhoneInfo['linked_as']['owner_type'] ?? '') === 'provider_lead' && !empty($linkedPhoneInfo['linked_as']['owner_id']))
+                                · <a href="{{ route('admin.lead.show', $linkedPhoneInfo['linked_as']['owner_id']) }}" @if(!empty($inModal)) target="_top" @endif>#{{ $linkedPhoneInfo['linked_as']['owner_id'] }}</a>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+                @if(!empty($linkedPhoneInfo['other_phones']))
+                    <div class="lead-other-phones mt-2">
+                        <div class="small fw-semibold mb-1">{{ translate('Other_phones') ?: 'Other phones' }}</div>
+                        <ul class="list-unstyled mb-0 small">
+                            @foreach($linkedPhoneInfo['other_phones'] as $otherPhone)
+                                <li class="mb-1">
+                                    <a href="tel:{{ preg_replace('/\s+/', '', $otherPhone['display'] ?? '') }}" class="phone">
+                                        <span class="material-icons" style="font-size: 14px; vertical-align: middle;">phone</span>
+                                        {{ $otherPhone['display'] ?? $otherPhone['phone_digits'] }}
+                                    </a>
+                                    @if(!empty($otherPhone['linked_from_label']))
+                                        <span class="text-muted">
+                                            · {{ translate('From_lead') ?: 'from lead' }}
+                                            @if(!empty($otherPhone['linked_from_lead_id']))
+                                                <a href="{{ route('admin.lead.show', $otherPhone['linked_from_lead_id']) }}" @if(!empty($inModal)) target="_top" @endif>{{ $otherPhone['linked_from_label'] }}</a>
+                                            @else
+                                                {{ $otherPhone['linked_from_label'] }}
+                                            @endif
+                                        </span>
+                                    @endif
+                                    @if(!empty($otherPhone['created_by_name']) || !empty($otherPhone['created_at']))
+                                        <div class="text-muted" style="margin-left: 1.25rem;">
+                                            {{ translate('Linked_by') ?: 'Linked by' }}
+                                            {{ $otherPhone['created_by_name'] ?? '—' }}
+                                            @if(!empty($otherPhone['created_at']))
+                                                · {{ $otherPhone['created_at'] }}
+                                            @endif
+                                        </div>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
             </div>
             <div class="lead-meta">
                 @if(!empty($isBookedCustomerStatus) && !empty($leadBooking) && !empty($leadBooking['id']))
@@ -185,6 +232,9 @@
                     <button type="button" class="ld-btn ld-btn-outline text-secondary border-secondary btn-lead-type-non-responsive" data-bs-toggle="modal" data-bs-target="#leadNonResponsiveModal">{{ translate('Mark_as_Non_Responsive') }}</button>
                 @endif
             @endcan
+            @can('lead_add')
+                <a class="ld-btn ld-btn-outline" href="{{ route('admin.lead.create-for-phone', $lead->id) }}">{{ translate('New_lead_for_this_phone') }}</a>
+            @endcan
             <button type="button" class="ld-btn ld-btn-outline text-danger border-danger btn-lead-type-invalid" data-bs-toggle="modal" data-bs-target="#leadInvalidModal">{{ translate('Mark_as_Invalid_Lead') }}</button>
             <button type="button" class="ld-btn ld-btn-outline text-info border-info btn-lead-type-future" data-bs-toggle="modal" data-bs-target="#leadFutureCustomerModal">{{ translate('Mark_as_Future_Customer_Lead') }}</button>
             <button type="button" class="ld-btn ld-btn-outline text-secondary border-secondary btn-lead-type-future-provider" data-bs-toggle="modal" data-bs-target="#leadFutureProviderModal">{{ translate('Mark_as_Future_Provider_Lead') }}</button>
@@ -204,8 +254,8 @@
                 @endif
             </div>
         @endif
-        @can('lead_update')
-            <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top lead-hero__type-actions">
+        <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top lead-hero__type-actions">
+            @can('lead_update')
                 @if($lead->isNonResponsive())
                     <form method="POST" action="{{ route('admin.lead.non-responsive.reopen', $lead->id) }}" class="m-0">
                         @csrf
@@ -215,8 +265,11 @@
                 @else
                     <button type="button" class="ld-btn ld-btn-outline text-secondary border-secondary btn-lead-type-non-responsive" data-bs-toggle="modal" data-bs-target="#leadNonResponsiveModal">{{ translate('Mark_as_Non_Responsive') }}</button>
                 @endif
-            </div>
-        @endcan
+            @endcan
+            @can('lead_add')
+                <a class="ld-btn ld-btn-outline" href="{{ route('admin.lead.create-for-phone', $lead->id) }}">{{ translate('New_lead_for_this_phone') }}</a>
+            @endcan
+        </div>
     @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER && ($lead->isNonResponsive() || !empty($leadOpenStatus)))
         @if($lead->isNonResponsive())
             <div class="alert alert-secondary py-2 px-3 mt-2 mb-0">
@@ -230,8 +283,8 @@
                 @endif
             </div>
         @endif
-        @can('lead_update')
-            <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top lead-hero__type-actions">
+        <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top lead-hero__type-actions">
+            @can('lead_update')
                 @if($lead->isNonResponsive())
                     <form method="POST" action="{{ route('admin.lead.non-responsive.reopen', $lead->id) }}" class="m-0">
                         @csrf
@@ -241,8 +294,11 @@
                 @else
                     <button type="button" class="ld-btn ld-btn-outline text-secondary border-secondary btn-lead-type-non-responsive" data-bs-toggle="modal" data-bs-target="#leadNonResponsiveModal">{{ translate('Mark_as_Non_Responsive') }}</button>
                 @endif
-            </div>
-        @endcan
+            @endcan
+            @can('lead_add')
+                <a class="ld-btn ld-btn-outline" href="{{ route('admin.lead.create-for-phone', $lead->id) }}">{{ translate('New_lead_for_this_phone') }}</a>
+            @endcan
+        </div>
     @endif
 </section>
 

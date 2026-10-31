@@ -11612,4 +11612,23 @@ _Message' => 'Customer notification for provider bid offer
   'Provider_lead_not_found' => 'Provider lead not found',
   'Provider_lead_is_not_open' => 'Provider lead is not open',
   'Booking_does_not_belong_to_this_provider_lead' => 'Booking does not belong to this provider lead',
+  'Other_phones' => 'Other phones',
+  'Linked_as_other_phone' => 'Linked as other phone',
+  'Belongs_to' => 'Belongs to',
+  'From_lead' => 'From lead',
+  'Linked_by' => 'Linked by',
+  'Other_phone_link' => 'Other phone link',
+  'Other_phone_added' => 'Other phone added',
+  'Kept_as_new_enquiry' => 'kept as new enquiry',
+  'Merged_into_lead' => 'merged into lead',
+  'Primary_phone' => 'Primary phone',
+
+  'New_lead' => 'New lead',
+  'New_lead_created_from_call' => 'New lead created from this call',
+  'New_lead_for_this_phone' => 'New lead for this phone',
+  'Create_new_lead_from_this_call_confirm' => 'Create a new lead for this call and attach it? Use this when auto-matching picked the wrong lead.',
+  'Reopen_non_responsive_lead_and_link_call' => 'Reopen this non-responsive lead and link the call to it?',
+  'Lead_reopened_and_call_linked' => 'Lead reopened and call linked',
+  'This_lead_is_not_closed_as_non_responsive' => 'This lead is not closed as non-responsive',
+
 );

@@ -518,10 +518,13 @@ class LeadController extends Controller
 
         $leadStatusMeta = [];
         $followupListMeta = [];
+        $leadOtherPhones = [];
         if ($leads->isNotEmpty()) {
             $collection = $leads->getCollection();
             $leadStatusMeta = $this->buildLeadStatusMeta($collection);
             $followupListMeta = app(LeadFollowupService::class)->buildLeadFollowupListMeta($collection, $leadStatusMeta);
+            $leadOtherPhones = app(\Modules\LeadManagement\Services\PartyPhoneDirectory::class)
+                ->otherPhoneDisplaysForLeadIds($collection->pluck('id')->map(fn ($id) => (int) $id)->all());
         }
 
         if ($request->ajax() || $request->boolean('ajax')) {
@@ -546,7 +549,7 @@ class LeadController extends Controller
             if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
                 $filtersAppliedCount += 1;
             }
-            $html = view('leadmanagement::admin.leads.partials._table', compact('leads', 'handledByNames', 'tab', 'providerLeadData', 'customerLeadData', 'reasonLeadData', 'leadStatusMeta', 'followupListMeta'))->render();
+            $html = view('leadmanagement::admin.leads.partials._table', compact('leads', 'handledByNames', 'tab', 'providerLeadData', 'customerLeadData', 'reasonLeadData', 'leadStatusMeta', 'followupListMeta', 'leadOtherPhones'))->render();
             return response()->json([
                 'html' => $html,
                 'total' => $leads->total(),
@@ -573,6 +576,7 @@ class LeadController extends Controller
             'reasonLeadData',
             'leadStatusMeta',
             'followupListMeta',
+            'leadOtherPhones',
             'filterSources',
             'filterAdSources',
             'filterEmployees',
@@ -648,10 +652,15 @@ class LeadController extends Controller
         $query = Lead::query()
             ->ofType($scopeTab === 'all' ? null : $scopeTab)
             ->when($search, function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
+                $relatedIds = app(\Modules\LeadManagement\Services\PartyPhoneDirectory::class)
+                    ->relatedLeadIdsForSearch($search);
+                $q->where(function ($sub) use ($search, $relatedIds) {
                     $sub->where('name', 'like', "%{$search}%")
                         ->orWhere('phone_number', 'like', "%{$search}%")
                         ->orWhereRaw('CAST(id AS CHAR) LIKE ?', ['%' . $search . '%']);
+                    if ($relatedIds !== []) {
+                        $sub->orWhereIn('id', $relatedIds);
+                    }
                 });
             })
             ->when($sourceIds !== [], function ($q) use ($sourceIds) {
@@ -946,6 +955,22 @@ class LeadController extends Controller
             'lead_type' => Lead::TYPE_PROVIDER,
             'remarks' => trim($remarks),
             'source_id' => $waSource?->id,
+        ]);
+    }
+
+    /**
+     * Staff override: open the create form prefilled for a new enquiry on this phone.
+     */
+    public function createForPhone(int $id): RedirectResponse
+    {
+        $lead = Lead::query()->findOrFail($id);
+
+        return redirect()->route('admin.lead.create')->withInput([
+            'name' => $lead->name,
+            'phone_number' => $lead->phone_number,
+            'lead_type' => Lead::TYPE_UNKNOWN,
+            'source_id' => $lead->source_id,
+            'remarks' => trim('New enquiry (staff). Previous lead #'.$lead->id),
         ]);
     }
 
@@ -2230,6 +2255,8 @@ class LeadController extends Controller
             }
         }
 
+        $linkedPhoneInfo = app(\Modules\LeadManagement\Services\PartyPhoneDirectory::class)->displayForLead($lead);
+
         return view('leadmanagement::admin.leads.show', compact(
             'lead',
             'handledByName',
@@ -2277,6 +2304,7 @@ class LeadController extends Controller
             'temporaryProviderAssignedAt',
             'workflowContext',
             'isPendingCustomerStatus',
+            'linkedPhoneInfo',
         ));
     }
 
