@@ -209,6 +209,201 @@ class PartyPhoneDirectory
             ->get();
     }
 
+    /**
+     * Display payload for a lead show page: other phones + whether this phone is linked elsewhere.
+     *
+     * @return array{
+     *   other_phones: list<array{phone_digits: string, display: string, linked_from_lead_id: int|null, linked_from_label: string|null, created_at: string|null, created_by_name: string|null}>,
+     *   linked_as: array{owner_type: string, owner_id: string, owner_label: string, via: string}|null,
+     *   owner_type: string|null,
+     *   owner_id: string|null,
+     *   owner_label: string|null
+     * }
+     */
+    public function displayForLead(Lead $lead): array
+    {
+        $empty = [
+            'other_phones' => [],
+            'linked_as' => null,
+            'owner_type' => null,
+            'owner_id' => null,
+            'owner_label' => null,
+        ];
+
+        $digits = self::normalizeDigits($lead->phone_number);
+        $ownerType = null;
+        $ownerId = null;
+        $ownerLabel = null;
+
+        $asProviderLead = PartyAlternatePhone::query()
+            ->where('owner_type', PartyAlternatePhone::OWNER_PROVIDER_LEAD)
+            ->where('owner_id', (string) $lead->id)
+            ->exists();
+        if ($asProviderLead) {
+            $ownerType = PartyAlternatePhone::OWNER_PROVIDER_LEAD;
+            $ownerId = (string) $lead->id;
+            $ownerLabel = trim((string) ($lead->name ?? '')) ?: ('Lead #'.$lead->id);
+        }
+
+        if ($digits !== null) {
+            $owner = $this->findOwner($digits);
+            if ($owner) {
+                // Prefer registered customer/provider over treating this lead as only itself.
+                if ($ownerType === null
+                    || in_array($owner['owner_type'], [PartyAlternatePhone::OWNER_CUSTOMER, PartyAlternatePhone::OWNER_PROVIDER], true)
+                ) {
+                    $ownerType = $owner['owner_type'];
+                    $ownerId = $owner['owner_id'];
+                    $ownerLabel = $owner['label'];
+                }
+            }
+        }
+
+        if ($ownerType === null || $ownerId === null) {
+            return $empty;
+        }
+
+        $alts = $this->alternatesForOwner($ownerType, $ownerId)
+            ->load(['linkedFromLead:id,name,phone_number,deleted_at', 'createdByUser:id,first_name,last_name,email']);
+
+        $otherPhones = [];
+        foreach ($alts as $alt) {
+            // On the lead that owns the party, list every linked other number.
+            // On the source lead whose phone IS the alternate, skip listing itself here
+            // (shown instead via linked_as).
+            if ($digits !== null && $alt->phone_digits === $digits) {
+                continue;
+            }
+            $fromLead = $alt->linkedFromLead;
+            $by = $alt->createdByUser;
+            $byName = null;
+            if ($by) {
+                $byName = trim((string) (($by->first_name ?? '').' '.($by->last_name ?? ''))) ?: ($by->email ?? null);
+            }
+            $otherPhones[] = [
+                'phone_digits' => (string) $alt->phone_digits,
+                'display' => $this->formatDigitsDisplay((string) $alt->phone_digits),
+                'linked_from_lead_id' => $fromLead?->id ? (int) $fromLead->id : ($alt->linked_from_lead_id ? (int) $alt->linked_from_lead_id : null),
+                'linked_from_label' => $fromLead
+                    ? ('#'.$fromLead->id.($fromLead->name ? ' — '.$fromLead->name : ''))
+                    : ($alt->linked_from_lead_id ? ('#'.$alt->linked_from_lead_id) : null),
+                'created_at' => $alt->created_at?->format('d M Y, h:i A'),
+                'created_by_name' => $byName,
+            ];
+        }
+
+        $linkedAs = null;
+        if ($digits !== null) {
+            $altRow = PartyAlternatePhone::query()->where('phone_digits', $digits)->first();
+            if ($altRow
+                && ! ($altRow->owner_type === PartyAlternatePhone::OWNER_PROVIDER_LEAD
+                    && (string) $altRow->owner_id === (string) $lead->id)
+            ) {
+                $linkedAs = [
+                    'owner_type' => $altRow->owner_type,
+                    'owner_id' => (string) $altRow->owner_id,
+                    'owner_label' => $altRow->ownerLabel(),
+                    'via' => 'alternate',
+                ];
+            }
+        }
+
+        return [
+            'other_phones' => array_values($otherPhones),
+            'linked_as' => $linkedAs,
+            'owner_type' => $ownerType,
+            'owner_id' => $ownerId,
+            'owner_label' => $ownerLabel,
+        ];
+    }
+
+    /**
+     * Extra lead IDs that should match a phone/name search because of other-phone links.
+     *
+     * @return list<int>
+     */
+    public function relatedLeadIdsForSearch(string $search): array
+    {
+        $digits = self::normalizeDigits($search);
+        if ($digits === null) {
+            return [];
+        }
+
+        $ids = [];
+        $owner = $this->findOwner($digits);
+        if ($owner) {
+            if ($owner['owner_type'] === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+                $ids[] = (int) $owner['owner_id'];
+            }
+            foreach ($this->phonesForOwner($owner['owner_type'], $owner['owner_id']) as $key) {
+                $matched = Lead::query()
+                    ->withTrashed()
+                    ->where(function ($query) use ($key) {
+                        $this->wherePhoneEndsWith($query, 'phone_number', $key);
+                    })
+                    ->pluck('id')
+                    ->all();
+                foreach ($matched as $id) {
+                    $ids[] = (int) $id;
+                }
+            }
+            $fromAlts = PartyAlternatePhone::query()
+                ->where('owner_type', $owner['owner_type'])
+                ->where('owner_id', $owner['owner_id'])
+                ->whereNotNull('linked_from_lead_id')
+                ->pluck('linked_from_lead_id')
+                ->all();
+            foreach ($fromAlts as $id) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        $alt = PartyAlternatePhone::query()->where('phone_digits', $digits)->first();
+        if ($alt) {
+            if ($alt->owner_type === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+                $ids[] = (int) $alt->owner_id;
+            }
+            if ($alt->linked_from_lead_id) {
+                $ids[] = (int) $alt->linked_from_lead_id;
+            }
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
+
+    /**
+     * @param  list<int>  $leadIds
+     * @return array<int, list<string>> lead_id => other phone display strings
+     */
+    public function otherPhoneDisplaysForLeadIds(array $leadIds): array
+    {
+        if ($leadIds === []) {
+            return [];
+        }
+
+        $leads = Lead::query()->withTrashed()->whereIn('id', $leadIds)->get(['id', 'phone_number', 'name', 'lead_type']);
+        $map = [];
+        foreach ($leads as $lead) {
+            $info = $this->displayForLead($lead);
+            $map[(int) $lead->id] = array_values(array_unique(array_map(
+                fn ($row) => $row['display'],
+                $info['other_phones']
+            )));
+        }
+
+        return $map;
+    }
+
+    public function formatDigitsDisplay(string $digits): string
+    {
+        $digits = preg_replace('/\D+/', '', $digits) ?? $digits;
+        if (strlen($digits) === 10) {
+            return '+91'.$digits;
+        }
+
+        return $digits;
+    }
+
     private function findUserByDigits(string $digits, array $userTypes): ?User
     {
         $query = User::query()->whereIn('user_type', $userTypes);

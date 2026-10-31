@@ -75,7 +75,13 @@
                     <tr class="lead-table-row" data-lead-url="{{ $leadDetailUrl }}">
                         <td class="link-primary">{{ $lead->id }}</td>
                         <td>{{ $lead->name ?? '—' }}</td>
-                        <td>{{ $lead->phone_number }}</td>
+                        <td>
+                            <div>{{ $lead->phone_number }}</div>
+                            @php $extraPhones = $leadOtherPhones[$lead->id] ?? []; @endphp
+                            @foreach($extraPhones as $extraPhone)
+                                <div class="small text-muted">+ {{ $extraPhone }}</div>
+                            @endforeach
+                        </td>
                         @if($showsTemperature)
                             <td>
                                 @include('leadmanagement::admin.leads.partials._lead-temperature-badge', ['temperature' => $lead->lead_temperature])

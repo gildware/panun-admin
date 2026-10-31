@@ -25,6 +25,7 @@ class LeadOtherPhoneLinkService
     public function __construct(
         private readonly PartyPhoneDirectory $phones,
         private readonly LeadOpenStatusService $openStatus,
+        private readonly LeadChangeLogService $changeLogs,
     ) {}
 
     /**
@@ -78,7 +79,30 @@ class LeadOtherPhoneLinkService
                 Auth::id() ? (string) Auth::id() : null
             );
 
+            $ownerLabel = $this->ownerDisplayLabel($ownerType, $ownerId);
+            $phoneDisplay = $this->phones->formatDigitsDisplay($digits);
+
             if ($action === self::ACTION_KEEP_LEAD) {
+                $this->changeLogs->record((int) $sourceLead->id, [
+                    'other_phone_link' => [
+                        'label' => 'Other_phone_link',
+                        'old' => '—',
+                        'new' => ($phoneDisplay.' → '.$ownerLabel.' ('.(translate('Kept_as_new_enquiry') ?: 'kept as new enquiry').')'),
+                    ],
+                ]);
+                foreach ($this->openLeadsForOwner($ownerType, $ownerId) as $openLead) {
+                    if ((int) $openLead->id === (int) $sourceLead->id) {
+                        continue;
+                    }
+                    $this->changeLogs->record((int) $openLead->id, [
+                        'other_phone_added' => [
+                            'label' => 'Other_phone_added',
+                            'old' => '—',
+                            'new' => $phoneDisplay.' ('.(translate('From_lead') ?: 'from lead').' #'.$sourceLead->id.')',
+                        ],
+                    ]);
+                }
+
                 return [
                     'redirect_lead_id' => (int) $sourceLead->id,
                     'message' => translate('Other_phone_linked_lead_kept')
@@ -96,6 +120,23 @@ class LeadOtherPhoneLinkService
                 }
                 $this->assertBookingBelongsToOwner($booking, $ownerType, $ownerId);
                 $this->reattachCallsToBooking($sourceLead, $booking, $ownerType, $ownerId);
+                $bookingLabel = 'Booking #'.($booking->readable_id ?: $booking->id);
+                $this->changeLogs->record((int) $sourceLead->id, [
+                    'other_phone_link' => [
+                        'label' => 'Other_phone_link',
+                        'old' => '—',
+                        'new' => $phoneDisplay.' → '.$ownerLabel.' / '.$bookingLabel,
+                    ],
+                ]);
+                if ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+                    $this->changeLogs->record((int) $ownerId, [
+                        'other_phone_added' => [
+                            'label' => 'Other_phone_added',
+                            'old' => '—',
+                            'new' => $phoneDisplay.' ('.(translate('From_lead') ?: 'from lead').' #'.$sourceLead->id.' → '.$bookingLabel.')',
+                        ],
+                    ]);
+                }
                 $this->softDeleteSourceLead(
                     $sourceLead,
                     'Merged as other phone → Booking #'.($booking->readable_id ?: $booking->id)
@@ -120,6 +161,20 @@ class LeadOtherPhoneLinkService
             }
 
             $this->mergeLeadData($sourceLead, $target);
+            $this->changeLogs->record((int) $sourceLead->id, [
+                'other_phone_link' => [
+                    'label' => 'Other_phone_link',
+                    'old' => '—',
+                    'new' => $phoneDisplay.' → '.$ownerLabel.'; '.(translate('Merged_into_lead') ?: 'merged into lead').' #'.$target->id,
+                ],
+            ]);
+            $this->changeLogs->record((int) $target->id, [
+                'other_phone_added' => [
+                    'label' => 'Other_phone_added',
+                    'old' => '—',
+                    'new' => $phoneDisplay.' ('.(translate('From_lead') ?: 'from lead').' #'.$sourceLead->id.')',
+                ],
+            ]);
             $this->softDeleteSourceLead(
                 $sourceLead,
                 'Merged as other phone → Lead #'.$target->id
@@ -131,6 +186,26 @@ class LeadOtherPhoneLinkService
                     ?: 'Other phone linked. Data moved into the selected lead and this lead was moved to deleted leads.',
             ];
         });
+    }
+
+    private function ownerDisplayLabel(string $ownerType, string $ownerId): string
+    {
+        if ($ownerType === PartyAlternatePhone::OWNER_CUSTOMER) {
+            $user = User::query()->find($ownerId);
+            $name = trim((string) (($user->first_name ?? '').' '.($user->last_name ?? '')));
+
+            return (translate('Customer') ?: 'Customer').' '.($name !== '' ? $name : $ownerId);
+        }
+        if ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+            $lead = Lead::query()->find($ownerId);
+            $name = trim((string) ($lead->name ?? ''));
+
+            return (translate('Provider_lead') ?: 'Provider lead').' #'.$ownerId.($name !== '' ? ' — '.$name : '');
+        }
+        $provider = Provider::query()->find($ownerId);
+        $name = trim((string) ($provider?->company_name ?: $provider?->contact_person_name ?: ''));
+
+        return (translate('Provider') ?: 'Provider').' '.($name !== '' ? $name : $ownerId);
     }
 
     /**
