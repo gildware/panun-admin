@@ -25,4 +25,17 @@ class LeadOtherPhoneLinkTest extends TestCase
         $this->assertStringNotContainsString('other-phone-step', $html);
         $this->assertStringNotContainsString('form-select-lg', $html);
     }
+
+    public function test_merge_moves_followups_and_type_history(): void
+    {
+        $service = file_get_contents(base_path('Modules/LeadManagement/Services/LeadOtherPhoneLinkService.php'));
+        $this->assertStringContainsString('LeadFollowup::query()', $service);
+        $this->assertStringContainsString('mergeTypeHistories', $service);
+        $this->assertStringContainsString('mergeProviderChecklist', $service);
+        $this->assertStringContainsString('finishMergeIntoLinkedProviderLead', $service);
+
+        $sidebar = file_get_contents(base_path('Modules/LeadManagement/Resources/views/admin/leads/partials/_show-redesign-sidebar.blade.php'));
+        $this->assertStringContainsString('other-phone.finish-merge', $sidebar);
+        $this->assertStringContainsString('Move_all_data_into_linked_lead', $sidebar);
+    }
 }

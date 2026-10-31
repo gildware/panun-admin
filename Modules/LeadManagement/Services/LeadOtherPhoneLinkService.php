@@ -4,15 +4,23 @@ namespace Modules\LeadManagement\Services;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadComment;
+use Modules\LeadManagement\Entities\LeadFollowup;
+use Modules\LeadManagement\Entities\LeadHuntingInterest;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
+use Modules\LeadManagement\Entities\LeadProviderChecklist;
+use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\PartyAlternatePhone;
 use Modules\LeadManagement\Entities\SuperfoneCall;
+use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupDispatch;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
+use Modules\WhatsAppModule\Entities\WhatsAppConversation;
 
 class LeadOtherPhoneLinkService
 {
@@ -160,24 +168,10 @@ class LeadOtherPhoneLinkService
                 throw new \InvalidArgumentException(translate('Cannot_merge_lead_into_itself') ?: 'Cannot merge a lead into itself');
             }
 
-            $this->mergeLeadData($sourceLead, $target);
-            $this->changeLogs->record((int) $sourceLead->id, [
-                'other_phone_link' => [
-                    'label' => 'Other_phone_link',
-                    'old' => '—',
-                    'new' => $phoneDisplay.' → '.$ownerLabel.'; '.(translate('Merged_into_lead') ?: 'merged into lead').' #'.$target->id,
-                ],
-            ]);
-            $this->changeLogs->record((int) $target->id, [
-                'other_phone_added' => [
-                    'label' => 'Other_phone_added',
-                    'old' => '—',
-                    'new' => $phoneDisplay.' ('.(translate('From_lead') ?: 'from lead').' #'.$sourceLead->id.')',
-                ],
-            ]);
-            $this->softDeleteSourceLead(
+            $this->mergeIntoAndArchive(
                 $sourceLead,
-                'Merged as other phone → Lead #'.$target->id
+                $target,
+                $phoneDisplay.' → '.$ownerLabel
             );
 
             return [
@@ -186,6 +180,85 @@ class LeadOtherPhoneLinkService
                     ?: 'Other phone linked. Data moved into the selected lead and this lead was moved to deleted leads.',
             ];
         });
+    }
+
+    /**
+     * Finish an incomplete other-phone merge when this lead's phone already belongs
+     * to another open provider lead (moves remaining history, then archives source).
+     *
+     * @return array{redirect_lead_id: int, message: string}
+     */
+    public function finishMergeIntoLinkedProviderLead(Lead $source): array
+    {
+        $info = $this->phones->displayForLead($source);
+        $linked = $info['linked_as'] ?? null;
+        if (! is_array($linked)
+            || ($linked['owner_type'] ?? '') !== PartyAlternatePhone::OWNER_PROVIDER_LEAD
+            || empty($linked['owner_id'])
+        ) {
+            throw new \InvalidArgumentException(
+                translate('Lead_is_not_linked_as_other_phone_of_provider_lead')
+                    ?: 'This lead is not linked as another phone of a provider lead.'
+            );
+        }
+
+        $target = Lead::query()->find((int) $linked['owner_id']);
+        if (! $target) {
+            throw new \InvalidArgumentException(translate('Target_lead_not_found') ?: 'Target lead was not found');
+        }
+        if ((int) $target->id === (int) $source->id) {
+            throw new \InvalidArgumentException(translate('Cannot_merge_lead_into_itself') ?: 'Cannot merge a lead into itself');
+        }
+
+        return DB::transaction(function () use ($source, $target, $linked) {
+            $phoneDisplay = $this->phones->formatDigitsDisplay(
+                (string) (PartyPhoneDirectory::normalizeDigits((string) $source->phone_number) ?? '')
+            );
+            $this->mergeIntoAndArchive(
+                $source,
+                $target,
+                $phoneDisplay.' → '.($linked['owner_label'] ?? ('Lead #'.$target->id))
+            );
+
+            return [
+                'redirect_lead_id' => (int) $target->id,
+                'message' => translate('Other_phone_linked_merged_into_lead')
+                    ?: 'All data moved into the linked lead and this lead was moved to deleted leads.',
+            ];
+        });
+    }
+
+    /**
+     * Move every attached CRM record from $source into $target, log the merge, soft-delete $source.
+     */
+    public function mergeIntoAndArchive(Lead $source, Lead $target, string $linkSummary = ''): void
+    {
+        $this->mergeLeadData($source, $target);
+
+        $summary = $linkSummary !== ''
+            ? $linkSummary.'; '.(translate('Merged_into_lead') ?: 'merged into lead').' #'.$target->id
+            : ((translate('Merged_into_lead') ?: 'Merged into lead').' #'.$target->id);
+
+        $this->changeLogs->record((int) $source->id, [
+            'other_phone_link' => [
+                'label' => 'Other_phone_link',
+                'old' => '—',
+                'new' => $summary,
+            ],
+        ]);
+        $this->changeLogs->record((int) $target->id, [
+            'other_phone_added' => [
+                'label' => 'Other_phone_added',
+                'old' => '—',
+                'new' => ($linkSummary !== '' ? $linkSummary.' · ' : '')
+                    .(translate('From_lead') ?: 'from lead').' #'.$source->id,
+            ],
+        ]);
+
+        $this->softDeleteSourceLead(
+            $source,
+            'Merged as other phone → Lead #'.$target->id
+        );
     }
 
     private function ownerDisplayLabel(string $ownerType, string $ownerId): string
@@ -353,6 +426,10 @@ class LeadOtherPhoneLinkService
             ->where('lead_id', $source->id)
             ->update(['lead_id' => $target->id]);
 
+        LeadFollowup::query()
+            ->where('lead_id', $source->id)
+            ->update(['lead_id' => $target->id]);
+
         LeadComment::query()
             ->where('lead_id', $source->id)
             ->update(['lead_id' => $target->id]);
@@ -361,23 +438,67 @@ class LeadOtherPhoneLinkService
             ->where('lead_id', $source->id)
             ->update(['lead_id' => $target->id]);
 
+        $this->mergeTypeHistories($source, $target);
+        $this->mergeProviderChecklist($source, $target);
+        $this->mergeCustomerTags($source, $target);
+
+        LeadHuntingInterest::query()
+            ->where('lead_id', $source->id)
+            ->update(['lead_id' => $target->id]);
+
+        LeadOutboundEnquiry::query()
+            ->where('lead_id', $source->id)
+            ->update(['lead_id' => $target->id]);
+
+        LeadOutboundEnquiry::query()
+            ->where('related_lead_id', $source->id)
+            ->update(['related_lead_id' => $target->id]);
+
+        try {
+            if (Schema::hasTable((new WhatsAppVoiceFollowupDispatch)->getTable())) {
+                WhatsAppVoiceFollowupDispatch::query()
+                    ->where('lead_id', $source->id)
+                    ->update(['lead_id' => $target->id]);
+            }
+        } catch (\Throwable) {
+            // Optional table / alternate connection — skip.
+        }
+
         Booking::query()
             ->where('lead_id', $source->id)
             ->update(['lead_id' => $target->id]);
 
         if (class_exists(WhatsAppBooking::class)) {
-            WhatsAppBooking::query()
-                ->where('lead_id', $source->id)
-                ->update(['lead_id' => $target->id]);
+            try {
+                WhatsAppBooking::query()
+                    ->where('lead_id', $source->id)
+                    ->update(['lead_id' => $target->id]);
+            } catch (\Throwable) {
+                // Optional WhatsApp DB — skip.
+            }
         }
 
-        // Remarks: append source remarks if target empty-ish.
+        if (class_exists(WhatsAppConversation::class)) {
+            try {
+                $conversationTable = (new WhatsAppConversation)->getTable();
+                if (Schema::hasTable($conversationTable) && Schema::hasColumn($conversationTable, 'active_lead_id')) {
+                    WhatsAppConversation::query()
+                        ->where('active_lead_id', $source->id)
+                        ->update(['active_lead_id' => $target->id]);
+                }
+            } catch (\Throwable) {
+                // Optional WhatsApp DB — skip.
+            }
+        }
+
+        // Remarks: append once (idempotent if re-run after a partial merge).
         $sourceRemarks = trim((string) ($source->remarks ?? ''));
         $targetRemarks = trim((string) ($target->remarks ?? ''));
-        if ($sourceRemarks !== '') {
+        $fromMarker = '[From lead #'.$source->id.']';
+        if ($sourceRemarks !== '' && ! str_contains($targetRemarks, $fromMarker)) {
             $target->remarks = $targetRemarks === ''
                 ? $sourceRemarks
-                : $targetRemarks."\n\n[From lead #{$source->id}]\n".$sourceRemarks;
+                : $targetRemarks."\n\n".$fromMarker."\n".$sourceRemarks;
         }
 
         $sourceName = trim((string) ($source->name ?? ''));
@@ -397,7 +518,206 @@ class LeadOtherPhoneLinkService
             $target->ad_source_id = $source->ad_source_id;
         }
 
+        if (($target->lead_type === Lead::TYPE_UNKNOWN || $target->lead_type === null || $target->lead_type === '')
+            && in_array($source->lead_type, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)
+        ) {
+            $target->lead_type = $source->lead_type;
+        }
+
+        if ($this->temperatureRank($source->lead_temperature) > $this->temperatureRank($target->lead_temperature)) {
+            $target->lead_temperature = $source->lead_temperature;
+        }
+
+        if ($target->handled_by === null || $target->handled_by === '' || $target->handled_by === Lead::HANDLED_BY_AI) {
+            if (Lead::assigneeIsHuman($source->handled_by)) {
+                $target->handled_by = $source->handled_by;
+            }
+        }
+
+        if ($source->next_followup_at) {
+            if (! $target->next_followup_at || $source->next_followup_at->lt($target->next_followup_at)) {
+                $target->next_followup_at = $source->next_followup_at;
+            }
+        }
+
+        if (! $target->hasInitialCallRecording() && $source->hasInitialCallRecording()) {
+            $target->initial_call_recording_path = $source->initial_call_recording_path;
+            $target->initial_call_recording_disk = $source->initial_call_recording_disk;
+            $target->initial_call_recording_mime = $source->initial_call_recording_mime;
+            $target->initial_call_recording_original_name = $source->initial_call_recording_original_name;
+            $target->initial_call_recording_transcript = $source->initial_call_recording_transcript;
+            $target->initial_call_recording_summary = $source->initial_call_recording_summary;
+            $target->initial_call_recording_transcribed_at = $source->initial_call_recording_transcribed_at;
+        }
+
+        if (($target->hunting_status ?? Lead::HUNTING_OFF) === Lead::HUNTING_OFF
+            && ($source->hunting_status ?? Lead::HUNTING_OFF) !== Lead::HUNTING_OFF
+        ) {
+            $target->hunting_status = $source->hunting_status;
+            $target->hunting_started_at = $source->hunting_started_at;
+            $target->hunting_started_by = $source->hunting_started_by;
+            $target->hunting_unpublished_at = $source->hunting_unpublished_at;
+            $target->hunting_unpublished_by = $source->hunting_unpublished_by;
+            $target->hunting_unpublish_reason = $source->hunting_unpublish_reason;
+            $target->hunting_unpublish_notes = $source->hunting_unpublish_notes;
+        }
+
         $target->save();
+    }
+
+    private function mergeTypeHistories(Lead $source, Lead $target): void
+    {
+        $sourceHistories = LeadTypeHistory::query()
+            ->where('lead_id', $source->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        if ($sourceHistories->isEmpty()) {
+            return;
+        }
+
+        $sourceLatestByType = [];
+        foreach ($sourceHistories as $history) {
+            $sourceLatestByType[(string) $history->type] = $history;
+        }
+
+        $targetLatestByType = [];
+        $targetHistories = LeadTypeHistory::query()
+            ->where('lead_id', $target->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+        foreach ($targetHistories as $history) {
+            $targetLatestByType[(string) $history->type] = $history;
+        }
+
+        LeadTypeHistory::query()
+            ->where('lead_id', $source->id)
+            ->update(['lead_id' => $target->id]);
+
+        foreach ($sourceLatestByType as $type => $sourceHistory) {
+            $targetLatest = $targetLatestByType[$type] ?? null;
+            $sourceData = is_array($sourceHistory->data) ? $sourceHistory->data : [];
+            $targetData = is_array($targetLatest?->data) ? $targetLatest->data : [];
+            $merged = $this->mergeAssocPreferFilled($targetData, $sourceData);
+            if ($merged === $targetData) {
+                continue;
+            }
+
+            LeadTypeHistory::query()->create([
+                'lead_id' => $target->id,
+                'type' => $type,
+                'data' => $merged,
+                'created_by' => Auth::id(),
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $base
+     * @param  array<string, mixed>  $fill
+     * @return array<string, mixed>
+     */
+    private function mergeAssocPreferFilled(array $base, array $fill): array
+    {
+        $out = $base;
+        foreach ($fill as $key => $value) {
+            if (is_array($value) && is_array($out[$key] ?? null)) {
+                if ($key === 'zone_ids' || array_is_list($value)) {
+                    $out[$key] = array_values(array_unique(array_merge(
+                        array_map('strval', $out[$key] ?? []),
+                        array_map('strval', $value)
+                    )));
+                } else {
+                    $out[$key] = $this->mergeAssocPreferFilled($out[$key], $value);
+                }
+
+                continue;
+            }
+
+            $existing = $out[$key] ?? null;
+            $existingEmpty = $existing === null || $existing === '' || $existing === [];
+            if ($existingEmpty && $value !== null && $value !== '' && $value !== []) {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
+    }
+
+    private function mergeProviderChecklist(Lead $source, Lead $target): void
+    {
+        $sourceRows = LeadProviderChecklist::query()
+            ->where('lead_id', $source->id)
+            ->get();
+
+        if ($sourceRows->isEmpty()) {
+            return;
+        }
+
+        $targetByItem = LeadProviderChecklist::query()
+            ->where('lead_id', $target->id)
+            ->get()
+            ->keyBy('provider_checklist_item_id');
+
+        foreach ($sourceRows as $row) {
+            $existing = $targetByItem->get($row->provider_checklist_item_id);
+            if ($existing) {
+                if ($row->is_done && ! $existing->is_done) {
+                    $existing->is_done = true;
+                    $existing->save();
+                }
+                $row->delete();
+
+                continue;
+            }
+
+            $row->lead_id = $target->id;
+            $row->save();
+        }
+    }
+
+    private function mergeCustomerTags(Lead $source, Lead $target): void
+    {
+        if (! Schema::hasTable('lead_customer_tag')) {
+            return;
+        }
+
+        $sourceTagIds = DB::table('lead_customer_tag')
+            ->where('lead_id', $source->id)
+            ->pluck('customer_lead_tag_id')
+            ->all();
+
+        if ($sourceTagIds === []) {
+            return;
+        }
+
+        $targetTagIds = DB::table('lead_customer_tag')
+            ->where('lead_id', $target->id)
+            ->pluck('customer_lead_tag_id')
+            ->all();
+
+        $toAttach = array_values(array_diff($sourceTagIds, $targetTagIds));
+        foreach ($toAttach as $tagId) {
+            DB::table('lead_customer_tag')->insert([
+                'lead_id' => $target->id,
+                'customer_lead_tag_id' => $tagId,
+            ]);
+        }
+
+        DB::table('lead_customer_tag')->where('lead_id', $source->id)->delete();
+    }
+
+    private function temperatureRank(?string $temperature): int
+    {
+        return match ($temperature) {
+            Lead::TEMPERATURE_HOTTER => 4,
+            Lead::TEMPERATURE_HOT => 3,
+            Lead::TEMPERATURE_WARM => 2,
+            Lead::TEMPERATURE_COLD => 1,
+            default => 0,
+        };
     }
 
     private function reattachCallsToBooking(
