@@ -33,9 +33,13 @@ class LeadOtherPhoneLinkTest extends TestCase
         $this->assertStringContainsString('mergeTypeHistories', $service);
         $this->assertStringContainsString('mergeProviderChecklist', $service);
         $this->assertStringContainsString('finishMergeIntoLinkedProviderLead', $service);
+        $this->assertStringContainsString('function unlink(', $service);
+        $this->assertStringContainsString('removeAlternateByDigits', file_get_contents(base_path('Modules/LeadManagement/Services/PartyPhoneDirectory.php')));
 
         $sidebar = file_get_contents(base_path('Modules/LeadManagement/Resources/views/admin/leads/partials/_show-redesign-sidebar.blade.php'));
         $this->assertStringContainsString('other-phone.finish-merge', $sidebar);
         $this->assertStringContainsString('Move_all_data_into_linked_lead', $sidebar);
+        $this->assertStringContainsString('other-phone.unlink', $sidebar);
+        $this->assertStringContainsString('Delink_other_phone', $sidebar);
     }
 }

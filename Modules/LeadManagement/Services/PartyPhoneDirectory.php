@@ -202,6 +202,26 @@ class PartyPhoneDirectory
     }
 
     /**
+     * Remove an alternate-phone link by digits. Returns the deleted row snapshot, or null if none.
+     */
+    public function removeAlternateByDigits(string $phone): ?PartyAlternatePhone
+    {
+        $digits = self::normalizeDigits($phone);
+        if ($digits === null) {
+            return null;
+        }
+
+        $row = PartyAlternatePhone::query()->where('phone_digits', $digits)->first();
+        if (! $row) {
+            return null;
+        }
+
+        $row->delete();
+
+        return $row;
+    }
+
+    /**
      * @return Collection<int, PartyAlternatePhone>
      */
     public function alternatesForOwner(string $ownerType, string $ownerId): Collection
@@ -312,6 +332,7 @@ class PartyPhoneDirectory
                         'owner_type' => $altRow->owner_type,
                         'owner_id' => (string) $altRow->owner_id,
                         'owner_label' => $altRow->ownerLabel(),
+                        'phone_digits' => (string) $altRow->phone_digits,
                         'via' => 'alternate',
                     ];
                 }

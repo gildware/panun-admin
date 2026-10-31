@@ -257,6 +257,41 @@ class LeadOtherPhoneLinkController extends Controller
         return redirect()->route('admin.lead.show', $result['redirect_lead_id']);
     }
 
+    /**
+     * Remove a wrong other-phone link (does not undo a prior data merge).
+     */
+    public function unlink(Request $request, int $id): RedirectResponse|\Illuminate\Http\Response
+    {
+        $lead = Lead::withTrashed()->findOrFail($id);
+
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'max:32'],
+        ]);
+
+        try {
+            $result = $this->linker->unlink($lead, (string) $validated['phone']);
+        } catch (\InvalidArgumentException $e) {
+            toastr()->error($e->getMessage());
+
+            return redirect()->back();
+        } catch (\Throwable $e) {
+            report($e);
+            toastr()->error(translate('Something_went_wrong') ?: 'Something went wrong');
+
+            return redirect()->back();
+        }
+
+        toastr()->success($result['message']);
+
+        if ($request->boolean('in_modal')) {
+            return response()->view('leadmanagement::admin.leads.partials._close-preview-modal', [
+                'message' => $result['message'],
+            ]);
+        }
+
+        return redirect()->route('admin.lead.show', $result['redirect_lead_id']);
+    }
+
     public function checkPhone(Request $request): JsonResponse
     {
         $digits = PartyPhoneDirectory::normalizeDigits((string) $request->query('phone', ''));
