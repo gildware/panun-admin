@@ -439,14 +439,6 @@ class SuperfoneCallService
 
     public const LINK_UNMATCHED = 'unmatched';
 
-    /** @var list<string> */
-    private const CLOSED_BOOKING_STATUSES = [
-        'completed',
-        'canceled',
-        'cancelled',
-        'refund_request',
-    ];
-
     /**
      * @return array{party: string, booking: 'one'|'choose'|null, needs_lead_link: bool}
      */
@@ -660,12 +652,17 @@ class SuperfoneCallService
 
         $provider = $this->findProviderByDigits($digits);
         $leadMatches = $provider ? collect() : $this->leadsByDigits($digits);
-        $lead = $provider ? null : app(LeadOpenStatusService::class)->firstLeadForIncomingCall($leadMatches);
+        $openStatus = app(LeadOpenStatusService::class);
+        $lead = $provider ? null : $openStatus->firstLeadForIncomingCall($leadMatches);
         $closedLeadOnly = self::freshLeadForClosedMatch($lead !== null, $leadMatches->isNotEmpty());
         $customer = $provider ? null : $this->findUserByPhoneDigits($digits, CUSTOMER_USER_TYPES);
         $openBookings = $customer
             ? $this->openBookingsForCustomer((string) $customer->id)->count()
             : 0;
+        // Also catch open bookings tied to the lead phone when no customer user row matched.
+        if ($openBookings === 0 && ! $provider && $openStatus->phoneHasOpenBooking($digits)) {
+            $openBookings = 1;
+        }
         $mintUnknown = self::shouldMintUnknownLead($lead !== null, $closedLeadOnly, $openBookings);
         $decision = self::decideLink(
             $provider !== null,
@@ -723,11 +720,11 @@ class SuperfoneCallService
     }
 
     /**
-     * An open booking belongs on the call. Do not open a second lead for it.
+     * An open lead or open booking belongs on the call. Do not mint another lead.
      */
     public static function shouldMintUnknownLead(bool $hasLinkableLead, bool $onlyUnusableLeads, int $openBookings): bool
     {
-        if ($hasLinkableLead || $openBookings > 0) {
+        if (! LeadOpenStatusService::shouldCreateNewLead($hasLinkableLead, $openBookings > 0)) {
             return false;
         }
 
@@ -866,7 +863,7 @@ class SuperfoneCallService
                 'subCategory:id,name',
             ])
             ->where($column, $id)
-            ->whereNotIn('booking_status', self::CLOSED_BOOKING_STATUSES)
+            ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
             ->orderByDesc('created_at')
             ->limit(12)
             ->get([
@@ -1049,7 +1046,7 @@ class SuperfoneCallService
     {
         return Booking::query()
             ->where('customer_id', $customerId)
-            ->whereNotIn('booking_status', self::CLOSED_BOOKING_STATUSES)
+            ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
             ->orderByDesc('created_at')
             ->get(['id', 'readable_id', 'booking_status', 'customer_id']);
     }

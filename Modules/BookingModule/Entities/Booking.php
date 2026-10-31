@@ -41,6 +41,19 @@ class Booking extends Model
     public const STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS = ['pending', 'accepted', 'ongoing', 'on_hold'];
 
     /**
+     * Terminal booking statuses: an open (non-terminal) booking for a phone blocks minting a new CRM lead
+     * on inbound WhatsApp / Superfone.
+     *
+     * @var list<string>
+     */
+    public const CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH = [
+        'completed',
+        'canceled',
+        'cancelled',
+        'refund_request',
+    ];
+
+    /**
      * When true, {@see created} does not auto-schedule follow-ups (staff chose dates on admin create).
      * Not a database column.
      */

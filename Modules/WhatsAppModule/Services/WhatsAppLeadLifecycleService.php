@@ -12,6 +12,7 @@ use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Services\LeadChangeLogService;
 use Modules\LeadManagement\Services\LeadFollowupService;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
@@ -223,6 +224,12 @@ class WhatsAppLeadLifecycleService
             return $this->touchAiOpenLead($existing, $name, $whatsAppPhone);
         }
 
+        $openStatus = app(LeadOpenStatusService::class);
+        if (! LeadOpenStatusService::shouldCreateNewLead(false, $openStatus->phoneHasOpenBooking($leadPhone))) {
+            // Open booking already exists — reuse its lead; never mint another.
+            return $openStatus->existingLeadForOpenBookingPhone($leadPhone);
+        }
+
         // Skip creation for already-onboarded providers.
         if ($this->isProviderAccountPhone($leadPhone)) {
             return null;
@@ -276,6 +283,12 @@ class WhatsAppLeadLifecycleService
             if ($unknownOpen) {
                 return $this->convertUnknownOpenLeadToType($unknownOpen, $leadType, $name, $whatsAppPhone);
             }
+        }
+
+        $openStatus = app(LeadOpenStatusService::class);
+        if (! LeadOpenStatusService::shouldCreateNewLead(false, $openStatus->phoneHasOpenBooking($leadPhone))) {
+            // Open booking already exists — reuse its lead; never mint another.
+            return $openStatus->existingLeadForOpenBookingPhone($leadPhone);
         }
 
         // Skip creation for already-onboarded providers.
@@ -592,7 +605,7 @@ class WhatsAppLeadLifecycleService
             $status = CustomerLeadStatus::find($statusId);
             $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
 
-            return !in_array($baseType, ['completed', 'cancel'], true);
+            return ! in_array($baseType, ['completed', 'booked', 'cancel'], true);
         }
 
         if ($lead->lead_type === Lead::TYPE_PROVIDER) {
@@ -612,7 +625,7 @@ class WhatsAppLeadLifecycleService
             $status = ProviderLeadStatus::find($statusId);
             $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
 
-            return !in_array($baseType, ['completed', 'cancel'], true);
+            return ! in_array($baseType, ['completed', 'booked', 'cancel'], true);
         }
 
         return false;

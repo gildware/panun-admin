@@ -39,6 +39,16 @@ class WhatsAppProviderInboundLeadTest extends TestCase
             $table->string('phone_number')->nullable();
             $table->string('lead_type')->nullable();
             $table->timestamp('non_responsive_at')->nullable();
+            $table->timestamp('deleted_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('bookings', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('customer_id')->nullable();
+            $table->unsignedBigInteger('lead_id')->nullable();
+            $table->string('booking_status')->nullable();
+            $table->timestamp('deleted_at')->nullable();
             $table->timestamps();
         });
     }

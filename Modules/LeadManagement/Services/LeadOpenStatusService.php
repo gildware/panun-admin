@@ -4,10 +4,13 @@ namespace Modules\LeadManagement\Services;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
+use Modules\UserManagement\Entities\User;
 
 class LeadOpenStatusService
 {
@@ -221,7 +224,7 @@ class LeadOpenStatusService
             $status = $customerStatuses?->get((int) $statusId) ?? CustomerLeadStatus::find($statusId);
             $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
 
-            return !in_array($baseType, ['completed', 'cancel'], true);
+            return ! in_array($baseType, ['completed', 'booked', 'cancel'], true);
         }
 
         if ($lead->lead_type === Lead::TYPE_PROVIDER) {
@@ -237,10 +240,156 @@ class LeadOpenStatusService
             $status = $providerStatuses?->get((int) $statusId) ?? ProviderLeadStatus::find($statusId);
             $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
 
-            return !in_array($baseType, ['completed', 'cancel'], true);
+            return ! in_array($baseType, ['completed', 'booked', 'cancel'], true);
         }
 
         return false;
+    }
+
+    /**
+     * Mint a new CRM lead only when the phone has neither an open lead nor an open booking.
+     */
+    public static function shouldCreateNewLead(bool $hasOpenLead, bool $hasOpenBooking): bool
+    {
+        return ! $hasOpenLead && ! $hasOpenBooking;
+    }
+
+    /**
+     * Pure rule used by tests / voice tooling: booked (completed) customer/provider leads
+     * may absorb the next call; cancelled, invalid, and non-responsive may not.
+     */
+    public static function canReuseLeadForCall(string $leadType, bool $isNonResponsive, ?string $baseType): bool
+    {
+        if ($isNonResponsive || $leadType === Lead::TYPE_INVALID) {
+            return false;
+        }
+
+        if (in_array($leadType, [Lead::TYPE_UNKNOWN, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
+            return true;
+        }
+
+        if (! in_array($leadType, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
+            return false;
+        }
+
+        return strtolower((string) ($baseType ?? 'pending')) !== 'cancel';
+    }
+
+    /**
+     * Whether this phone already has a non-terminal booking (customer account or linked lead).
+     */
+    public function phoneHasOpenBooking(string $phoneDigits): bool
+    {
+        $digits = preg_replace('/\D+/', '', $phoneDigits) ?? '';
+        if (strlen($digits) < 8) {
+            return false;
+        }
+        $suffix = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
+
+        $customerIds = User::query()
+            ->whereIn('user_type', CUSTOMER_USER_TYPES)
+            ->where(function ($query) use ($suffix) {
+                $this->wherePhoneEndsWith($query, 'phone', $suffix);
+            })
+            ->pluck('id');
+
+        if ($customerIds->isNotEmpty()
+            && Booking::query()
+                ->whereIn('customer_id', $customerIds)
+                ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
+                ->exists()
+        ) {
+            return true;
+        }
+
+        $leadIds = Lead::query()
+            ->where(function ($query) use ($suffix) {
+                $this->wherePhoneEndsWith($query, 'phone_number', $suffix);
+            })
+            ->pluck('id');
+
+        if ($leadIds->isEmpty()) {
+            return false;
+        }
+
+        return Booking::query()
+            ->whereIn('lead_id', $leadIds)
+            ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
+            ->exists();
+    }
+
+    /**
+     * Prefer the lead already tied to an open booking for this phone (do not mint another).
+     */
+    public function existingLeadForOpenBookingPhone(string $phoneDigits): ?Lead
+    {
+        $digits = preg_replace('/\D+/', '', $phoneDigits) ?? '';
+        if (strlen($digits) < 8) {
+            return null;
+        }
+        $suffix = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
+
+        $customerIds = User::query()
+            ->whereIn('user_type', CUSTOMER_USER_TYPES)
+            ->where(function ($query) use ($suffix) {
+                $this->wherePhoneEndsWith($query, 'phone', $suffix);
+            })
+            ->pluck('id');
+
+        $openBooking = null;
+        if ($customerIds->isNotEmpty()) {
+            $openBooking = Booking::query()
+                ->whereIn('customer_id', $customerIds)
+                ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
+                ->whereNotNull('lead_id')
+                ->orderByDesc('created_at')
+                ->first(['id', 'lead_id']);
+        }
+
+        if (! $openBooking) {
+            $leadIds = Lead::query()
+                ->where(function ($query) use ($suffix) {
+                    $this->wherePhoneEndsWith($query, 'phone_number', $suffix);
+                })
+                ->pluck('id');
+            if ($leadIds->isNotEmpty()) {
+                $openBooking = Booking::query()
+                    ->whereIn('lead_id', $leadIds)
+                    ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
+                    ->orderByDesc('created_at')
+                    ->first(['id', 'lead_id']);
+            }
+        }
+
+        if ($openBooking?->lead_id) {
+            return Lead::query()->find($openBooking->lead_id);
+        }
+
+        return Lead::query()
+            ->where(function ($query) use ($suffix) {
+                $this->wherePhoneEndsWith($query, 'phone_number', $suffix);
+            })
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
+    private function wherePhoneEndsWith($query, string $column, string $digits): void
+    {
+        $query->where(function ($inner) use ($column, $digits) {
+            if (DB::connection()->getDriverName() === 'mysql') {
+                $inner->whereRaw(
+                    "RIGHT(REGEXP_REPLACE(COALESCE({$column}, ''), '[^0-9]', ''), ?) = ?",
+                    [strlen($digits), $digits]
+                );
+
+                return;
+            }
+
+            $inner->where($column, $digits)->orWhere($column, 'like', '%'.$digits);
+        });
     }
 
     /**
