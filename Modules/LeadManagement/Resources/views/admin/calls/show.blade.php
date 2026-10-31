@@ -7,8 +7,36 @@
         <div class="container-fluid">
             <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                 <h2 class="page-title mb-0">{{ translate('Call_details') }}</h2>
-                <a href="{{ route('admin.calls.index') }}" class="btn btn-outline-secondary">{{ translate('Back') }}</a>
+                <a href="{{ $call->trashed() ? route('admin.calls.deleted') : route('admin.calls.index') }}" class="btn btn-outline-secondary">
+                    {{ $call->trashed() ? translate('Back_to_deleted_calls') : translate('Back') }}
+                </a>
             </div>
+
+            @if($call->trashed())
+                @php
+                    $deletedByUser = $call->deletedByUser;
+                    $deletedByName = trim((string) (($deletedByUser->first_name ?? '').' '.($deletedByUser->last_name ?? '')));
+                    if ($deletedByName === '' && $deletedByUser) {
+                        $deletedByName = (string) ($deletedByUser->email ?: $deletedByUser->phone);
+                    }
+                @endphp
+                <div class="alert alert-warning mb-3">
+                    <div class="fw-medium mb-1">{{ translate('This_call_is_deleted') }}</div>
+                    <div class="small text-muted mt-1">
+                        {{ translate('Deleted_by') }}: {{ $deletedByName !== '' ? $deletedByName : '—' }}
+                        · {{ translate('Deleted_at') }}: {{ optional($call->deleted_at)->format('d M Y H:i') }}
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <a href="{{ route('admin.calls.deleted') }}" class="btn btn-sm btn--secondary">{{ translate('Back_to_deleted_calls') }}</a>
+                        @if(is_super_admin())
+                            <form method="post" action="{{ route('admin.calls.deleted.restore', $call->id) }}" data-turbo="false">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-success">{{ translate('Restore') }}</button>
+                            </form>
+                        @endif
+                    </div>
+                </div>
+            @endif
 
             <div class="row g-3">
                 <div class="col-lg-7">
@@ -69,7 +97,9 @@
 
                                     <dt class="col-sm-4">{{ translate('Actions') }}</dt>
                                     <dd class="col-sm-8 d-flex flex-wrap gap-2">
-                                        @if($call->lead || $call->booking)
+                                        @if($call->trashed())
+                                            <span class="text-muted">{{ translate('Restore_to_edit_this_call') }}</span>
+                                        @elseif($call->lead || $call->booking)
                                             <form method="post" action="{{ route('admin.calls.unmatch', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Unmatch_this_call')));">
                                                 @csrf
                                                 <button type="submit" class="btn btn--danger calls-unmatch-btn">{{ translate('Unmatch') }}</button>
@@ -118,26 +148,28 @@
                                             @endcan
                                         @endif
                                         @endif
-                                        @can('lead_add')
-                                            @if(strlen((string) ($call->customer_phone_digits ?: '')) >= 8)
+                                        @unless($call->trashed())
+                                            @can('lead_add')
+                                                @if(strlen((string) ($call->customer_phone_digits ?: '')) >= 8)
+                                                    <button type="button"
+                                                            class="btn btn-outline-secondary"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#call-create-lead-modal">
+                                                        {{ translate('New_lead') }}
+                                                    </button>
+                                                @endif
+                                            @endcan
+                                            @if(is_super_admin())
                                                 <button type="button"
-                                                        class="btn btn-outline-secondary"
+                                                        class="btn btn-outline-danger calls-delete-btn"
                                                         data-bs-toggle="modal"
-                                                        data-bs-target="#call-create-lead-modal">
-                                                    {{ translate('New_lead') }}
+                                                        data-bs-target="#call-delete-modal"
+                                                        title="{{ translate('Delete') }}"
+                                                        aria-label="{{ translate('Delete') }}">
+                                                    <span class="material-icons" aria-hidden="true" style="font-size:18px;line-height:1;">delete</span>
                                                 </button>
                                             @endif
-                                        @endcan
-                                        @if(is_super_admin())
-                                            <button type="button"
-                                                    class="btn btn-outline-danger calls-delete-btn"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#call-delete-modal"
-                                                    title="{{ translate('Delete') }}"
-                                                    aria-label="{{ translate('Delete') }}">
-                                                <span class="material-icons" aria-hidden="true" style="font-size:18px;line-height:1;">delete</span>
-                                            </button>
-                                        @endif
+                                        @endunless
                                     </dd>
 
                                 <dt class="col-sm-4">{{ translate('Call_id') }}</dt>
@@ -232,7 +264,7 @@
                         <p class="text-center fs-12 fw-medium text-muted mb-1">
                             {{ $call->customer_phone ?: ($call->cdr_uuid ?: ('#'.$call->id)) }} · {{ $call->formatIst('started_at') }}
                         </p>
-                        <p class="text-center fs-12 text-muted mb-0">{{ translate('This_action_cannot_be_undone') }}</p>
+                        <p class="text-center fs-12 text-muted mb-0">{{ translate('Call_will_move_to_deleted_calls') }}</p>
                         <form method="post" action="{{ route('admin.calls.destroy', $call) }}">
                             @csrf
                             @method('DELETE')

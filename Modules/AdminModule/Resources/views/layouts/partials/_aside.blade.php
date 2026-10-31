@@ -154,6 +154,14 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                     <span class="link-title">{{ translate('Call_report') }}</span>
                                 </a>
                             </li>
+                            @if(is_super_admin())
+                                <li>
+                                    <a href="{{ route('admin.calls.deleted') }}"
+                                       class="{{ request()->routeIs('admin.calls.deleted') ? 'active-menu' : '' }}">
+                                        <span class="link-title">{{ translate('Deleted_calls') }}</span>
+                                    </a>
+                                </li>
+                            @endif
                             <li>
                                 <a href="{{ route('admin.calls.api-logs') }}"
                                    class="{{ request()->is('admin/calls/api-logs*') ? 'active-menu' : '' }}">

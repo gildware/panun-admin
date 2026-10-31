@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
@@ -548,11 +549,11 @@ class SuperfoneCallController extends Controller
     {
         abort_unless(is_super_admin(), 403);
 
-        $this->calls->delete($call);
+        $this->calls->delete($call, Auth::id() !== null ? (string) Auth::id() : null);
 
-        toastr()->success(translate('Call_deleted'));
+        toastr()->success(translate('Call_moved_to_deleted_calls'));
 
-        return redirect()->route('admin.calls.index');
+        return redirect()->route('admin.calls.deleted');
     }
 
     public function markContacted(Request $request, SuperfoneCall $call): RedirectResponse
@@ -622,20 +623,21 @@ class SuperfoneCallController extends Controller
         ];
     }
 
-    public function show(SuperfoneCall $call): View
+    public function show(int $call): View
     {
-        $call->load(['lead', 'followup', 'employee', 'provider', 'booking', 'customer']);
+        $model = SuperfoneCall::withTrashed()->findOrFail($call);
+        $model->load(['lead', 'followup', 'employee', 'provider', 'booking', 'customer', 'deletedByUser']);
         $bookingChoices = collect();
-        if (! $call->booking_id && ! $call->needsLeadLink()) {
-            $open = $this->calls->openBookings($call);
+        if (! $model->trashed() && ! $model->booking_id && ! $model->needsLeadLink()) {
+            $open = $this->calls->openBookings($model);
             if ($open->count() > 1) {
                 $bookingChoices = $open;
             }
         }
 
         $reopenLead = null;
-        $digits = (string) ($call->customer_phone_digits ?: '');
-        if (strlen($digits) >= 8) {
+        $digits = (string) ($model->customer_phone_digits ?: '');
+        if (! $model->trashed() && strlen($digits) >= 8) {
             $openStatus = app(LeadOpenStatusService::class);
             $reopenLead = $openStatus->firstReopenableNonResponsiveLead(
                 $openStatus->leadsForPhoneDigits($digits)
@@ -643,38 +645,42 @@ class SuperfoneCallController extends Controller
         }
 
         return view('leadmanagement::admin.calls.show', [
-            'call' => $call,
+            'call' => $model,
             'bookingChoices' => $bookingChoices,
             'reopenLead' => $reopenLead,
         ]);
     }
 
-    public function recording(SuperfoneCall $call): BinaryFileResponse
+    public function recording(int $call): BinaryFileResponse
     {
-        abort_unless($call->hasRecording(), 404);
+        $model = SuperfoneCall::withTrashed()->findOrFail($call);
+        abort_unless($model->hasRecording(), 404);
 
-        $path = $call->recordingStoragePath();
+        $path = $model->recordingStoragePath();
         abort_unless($path, 404);
 
         return SeekableRecordingResponse::fromDisk(
-            $call->recordingDisk(),
+            $model->recordingDisk(),
             $path,
-            $call->recording_mime ?: 'audio/mpeg',
-            $call->recording_original_name ?: basename($path)
+            $model->recording_mime ?: 'audio/mpeg',
+            $model->recording_original_name ?: basename($path)
         );
     }
 
-    public function downloadRecording(SuperfoneCall $call): RedirectResponse
+    public function downloadRecording(int $call): RedirectResponse
     {
-        $this->calls->downloadRecording($call);
-        $call->refresh();
+        $model = SuperfoneCall::withTrashed()->findOrFail($call);
+        abort_if($model->trashed(), 404);
 
-        if ($call->hasRecording()) {
+        $this->calls->downloadRecording($model);
+        $model->refresh();
+
+        if ($model->hasRecording()) {
             toastr()->success(translate('Recording_saved'));
         } else {
-            toastr()->error($call->recording_error ?: translate('Recording_download_failed'));
+            toastr()->error($model->recording_error ?: translate('Recording_download_failed'));
         }
 
-        return redirect()->route('admin.calls.show', $call);
+        return redirect()->route('admin.calls.show', $model);
     }
 }
