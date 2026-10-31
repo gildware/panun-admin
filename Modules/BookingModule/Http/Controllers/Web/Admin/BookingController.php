@@ -1284,14 +1284,18 @@ class BookingController extends Controller
             if (mb_strlen($title) > 255) {
                 $title = mb_substr($title, 0, 255);
             }
-            $out[] = [
+            $row = BookingExtraService::normalizeCommissionAttributes([
                 'title' => $title,
                 'details' => $details,
                 'type' => $type,
                 'quantity' => $qty,
                 'price' => $price,
                 'discount' => $discount,
-            ];
+                'commission_included' => $row['commission_included'] ?? 'exclude',
+                'commission_amount_type' => $row['commission_amount_type'] ?? null,
+                'commission_amount' => $row['commission_amount'] ?? 0,
+            ]);
+            $out[] = $row;
         }
 
         return $out;
@@ -1473,6 +1477,7 @@ class BookingController extends Controller
                 $sparePartsTotal = round($sparePartsTotal + (float) ($ex['total'] ?? 0), 2);
             }
         }
+        $sparePartsAdminCommission = sum_spare_parts_admin_commission_from_extras($cartPricing['extras'] ?? []);
         $nonCommAc = 0.0;
         foreach ($cartPricing['additional_charge_lines'] ?? [] as $row) {
             $commissionable = $row['commissionable'] ?? true;
@@ -1486,7 +1491,8 @@ class BookingController extends Controller
             $grandTotal,
             $sparePartsTotal,
             $nonCommAc,
-            $tierSetup
+            $tierSetup,
+            $sparePartsAdminCommission
         );
     }
 
@@ -2140,15 +2146,19 @@ class BookingController extends Controller
             }
 
             foreach ($cartPricing['extras'] as $ex) {
+                $normalized = BookingExtraService::normalizeCommissionAttributes($ex);
                 $row = new BookingExtraService([
                     'booking_id' => $booking->id,
-                    'title' => $ex['title'],
-                    'details' => $ex['details'],
-                    'type' => $ex['type'],
-                    'quantity' => $ex['quantity'],
-                    'price' => $ex['price'],
-                    'discount' => $ex['discount'],
-                    'total' => $ex['total'],
+                    'title' => $normalized['title'],
+                    'details' => $normalized['details'],
+                    'type' => $normalized['type'],
+                    'quantity' => $normalized['quantity'],
+                    'price' => $normalized['price'],
+                    'discount' => $normalized['discount'],
+                    'total' => $ex['total'] ?? max(0, ($normalized['quantity'] * $normalized['price']) - $normalized['discount']),
+                    'commission_included' => $normalized['commission_included'],
+                    'commission_amount_type' => $normalized['commission_amount_type'],
+                    'commission_amount' => $normalized['commission_amount'],
                 ]);
                 $row->save();
             }
@@ -2516,14 +2526,17 @@ class BookingController extends Controller
             if ($discount < 0) {
                 $discount = 0;
             }
-            $rows[] = [
+            $rows[] = BookingExtraService::normalizeCommissionAttributes([
                 'title' => mb_substr($title, 0, 255),
                 'details' => mb_substr(trim((string) ($item['details'] ?? '')), 0, 2000),
                 'type' => $type,
                 'quantity' => $qty,
                 'price' => $price,
                 'discount' => $discount,
-            ];
+                'commission_included' => $item['commission_included'] ?? 'exclude',
+                'commission_amount_type' => $item['commission_amount_type'] ?? null,
+                'commission_amount' => $item['commission_amount'] ?? 0,
+            ]);
         }
 
         return $rows;
@@ -5222,6 +5235,9 @@ class BookingController extends Controller
                     'price' => $extra->price,
                     'discount' => $extra->discount,
                     'total' => $extra->total,
+                    'commission_included' => ! empty($extra->commission_included) ? 'include' : 'exclude',
+                    'commission_amount_type' => $extra->commission_amount_type ?? 'percentage',
+                    'commission_amount' => $extra->commission_amount ?? 0,
                     'update_url' => route('admin.booking.extra-service.update', [$booking->id, $extra->id]),
                     'destroy_url' => route('admin.booking.extra-service.destroy', [$booking->id, $extra->id]),
                 ];
@@ -6467,6 +6483,9 @@ class BookingController extends Controller
                 'quantity' => $data['quantity'],
                 'price' => $data['price'],
                 'discount' => $data['discount'],
+                'commission_included' => $data['commission_included'],
+                'commission_amount_type' => $data['commission_amount_type'],
+                'commission_amount' => $data['commission_amount'],
             ]);
             $item->recalculateTotal();
             $item->save();
@@ -6521,7 +6540,7 @@ class BookingController extends Controller
     }
 
     /**
-     * @return array{title: string, details: ?string, type: string, quantity: int, price: float, discount: float}
+     * @return array{title: string, details: ?string, type: string, quantity: int, price: float, discount: float, commission_included: bool, commission_amount_type: ?string, commission_amount: float}
      */
     private function validatedExtraServiceItem(Request $request): array
     {
@@ -6532,10 +6551,13 @@ class BookingController extends Controller
             'quantity' => ['required', 'integer', 'min:1'],
             'price' => ['required', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
+            'commission_included' => ['nullable', 'in:include,exclude,0,1'],
+            'commission_amount_type' => ['nullable', 'in:percentage,amount'],
+            'commission_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
         $data['discount'] = (float) ($data['discount'] ?? 0);
 
-        return $data;
+        return BookingExtraService::normalizeCommissionAttributes($data);
     }
 
     private function redirectIfLineItemsLocked($model): ?RedirectResponse

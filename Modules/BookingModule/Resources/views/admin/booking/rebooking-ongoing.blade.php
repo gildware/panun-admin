@@ -244,7 +244,10 @@
                                                                         data-type="{{ e($extra['type'] ?? ($extra['is_spare'] ? 'spare_part' : 'service')) }}"
                                                                         data-quantity="{{ (int) $extra['quantity'] }}"
                                                                         data-price="{{ $extra['price'] }}"
-                                                                        data-discount="{{ $extra['discount'] }}">
+                                                                        data-discount="{{ $extra['discount'] }}"
+                                                                        data-commission-included="{{ e($extra['commission_included'] ?? 'exclude') }}"
+                                                                        data-commission-amount-type="{{ e($extra['commission_amount_type'] ?? 'percentage') }}"
+                                                                        data-commission-amount="{{ $extra['commission_amount'] ?? 0 }}">
                                                                     {{ translate('Edit') }}
                                                                 </button>
                                                                 <form method="post" action="{{ $extra['destroy_url'] }}" class="d-inline" onsubmit="return confirm('{{ translate('Remove_this_item') }}');">
@@ -823,11 +826,15 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">{{ translate('Type') }} <span class="text-danger">*</span></label>
-                            <select name="type" class="form-control" required>
+                            <select name="type" class="form-control js-extra-type" required>
                                 <option value="service" selected>{{ translate('Service') }}</option>
                                 <option value="spare_part">{{ translate('Spare_Part') }}</option>
                             </select>
                         </div>
+                        @include('bookingmodule::admin.booking.partials._extra-service-spare-commission-fields', [
+                            'uid' => 'visit-extra',
+                            'named' => true,
+                        ])
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">{{ translate('Qty') }} <span class="text-danger">*</span></label>
@@ -982,6 +989,9 @@
     <script>
         "use strict";
 
+        @include('bookingmodule::admin.booking.partials._extra-service-spare-commission-script', [
+            'rootSelector' => '#visit-extra-service-form',
+        ])
         (function () {
             var form = document.getElementById('visit-extra-service-form');
             if (!form) {
@@ -996,6 +1006,7 @@
             var editLabel = @json(translate('Edit_Extra_Service'));
             var addBtnLabel = @json(translate('Add'));
             var updateBtnLabel = @json(translate('Update'));
+            var spareUi = (window.__spareCommissionUi || {})['#visit-extra-service-form'];
 
             function setField(name, value) {
                 var field = form.querySelector('[name="' + name + '"]');
@@ -1014,6 +1025,9 @@
                 setField('price', '0');
                 setField('discount', '0');
                 setField('type', 'service');
+                if (spareUi && spareUi.reset) {
+                    spareUi.reset();
+                }
                 if (titleEl) {
                     titleEl.textContent = addLabel;
                 }
@@ -1033,6 +1047,13 @@
                 setField('quantity', btn.getAttribute('data-quantity') || '1');
                 setField('price', btn.getAttribute('data-price') || '0');
                 setField('discount', btn.getAttribute('data-discount') || '0');
+                if (spareUi && spareUi.fill) {
+                    spareUi.fill({
+                        commission_included: btn.getAttribute('data-commission-included') || 'exclude',
+                        commission_amount_type: btn.getAttribute('data-commission-amount-type') || 'percentage',
+                        commission_amount: btn.getAttribute('data-commission-amount') || '0'
+                    });
+                }
                 if (titleEl) {
                     titleEl.textContent = editLabel;
                 }

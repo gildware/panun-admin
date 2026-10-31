@@ -804,6 +804,9 @@
 @endsection
 
 @push('script')
+    @include('bookingmodule::admin.booking.partials._extra-service-spare-commission-script', [
+        'rootSelector' => '#addExtraServiceModal--create',
+    ])
     <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
     <script>
         "use strict";
@@ -3372,19 +3375,33 @@
                 var qty = Math.max(1, parseInt($('#create-extra-qty').val(), 10) || 1);
                 var price = Math.max(0, parseFloat($('#create-extra-price').val()) || 0);
                 var discount = Math.max(0, parseFloat($('#create-extra-discount').val()) || 0);
+                var type = $('#create-extra-type').val() === 'spare_part' ? 'spare_part' : 'service';
+                var spareUi = (window.__spareCommissionUi || {})['#addExtraServiceModal--create'];
+                var commission = (type === 'spare_part' && spareUi && spareUi.read) ? spareUi.read() : {
+                    commission_included: 'exclude',
+                    commission_amount_type: 'percentage',
+                    commission_amount: 0
+                };
                 bookingCreateCart.extras.push({
                     title: title,
                     details: ($('#create-extra-details').val() || '').trim() || null,
-                    type: $('#create-extra-type').val() === 'spare_part' ? 'spare_part' : 'service',
+                    type: type,
                     quantity: qty,
                     price: price,
-                    discount: discount
+                    discount: discount,
+                    commission_included: commission.commission_included,
+                    commission_amount_type: commission.commission_amount_type,
+                    commission_amount: commission.commission_amount
                 });
                 $('#create-extra-title').val('');
                 $('#create-extra-details').val('');
                 $('#create-extra-qty').val('1');
                 $('#create-extra-price').val('0');
                 $('#create-extra-discount').val('0');
+                $('#create-extra-type').val('service');
+                if (spareUi && spareUi.reset) {
+                    spareUi.reset();
+                }
                 persistBookingCreateCart();
                 refreshBookingCreateCartSummary();
                 var exEl = document.getElementById('addExtraServiceModal--create');
