@@ -893,26 +893,10 @@
             }
 
             function restoreSavedLeadTabFilters() {
-                const tab = currentLeadTab();
-                const current = window.location.pathname + window.location.search;
-                if (!isBareLeadTabUrl(current)) {
-                    return false;
-                }
-                const stored = getLeadTabFilter(tab);
-                if (!stored || isBareLeadTabUrl(stored)) {
-                    return false;
-                }
-                const storedUrl = new URL(stored, window.location.origin);
-                if (storedUrl.pathname + storedUrl.search === current) {
-                    return false;
-                }
-                if (typeof window.adminPartialNavLoad === 'function') {
-                    window.history.replaceState(window.history.state || { adminPartialNav: true }, '', storedUrl.pathname + storedUrl.search);
-                    window.adminPartialNavLoad(storedUrl.href, { advance: false });
-                } else {
-                    window.location.replace(storedUrl.pathname + storedUrl.search);
-                }
-                return true;
+                // Do not auto-hijack a bare /admin/lead landing (main nav / refresh)
+                // back onto the last search. Tab clicks already reapply each tab's
+                // saved filters via stampLeadTabLinks + the click handler below.
+                return false;
             }
 
             function withLeadListReturn(url) {
@@ -1054,6 +1038,11 @@
                 const src = this.getAttribute('src') || '';
                 if (src && src !== 'about:blank') {
                     $('#lead-view-loading').addClass('d-none');
+                    try {
+                        if (this.contentWindow) {
+                            this.contentWindow.scrollTo(0, 0);
+                        }
+                    } catch (e) {}
                 }
             });
 

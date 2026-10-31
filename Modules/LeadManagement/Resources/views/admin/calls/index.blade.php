@@ -26,17 +26,69 @@
         .calls-list-card { overflow: hidden; }
         .calls-list-scroll { max-height: calc(100dvh - 16.5rem); overflow-x: auto; overflow-y: auto; }
         .calls-list-table thead th { position: sticky; top: 0; z-index: 2; background: #fff; box-shadow: inset 0 -1px 0 #e5e7eb; }
-        .calls-list-table { width: 100%; min-width: 1440px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
+        .calls-list-table { width: 100%; min-width: 1520px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
         .calls-list-table td.calls-call-id-cell { overflow: visible; text-overflow: clip; text-align: center; }
         .calls-copy-id { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
         .calls-copy-id .material-icons { font-size: 16px; line-height: 1; }
         .calls-copy-id.is-copied { color: #0f7a3a; border-color: #86efac; background: #e7f6ee; }
         .calls-list-table.table > :not(caption) > * > * { height: 52px; padding: 0 0.55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-        .calls-list-table.table > :not(caption) > * > *.calls-actions-cell { overflow: visible; text-overflow: clip; padding-left: 1rem; text-align: left; }
-        .calls-actions-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+        .calls-list-table.table > :not(caption) > * > *.calls-actions-cell {
+            height: auto;
+            min-height: 52px;
+            overflow: visible;
+            text-overflow: clip;
+            padding: 0.45rem 0.75rem;
+            text-align: left;
+            vertical-align: middle;
+        }
+        .calls-actions-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0.35rem;
+            width: 100%;
+        }
+        .calls-actions-primary {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.35rem;
+            width: 100%;
+        }
+        .calls-actions-stack > form,
+        .calls-actions-primary > form { display: inline-flex; margin: 0; flex: 0 0 auto; }
         .calls-list-table .calls-link-lead-btn,
         .calls-list-table .calls-unmatch-btn,
-        .calls-list-table .calls-contact-btn { padding: 0.32rem 0.6rem; font-size: 0.75rem; }
+        .calls-list-table .calls-new-lead-btn,
+        .calls-list-table .calls-contact-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            min-width: 5.75rem;
+            min-height: 30px;
+            padding: 0.28rem 0.55rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            line-height: 1.2;
+            border-radius: 8px;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+        .calls-list-table .calls-delete-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            min-width: 30px;
+            height: 30px;
+            padding: 0;
+            border-radius: 8px;
+            flex: 0 0 30px;
+        }
         .calls-contact-btn { border-radius: 8px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
         #call-contact-modal .call-contact-channels { display: flex; flex-direction: column; gap: 0.45rem; }
         #call-contact-modal .form-check { margin-bottom: 0; }
@@ -44,6 +96,10 @@
         .calls-unmatch-btn { background-color: var(--bs-danger); color: #fff; border: 1px solid var(--bs-danger); border-radius: 8px; font-weight: 600; line-height: 1.2; }
         .calls-unmatch-btn:hover,
         .calls-unmatch-btn:focus { background-color: #bb2d3b; color: #fff; border-color: #bb2d3b; }
+        .calls-delete-btn .material-icons { font-size: 18px; line-height: 1; }
+        .calls-new-lead-btn { border-color: #cbd5e1; color: #111827; background: #fff; }
+        .calls-new-lead-btn:hover,
+        .calls-new-lead-btn:focus { border-color: #94a3b8; color: #111827; background: #f8fafc; }
         .calls-list-table td.calls-lead-cell { white-space: nowrap; }
         .calls-lead-line { display: inline-flex; align-items: center; gap: 0.4rem; max-width: 100%; }
         .party-pill { display: inline-flex; align-items: center; padding: 0.22rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
@@ -52,7 +108,7 @@
         .call-link-who { padding: 0.75rem 0.85rem; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc; }
         .call-link-who__kind { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #6b7280; }
         .call-link-who__name { font-weight: 700; color: #111827; }
-        .calls-link-lead-btn { padding: 0.42rem 0.95rem; font-size: 0.8125rem; font-weight: 600; border-radius: 8px; line-height: 1.2; }
+        .calls-link-lead-btn { font-weight: 600; border-radius: 8px; line-height: 1.2; }
         .lead-chip { display: inline-flex; align-items: stretch; border-radius: 999px; overflow: hidden; text-decoration: none; border: 1px solid #e5e7eb; background: #fff; line-height: 1; }
         .lead-chip__id { padding: 0.28rem 0.4rem; color: #111827; font-size: 0.72rem; font-weight: 700; }
         .lead-chip__type { padding: 0.28rem 0.45rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.01em; }
@@ -319,10 +375,10 @@
                             <col style="width: 11%">
                             <col style="width: 5%">
                             <col style="width: 4%">
-                            <col style="width: 10%">
-                            <col style="width: 8%">
-                            <col style="width: 11%">
-                            <col style="width: 10%">
+                            <col style="width: 9%">
+                            <col style="width: 7%">
+                            <col style="width: 9%">
+                            <col style="width: 14%">
                         </colgroup>
                         <thead>
                         @php
@@ -454,6 +510,62 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="call-create-lead-modal" tabindex="-1" aria-labelledby="call-create-lead-modal-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" id="call-create-lead-form" action="#">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="call-create-lead-modal-title">{{ translate('New_lead') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">{{ translate('Create_new_lead_from_this_call_confirm') }}</p>
+                        <p id="call-create-lead-phone" class="fw-bold mb-0"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                        <button type="submit" class="btn btn--primary">{{ translate('Confirm') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @if(is_super_admin())
+        <div class="modal fade" id="call-delete-modal" tabindex="-1" aria-labelledby="call-delete-modal-title" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-body pt-5 p-md-5">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                        <div class="d-flex justify-content-center mb-4">
+                            <img width="75" height="75"
+                                 src="{{ asset('assets/admin-module/img/media/delete.png') }}"
+                                 class="rounded-circle" alt="">
+                        </div>
+                        <h3 class="text-center mb-2 fw-medium" id="call-delete-modal-title">
+                            {{ translate('Are_you_sure_you_want_to_delete_this_call') }}
+                        </h3>
+                        <p class="text-center fs-12 fw-medium text-muted mb-1" id="call-delete-modal-item"></p>
+                        <p class="text-center fs-12 text-muted mb-0">{{ translate('This_action_cannot_be_undone') }}</p>
+                        <form method="post" id="call-delete-form" action="#">
+                            @csrf
+                            @method('DELETE')
+                            <div class="d-flex justify-content-center gap-3 mt-3">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
+                                    {{ translate('Cancel') }}
+                                </button>
+                                <button type="submit" class="btn btn-danger">
+                                    {{ translate('Delete') }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 @endsection
 
 @push('script')
@@ -535,6 +647,36 @@
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
             }
             @endif
+        })();
+
+        (function () {
+            var modalEl = document.getElementById('call-create-lead-modal');
+            var form = document.getElementById('call-create-lead-form');
+            if (!modalEl || !form) return;
+
+            modalEl.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                if (!button) return;
+                form.action = button.getAttribute('data-create-lead-action') || '#';
+                var phone = document.getElementById('call-create-lead-phone');
+                if (phone) phone.textContent = button.getAttribute('data-create-lead-phone') || '';
+            });
+        })();
+
+        (function () {
+            var modalEl = document.getElementById('call-delete-modal');
+            var form = document.getElementById('call-delete-form');
+            var labelEl = document.getElementById('call-delete-modal-item');
+            if (!modalEl || !form) return;
+
+            modalEl.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                if (!button) return;
+                form.action = button.getAttribute('data-delete-url') || '#';
+                if (labelEl) {
+                    labelEl.textContent = button.getAttribute('data-delete-label') || '';
+                }
+            });
         })();
 
         (function () {

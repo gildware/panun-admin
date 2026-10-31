@@ -99,7 +99,13 @@
                                                 data-party-name="{{ $linkPartyName }}"
                                                 data-options-url="{{ route('admin.calls.link-options', $call) }}"
                                                 data-lead-action="{{ route('admin.calls.link', $call) }}"
-                                                data-booking-action="{{ route('admin.calls.booking', $call) }}">
+                                                data-booking-action="{{ route('admin.calls.booking', $call) }}"
+                                                @can('lead_add')
+                                                    @if(strlen((string) ($call->customer_phone_digits ?: '')) >= 8)
+                                                        data-create-lead-action="{{ route('admin.calls.create-lead', $call) }}"
+                                                        data-create-lead-phone="{{ $call->customer_phone }}"
+                                                    @endif
+                                                @endcan>
                                             {{ translate('Link_call') }}
                                         </button>
                                         @if($showReopenLead)
@@ -114,12 +120,24 @@
                                         @endif
                                         @can('lead_add')
                                             @if(strlen((string) ($call->customer_phone_digits ?: '')) >= 8)
-                                                <form method="post" action="{{ route('admin.calls.create-lead', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Create_new_lead_from_this_call_confirm')));">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-outline-primary">{{ translate('New_lead') }}</button>
-                                                </form>
+                                                <button type="button"
+                                                        class="btn btn-outline-secondary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#call-create-lead-modal">
+                                                    {{ translate('New_lead') }}
+                                                </button>
                                             @endif
                                         @endcan
+                                        @if(is_super_admin())
+                                            <button type="button"
+                                                    class="btn btn-outline-danger calls-delete-btn"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#call-delete-modal"
+                                                    title="{{ translate('Delete') }}"
+                                                    aria-label="{{ translate('Delete') }}">
+                                                <span class="material-icons" aria-hidden="true" style="font-size:18px;line-height:1;">delete</span>
+                                            </button>
+                                        @endif
                                     </dd>
 
                                 <dt class="col-sm-4">{{ translate('Call_id') }}</dt>
@@ -170,4 +188,66 @@
             </div>
         </div>
     </div>
+
+    @can('lead_add')
+        @if(strlen((string) ($call->customer_phone_digits ?: '')) >= 8)
+            <div class="modal fade" id="call-create-lead-modal" tabindex="-1" aria-labelledby="call-create-lead-modal-title" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <form method="post" id="call-create-lead-form" action="{{ route('admin.calls.create-lead', $call) }}">
+                            @csrf
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="call-create-lead-modal-title">{{ translate('New_lead') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-2">{{ translate('Create_new_lead_from_this_call_confirm') }}</p>
+                                <p id="call-create-lead-phone" class="fw-bold mb-0">{{ $call->customer_phone }}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                <button type="submit" class="btn btn--primary">{{ translate('Confirm') }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endif
+    @endcan
+
+    @if(is_super_admin())
+        <div class="modal fade" id="call-delete-modal" tabindex="-1" aria-labelledby="call-delete-modal-title" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-body pt-5 p-md-5">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                        <div class="d-flex justify-content-center mb-4">
+                            <img width="75" height="75"
+                                 src="{{ asset('assets/admin-module/img/media/delete.png') }}"
+                                 class="rounded-circle" alt="">
+                        </div>
+                        <h3 class="text-center mb-2 fw-medium" id="call-delete-modal-title">
+                            {{ translate('Are_you_sure_you_want_to_delete_this_call') }}
+                        </h3>
+                        <p class="text-center fs-12 fw-medium text-muted mb-1">
+                            {{ $call->customer_phone ?: ($call->cdr_uuid ?: ('#'.$call->id)) }} · {{ $call->formatIst('started_at') }}
+                        </p>
+                        <p class="text-center fs-12 text-muted mb-0">{{ translate('This_action_cannot_be_undone') }}</p>
+                        <form method="post" action="{{ route('admin.calls.destroy', $call) }}">
+                            @csrf
+                            @method('DELETE')
+                            <div class="d-flex justify-content-center gap-3 mt-3">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
+                                    {{ translate('Cancel') }}
+                                </button>
+                                <button type="submit" class="btn btn-danger">
+                                    {{ translate('Delete') }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 @endsection
