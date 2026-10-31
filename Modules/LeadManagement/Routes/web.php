@@ -186,6 +186,7 @@ Route::group([
         Route::post('{call}/create-lead', [SuperfoneCallController::class, 'createLead'])->middleware(['can:lead_add'])->name('create-lead');
         Route::post('{call}/reopen-link', [SuperfoneCallController::class, 'reopenAndLink'])->middleware(['can:lead_update'])->name('reopen-link');
         Route::post('{call}/contact', [SuperfoneCallController::class, 'markContacted'])->name('contact');
+        Route::delete('{call}', [SuperfoneCallController::class, 'destroy'])->name('destroy');
         Route::get('{call}', [SuperfoneCallController::class, 'show'])->name('show');
         Route::get('{call}/recording', [SuperfoneCallController::class, 'recording'])->name('recording');
         Route::post('{call}/recording', [SuperfoneCallController::class, 'downloadRecording'])->name('recording.download');

@@ -284,9 +284,9 @@ flex: 1; min-width: 180px;
 }
 .lead-detail-v2 .lead-name {
             display: flex;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             align-items: center;
-            gap: .25rem;
+            gap: .25rem .35rem;
             max-width: 100%;
             min-width: 0;
             font-size: 1.125rem;
@@ -302,6 +302,7 @@ flex: 1; min-width: 180px;
             white-space: nowrap;
 }
 .lead-detail-v2 .lead-name__text {
+            flex: 1 1 8rem;
             min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;

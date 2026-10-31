@@ -50,6 +50,41 @@
         .call-link-tabs { display: flex; gap: 0.25rem; padding: 0.2rem; margin: 0.85rem 0 0.75rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #fff; }
         .call-link-tabs button { flex: 1; border: 0; border-radius: 999px; background: transparent; padding: 0.4rem 0.75rem; font-size: 0.82rem; font-weight: 700; color: #4b5563; }
         .call-link-tabs button.is-active { background: #111827; color: #fff; }
+        .call-link-create-lead {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.35rem;
+            width: 100%;
+            margin: 0;
+            padding: 0.85rem 1rem;
+            border-top: 1px solid #e5e7eb;
+            background: #f8fafc;
+        }
+        .call-link-create-lead[hidden] { display: none !important; }
+        .call-link-create-lead__hint { margin: 0; font-size: 0.78rem; color: #6b7280; }
+        .call-link-create-lead__btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-height: 38px;
+            padding: 0.45rem 0.85rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            color: #111827;
+            font-size: 0.84rem;
+            font-weight: 700;
+            line-height: 1.2;
+            text-align: center;
+        }
+        .call-link-create-lead__btn:hover,
+        .call-link-create-lead__btn:focus {
+            border-color: #94a3b8;
+            background: #f1f5f9;
+            color: #111827;
+        }
     </style>
     <div class="modal fade" id="call-link-lead-modal" tabindex="-1" aria-hidden="true"
          data-lead-search-url="{{ route('admin.calls.lead-search') }}"
@@ -82,6 +117,14 @@
                         <div id="call-link-booking-results" class="call-link-results"></div>
                     </div>
                 </div>
+                @can('lead_add')
+                    <div class="call-link-create-lead" id="call-link-create-lead" hidden>
+                        <p class="call-link-create-lead__hint">{{ translate('Cannot_find_lead_create_new') }}</p>
+                        <button type="button" class="call-link-create-lead__btn" id="call-link-create-lead-btn">
+                            {{ translate('New_lead') }}
+                        </button>
+                    </div>
+                @endcan
             </div>
         </div>
     </div>
@@ -105,11 +148,15 @@
             }
             var leadAction = '';
             var bookingAction = '';
+            var createLeadAction = '';
+            var createLeadPhone = '';
             var savedLeads = [];
             var savedBookings = [];
             var party = 'none';
             var leadCaption = document.getElementById('call-link-lead-caption');
             var bookingCaption = document.getElementById('call-link-booking-caption');
+            var createLeadWrap = document.getElementById('call-link-create-lead');
+            var createLeadBtn = document.getElementById('call-link-create-lead-btn');
             var partyLabels = { provider: 'Provider', customer: 'Customer', lead: 'Lead' };
             var openLeadCaption = {
                 provider: @json(translate('Open_leads_for_this_provider')),
@@ -228,6 +275,11 @@
                 var trigger = event.relatedTarget;
                 leadAction = trigger ? (trigger.getAttribute('data-lead-action') || '') : '';
                 bookingAction = trigger ? (trigger.getAttribute('data-booking-action') || '') : '';
+                createLeadAction = trigger ? (trigger.getAttribute('data-create-lead-action') || '') : '';
+                createLeadPhone = trigger ? (trigger.getAttribute('data-create-lead-phone') || trigger.getAttribute('data-phone') || '') : '';
+                if (createLeadWrap) {
+                    createLeadWrap.hidden = createLeadAction === '';
+                }
                 leadInput.value = '';
                 bookingInput.value = '';
                 savedLeads = [];
@@ -274,6 +326,30 @@
                         emptyNote(bookingResults, 'Could not load existing bookings.');
                     });
             });
+
+            if (createLeadBtn) {
+                createLeadBtn.addEventListener('click', function () {
+                    if (!createLeadAction || !window.bootstrap) {
+                        return;
+                    }
+                    var createModal = document.getElementById('call-create-lead-modal');
+                    var createForm = document.getElementById('call-create-lead-form');
+                    if (!createModal || !createForm) {
+                        return;
+                    }
+                    createForm.action = createLeadAction;
+                    var createPhone = document.getElementById('call-create-lead-phone');
+                    if (createPhone) {
+                        createPhone.textContent = createLeadPhone || '';
+                    }
+                    var linkInstance = bootstrap.Modal.getInstance(modal) || bootstrap.Modal.getOrCreateInstance(modal);
+                    var openCreate = function () {
+                        bootstrap.Modal.getOrCreateInstance(createModal).show();
+                    };
+                    modal.addEventListener('hidden.bs.modal', openCreate, { once: true });
+                    linkInstance.hide();
+                });
+            }
 
             modal.querySelectorAll('[data-call-link-tab]').forEach(function (tab) {
                 tab.addEventListener('click', function () {
