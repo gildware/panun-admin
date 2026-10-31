@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\AdSourceController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\DeletedCallController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\DeletedLeadController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadCommentController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadConfigurationController;
@@ -175,6 +176,9 @@ Route::group([
     Route::group(['prefix' => 'calls', 'as' => 'calls.', 'middleware' => ['can:lead_view']], function () {
         Route::get('/', [SuperfoneCallController::class, 'index'])->name('index');
         Route::get('report', [SuperfoneCallController::class, 'report'])->name('report');
+        Route::get('deleted', [DeletedCallController::class, 'index'])->name('deleted');
+        Route::post('deleted/{id}/restore', [DeletedCallController::class, 'restore'])->name('deleted.restore');
+        Route::delete('deleted/{id}', [DeletedCallController::class, 'forceDestroy'])->name('deleted.force');
         Route::get('lead-search', [SuperfoneCallController::class, 'searchLeads'])->name('lead-search');
         Route::get('booking-search', [SuperfoneCallController::class, 'searchBookings'])->name('booking-search');
         Route::get('api-logs', [SuperfoneApiLogController::class, 'index'])->name('api-logs');

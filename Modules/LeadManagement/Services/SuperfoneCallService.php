@@ -154,10 +154,20 @@ class SuperfoneCallService
     private function persistCall(array $payload, string $event, string $uuid): SuperfoneCall
     {
         return DB::transaction(function () use ($payload, $event, $uuid) {
-            $call = SuperfoneCall::query()->where('cdr_uuid', $uuid)->lockForUpdate()->first();
+            $call = SuperfoneCall::withTrashed()->where('cdr_uuid', $uuid)->lockForUpdate()->first();
             if (! $call) {
                 $call = new SuperfoneCall(['cdr_uuid' => $uuid]);
             }
+
+            // Soft-deleted calls stay deleted; still absorb late Superfone payloads
+            // so the unique cdr_uuid row does not get a conflicting insert.
+            if ($call->exists && $call->trashed()) {
+                $this->applyPayload($call, $payload, $event);
+                $call->save();
+
+                return $call->fresh() ?? $call;
+            }
+
             $previousOutcome = $call->exists ? $call->outcome : null;
             $this->applyPayload($call, $payload, $event);
             $call->save();
@@ -633,7 +643,34 @@ class SuperfoneCallService
         });
     }
 
-    public function delete(SuperfoneCall $call): void
+    public function delete(SuperfoneCall $call, ?string $deletedBy = null): void
+    {
+        if ($call->trashed()) {
+            return;
+        }
+
+        $call->deleted_by = $deletedBy;
+        $call->save();
+        $call->delete();
+
+        AdminMenuCounts::forget();
+    }
+
+    public function restore(SuperfoneCall $call): SuperfoneCall
+    {
+        if (! $call->trashed()) {
+            return $call;
+        }
+
+        $call->deleted_by = null;
+        $call->restore();
+
+        AdminMenuCounts::forget();
+
+        return $call->fresh() ?? $call;
+    }
+
+    public function forceDelete(SuperfoneCall $call): void
     {
         DB::transaction(function () use ($call) {
             if ($call->lead_followup_id) {
@@ -674,7 +711,8 @@ class SuperfoneCallService
                 ];
             }
 
-            $call->delete();
+            SuperfoneCallContact::query()->where('superfone_call_id', $call->id)->delete();
+            $call->forceDelete();
 
             foreach ($filesToDelete as $file) {
                 try {

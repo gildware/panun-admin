@@ -440,6 +440,10 @@ class AdminNavRegistry
             self::entry('calls', $group, null, translate('Call_report'), route('admin.calls.report'), [
                 'admin/calls/report',
             ], ['admin.calls.report']),
+            self::entry('calls', $group, null, translate('Deleted_calls'), route('admin.calls.deleted'), [
+                'admin/calls/deleted',
+                'admin/calls/deleted/*',
+            ], ['admin.calls.deleted']),
             self::entry('calls', $group, null, translate('API_logs'), route('admin.calls.api-logs'), [
                 'admin/calls/api-logs',
                 'admin/calls/api-logs/*',
