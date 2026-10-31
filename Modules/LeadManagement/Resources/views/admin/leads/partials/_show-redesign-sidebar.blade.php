@@ -60,6 +60,11 @@
         <div class="action-card__body">
             @php $linkedPhoneInfo = $linkedPhoneInfo ?? ['other_phones' => [], 'linked_as' => null]; @endphp
 
+            @php
+                $delinkConfirm = translate('Confirm_delink_other_phone')
+                    ?: 'Remove this other-phone link? Matching will treat the numbers as separate again. Already-merged history is not moved back.';
+            @endphp
+
             @if(!empty($linkedPhoneInfo['linked_as']))
                 <div class="mb-2">
                     <span class="chip chip--info">{{ translate('Linked_as_other_phone') ?: 'Linked as other phone' }}</span>
@@ -95,6 +100,28 @@
                                 </button>
                             </form>
                         @endif
+                        @php
+                            $linkedAsDigits = $linkedPhoneInfo['linked_as']['phone_digits']
+                                ?? \Modules\LeadManagement\Services\PartyPhoneDirectory::normalizeDigits((string) $lead->phone_number);
+                        @endphp
+                        @if(!empty($linkedAsDigits))
+                            <form method="post"
+                                  action="{{ route('admin.lead.other-phone.unlink', $lead->id) }}"
+                                  class="mt-2"
+                                  data-turbo="false"
+                                  data-once-submit
+                                  onsubmit="return confirm(@json($delinkConfirm));">
+                                @csrf
+                                <input type="hidden" name="phone" value="{{ $linkedAsDigits }}">
+                                @if(!empty($inModal))
+                                    <input type="hidden" name="in_modal" value="1">
+                                @endif
+                                <button type="submit" class="ld-btn ld-btn-ghost w-100 justify-content-center text-danger">
+                                    <span class="material-icons">link_off</span>
+                                    {{ translate('Delink_other_phone') ?: 'Delink' }}
+                                </button>
+                            </form>
+                        @endif
                     @endcan
                 </div>
             @endif
@@ -103,28 +130,52 @@
                 <ul class="list-unstyled mb-2 small">
                     @foreach($linkedPhoneInfo['other_phones'] as $otherPhone)
                         <li class="mb-2 pb-2 {{ !$loop->last ? 'border-bottom' : '' }}">
-                            <a href="tel:{{ preg_replace('/\s+/', '', $otherPhone['display'] ?? '') }}" class="fw-semibold text-decoration-none">
-                                {{ $otherPhone['display'] ?? $otherPhone['phone_digits'] }}
-                            </a>
-                            @if(!empty($otherPhone['linked_from_label']))
-                                <div class="text-muted">
-                                    {{ translate('From_lead') ?: 'From lead' }}:
-                                    @if(!empty($otherPhone['linked_from_lead_id']))
-                                        <a href="{{ route('admin.lead.show', $otherPhone['linked_from_lead_id']) }}" @if(!empty($inModal)) target="_top" @endif>{{ $otherPhone['linked_from_label'] }}</a>
-                                    @else
-                                        {{ $otherPhone['linked_from_label'] }}
+                            <div class="d-flex align-items-start justify-content-between gap-2">
+                                <div>
+                                    <a href="tel:{{ preg_replace('/\s+/', '', $otherPhone['display'] ?? '') }}" class="fw-semibold text-decoration-none">
+                                        {{ $otherPhone['display'] ?? $otherPhone['phone_digits'] }}
+                                    </a>
+                                    @if(!empty($otherPhone['linked_from_label']))
+                                        <div class="text-muted">
+                                            {{ translate('From_lead') ?: 'From lead' }}:
+                                            @if(!empty($otherPhone['linked_from_lead_id']))
+                                                <a href="{{ route('admin.lead.show', $otherPhone['linked_from_lead_id']) }}" @if(!empty($inModal)) target="_top" @endif>{{ $otherPhone['linked_from_label'] }}</a>
+                                            @else
+                                                {{ $otherPhone['linked_from_label'] }}
+                                            @endif
+                                        </div>
+                                    @endif
+                                    @if(!empty($otherPhone['created_by_name']) || !empty($otherPhone['created_at']))
+                                        <div class="text-muted">
+                                            {{ translate('Linked_by') ?: 'Linked by' }}
+                                            {{ $otherPhone['created_by_name'] ?? '—' }}
+                                            @if(!empty($otherPhone['created_at']))
+                                                · {{ $otherPhone['created_at'] }}
+                                            @endif
+                                        </div>
                                     @endif
                                 </div>
-                            @endif
-                            @if(!empty($otherPhone['created_by_name']) || !empty($otherPhone['created_at']))
-                                <div class="text-muted">
-                                    {{ translate('Linked_by') ?: 'Linked by' }}
-                                    {{ $otherPhone['created_by_name'] ?? '—' }}
-                                    @if(!empty($otherPhone['created_at']))
-                                        · {{ $otherPhone['created_at'] }}
+                                @can('lead_update')
+                                    @if(!empty($otherPhone['phone_digits']))
+                                        <form method="post"
+                                              action="{{ route('admin.lead.other-phone.unlink', $lead->id) }}"
+                                              data-turbo="false"
+                                              data-once-submit
+                                              onsubmit="return confirm(@json($delinkConfirm));">
+                                            @csrf
+                                            <input type="hidden" name="phone" value="{{ $otherPhone['phone_digits'] }}">
+                                            @if(!empty($inModal))
+                                                <input type="hidden" name="in_modal" value="1">
+                                            @endif
+                                            <button type="submit"
+                                                    class="btn btn-link btn-sm text-danger p-0 text-nowrap"
+                                                    title="{{ translate('Delink_other_phone') ?: 'Delink' }}">
+                                                {{ translate('Delink') ?: 'Delink' }}
+                                            </button>
+                                        </form>
                                     @endif
-                                </div>
-                            @endif
+                                @endcan
+                            </div>
                         </li>
                     @endforeach
                 </ul>

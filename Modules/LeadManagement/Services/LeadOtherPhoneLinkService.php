@@ -261,6 +261,127 @@ class LeadOtherPhoneLinkService
         );
     }
 
+    /**
+     * Remove a wrong other-phone link. Does not reverse a prior history merge.
+     *
+     * @return array{redirect_lead_id: int, message: string}
+     */
+    public function unlink(Lead $contextLead, string $phone): array
+    {
+        $digits = PartyPhoneDirectory::normalizeDigits($phone);
+        if ($digits === null) {
+            throw new \InvalidArgumentException(translate('Invalid_phone_number') ?: 'Invalid phone number');
+        }
+
+        $alt = PartyAlternatePhone::query()->where('phone_digits', $digits)->first();
+        if (! $alt) {
+            throw new \InvalidArgumentException(
+                translate('Other_phone_link_not_found') ?: 'That other-phone link was not found.'
+            );
+        }
+
+        if (! $this->leadCanManageAlternate($contextLead, $alt)) {
+            throw new \InvalidArgumentException(
+                translate('Cannot_delink_other_phone_from_this_lead')
+                    ?: 'You can only delink this number from the linked lead or the lead that owns it.'
+            );
+        }
+
+        $phoneDisplay = $this->phones->formatDigitsDisplay($digits);
+        $ownerLabel = $this->ownerDisplayLabel($alt->owner_type, (string) $alt->owner_id);
+        $fromLeadId = $alt->linked_from_lead_id ? (int) $alt->linked_from_lead_id : null;
+        $ownerType = $alt->owner_type;
+        $ownerId = (string) $alt->owner_id;
+
+        return DB::transaction(function () use (
+            $contextLead,
+            $digits,
+            $phoneDisplay,
+            $ownerLabel,
+            $fromLeadId,
+            $ownerType,
+            $ownerId
+        ) {
+            $removed = $this->phones->removeAlternateByDigits($digits);
+            if (! $removed) {
+                throw new \InvalidArgumentException(
+                    translate('Other_phone_link_not_found') ?: 'That other-phone link was not found.'
+                );
+            }
+
+            $logNew = $phoneDisplay.' ← '.$ownerLabel.' ('.(translate('Delinked') ?: 'delinked').')';
+
+            $this->changeLogs->record((int) $contextLead->id, [
+                'other_phone_delink' => [
+                    'label' => 'Other_phone_delink',
+                    'old' => $phoneDisplay.' → '.$ownerLabel,
+                    'new' => translate('Removed') ?: 'Removed',
+                ],
+            ]);
+
+            if ($fromLeadId && $fromLeadId !== (int) $contextLead->id) {
+                $this->changeLogs->record($fromLeadId, [
+                    'other_phone_delink' => [
+                        'label' => 'Other_phone_delink',
+                        'old' => $logNew,
+                        'new' => translate('Removed') ?: 'Removed',
+                    ],
+                ]);
+            }
+
+            if ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD
+                && (int) $ownerId !== (int) $contextLead->id
+                && (int) $ownerId !== (int) $fromLeadId
+            ) {
+                $this->changeLogs->record((int) $ownerId, [
+                    'other_phone_delink' => [
+                        'label' => 'Other_phone_delink',
+                        'old' => $phoneDisplay,
+                        'new' => translate('Removed') ?: 'Removed',
+                    ],
+                ]);
+            }
+
+            return [
+                'redirect_lead_id' => (int) $contextLead->id,
+                'message' => translate('Other_phone_delinked')
+                    ?: 'Other phone delinked. Matching will no longer treat this number as the same person.',
+            ];
+        });
+    }
+
+    private function leadCanManageAlternate(Lead $lead, PartyAlternatePhone $alt): bool
+    {
+        if ((int) ($alt->linked_from_lead_id ?? 0) === (int) $lead->id) {
+            return true;
+        }
+
+        $leadDigits = PartyPhoneDirectory::normalizeDigits((string) $lead->phone_number);
+        if ($leadDigits !== null && $leadDigits === (string) $alt->phone_digits) {
+            return true;
+        }
+
+        if ($alt->owner_type === PartyAlternatePhone::OWNER_PROVIDER_LEAD
+            && (string) $alt->owner_id === (string) $lead->id
+        ) {
+            return true;
+        }
+
+        if (in_array($alt->owner_type, [
+            PartyAlternatePhone::OWNER_CUSTOMER,
+            PartyAlternatePhone::OWNER_PROVIDER,
+        ], true)
+            && $leadDigits !== null
+        ) {
+            $ownerPhones = $this->phones->phonesForOwner($alt->owner_type, (string) $alt->owner_id);
+            if (in_array($leadDigits, $ownerPhones, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function ownerDisplayLabel(string $ownerType, string $ownerId): string
     {
         if ($ownerType === PartyAlternatePhone::OWNER_CUSTOMER) {
