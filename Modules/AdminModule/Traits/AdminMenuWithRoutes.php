@@ -1134,6 +1134,14 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Deleted_calls',
+                'uri' => 'admin/calls/deleted',
+                'full_route' => url('admin/calls/deleted'),
+                'page_title' => 'Deleted_calls',
+                "keywords" => 'Deleted calls, restore call, permanently delete call, Superfone',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'API_logs',
                 'uri' => 'admin/calls/api-logs',
                 'full_route' => url('admin/calls/api-logs'),

@@ -6,6 +6,7 @@ use App\Support\StoragePathPrefix;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Services\SuperfoneCallService;
@@ -14,6 +15,8 @@ use Modules\UserManagement\Entities\User;
 
 class SuperfoneCall extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'cdr_uuid',
         'cdr_id',
@@ -55,6 +58,7 @@ class SuperfoneCall extends Model
         'summary_text',
         'summary_insights',
         'payloads',
+        'deleted_by',
     ];
 
     protected $casts = [
@@ -66,6 +70,7 @@ class SuperfoneCall extends Model
         'ended_at' => 'datetime',
         'recording_url_expires_at' => 'datetime',
         'recording_file_expires_at' => 'datetime',
+        'deleted_at' => 'datetime',
         'summary_insights' => 'array',
         'payloads' => 'array',
         'manual_unmatched' => 'boolean',
@@ -74,6 +79,11 @@ class SuperfoneCall extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    public function deletedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by', 'id')->withTrashed();
     }
 
     public function followup(): BelongsTo
@@ -153,6 +163,7 @@ class SuperfoneCall extends Model
                             ->whereColumn('callbacks.customer_phone_digits', 'superfone_calls.customer_phone_digits')
                             ->where('callbacks.customer_phone_digits', '!=', '')
                             ->where('callbacks.direction', 'OUTBOUND')
+                            ->whereNull('callbacks.deleted_at')
                             ->whereRaw('COALESCE(callbacks.started_at, callbacks.created_at) >= COALESCE(superfone_calls.started_at, superfone_calls.created_at)');
                     })
                     ->whereNotExists(function ($contact) {

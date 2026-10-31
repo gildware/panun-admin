@@ -234,6 +234,11 @@
 
     <div class="main-content">
         <div class="container-fluid">
+            @if(is_super_admin())
+                <div class="d-flex justify-content-end mb-2">
+                    <a href="{{ route('admin.calls.deleted') }}" class="btn btn--secondary btn-sm">{{ translate('Deleted_calls') }}</a>
+                </div>
+            @endif
             <div class="card calls-filter-card mb-3">
                 <div class="card-body">
             <form method="get" action="{{ route('admin.calls.index') }}" class="calls-filter-bar" id="calls-filter-form">
@@ -548,7 +553,7 @@
                             {{ translate('Are_you_sure_you_want_to_delete_this_call') }}
                         </h3>
                         <p class="text-center fs-12 fw-medium text-muted mb-1" id="call-delete-modal-item"></p>
-                        <p class="text-center fs-12 text-muted mb-0">{{ translate('This_action_cannot_be_undone') }}</p>
+                        <p class="text-center fs-12 text-muted mb-0">{{ translate('Call_will_move_to_deleted_calls') }}</p>
                         <form method="post" id="call-delete-form" action="#">
                             @csrf
                             @method('DELETE')
