@@ -31,7 +31,12 @@
     <script src="{{ asset('assets/common/js/form-submit-once.js') }}?v={{ @filemtime(public_path('assets/common/js/form-submit-once.js')) }}"></script>
     @stack('script')
     <script>
-        $(document).ready(function () { $('.js-select').not('.js-select-manual').select2({ width: '100%' }); });
+        $(document).ready(function () {
+            $('.js-select').not('.js-select-manual').select2({ width: '100%' });
+            // Modal iframe should always open at the hero, not mid-page.
+            window.scrollTo(0, 0);
+            setTimeout(function () { window.scrollTo(0, 0); }, 0);
+        });
     </script>
     @include('whatsappmodule::admin.booking-whatsapp-send-prompt')
 </body>

@@ -544,6 +544,17 @@ class SuperfoneCallController extends Controller
         return redirect()->route('admin.lead.show', $lead->id);
     }
 
+    public function destroy(SuperfoneCall $call): RedirectResponse
+    {
+        abort_unless(is_super_admin(), 403);
+
+        $this->calls->delete($call);
+
+        toastr()->success(translate('Call_deleted'));
+
+        return redirect()->route('admin.calls.index');
+    }
+
     public function markContacted(Request $request, SuperfoneCall $call): RedirectResponse
     {
         $stillOpen = SuperfoneCall::query()->awaitingCallback()->whereKey($call->id)->exists();

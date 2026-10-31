@@ -20,6 +20,7 @@ use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\PartyAlternatePhone;
 use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\SuperfoneCall;
+use Modules\LeadManagement\Entities\SuperfoneCallContact;
 use Modules\LeadManagement\Jobs\DownloadSuperfoneRecording;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
@@ -630,6 +631,65 @@ class SuperfoneCallService
 
             return $call->fresh();
         });
+    }
+
+    public function delete(SuperfoneCall $call): void
+    {
+        DB::transaction(function () use ($call) {
+            if ($call->lead_followup_id) {
+                $followup = LeadFollowup::query()->find($call->lead_followup_id);
+                if ($followup && $this->remarksAreManaged($followup->remarks)) {
+                    $followup->delete();
+                }
+            }
+
+            if ($call->booking_followup_id) {
+                $followup = BookingFollowup::query()->find($call->booking_followup_id);
+                if ($followup && ($followup->reason === 'Superfone call' || $this->remarksAreManaged($followup->remarks))) {
+                    $followup->delete();
+                }
+            }
+
+            $contacts = SuperfoneCallContact::query()
+                ->where('superfone_call_id', $call->id)
+                ->get(['id', 'attachment_disk', 'attachment_path']);
+
+            $filesToDelete = [];
+            foreach ($contacts as $contact) {
+                $attachmentPath = trim((string) ($contact->attachment_path ?? ''));
+                if ($attachmentPath === '') {
+                    continue;
+                }
+                $filesToDelete[] = [
+                    'disk' => (string) ($contact->attachment_disk ?: getDisk()),
+                    'path' => StoragePathPrefix::apply('superfone-call-contacts/'.$attachmentPath),
+                ];
+            }
+
+            $recordingPath = $call->recordingStoragePath();
+            if ($recordingPath) {
+                $filesToDelete[] = [
+                    'disk' => $call->recordingDisk(),
+                    'path' => $recordingPath,
+                ];
+            }
+
+            $call->delete();
+
+            foreach ($filesToDelete as $file) {
+                try {
+                    Storage::disk($file['disk'])->delete($file['path']);
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to delete Superfone call file', [
+                        'disk' => $file['disk'],
+                        'path' => $file['path'],
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        });
+
+        AdminMenuCounts::forget();
     }
 
     private function matchLead(SuperfoneCall $call): void

@@ -11590,7 +11590,6 @@ _Message' => 'Customer notification for provider bid offer
   'One_open_lead_will_be_used' => 'This person has one open lead; it will be used for the merge.',
   'No_open_lead_for_this_person' => 'No open lead for this person. Choose “new enquiry” or attach to a booking instead.',
   'Select_which_open_lead_to_merge_into' => 'Select which open lead to merge into.',
-  'Selected' => 'Selected',
   'Type_at_least_2_characters_to_search' => 'Type at least 2 characters to search.',
   'Searching' => 'Searching',
   'Click_a_result_to_select' => 'Click a result to select the person.',
@@ -11622,13 +11621,18 @@ _Message' => 'Customer notification for provider bid offer
   'Kept_as_new_enquiry' => 'kept as new enquiry',
   'Merged_into_lead' => 'merged into lead',
   'Primary_phone' => 'Primary phone',
-
   'New_lead' => 'New lead',
   'New_lead_created_from_call' => 'New lead created from this call',
   'New_lead_for_this_phone' => 'New lead for this phone',
   'Create_new_lead_from_this_call_confirm' => 'Create a new lead for this call and attach it? Use this when auto-matching picked the wrong lead.',
+  'Cannot_find_lead_create_new' => 'Can\'t find the lead? Create a new lead',
   'Reopen_non_responsive_lead_and_link_call' => 'Reopen this non-responsive lead and link the call to it?',
   'Lead_reopened_and_call_linked' => 'Lead reopened and call linked',
   'This_lead_is_not_closed_as_non_responsive' => 'This lead is not closed as non-responsive',
-
+  'Confirm_delink_other_phone' => 'Confirm delink other phone',
+  'Delink_other_phone' => 'Delink other phone',
+  'Delink' => 'Delink',
+  'Other_phone_delink' => 'Other phone delink',
+  'Are_you_sure_you_want_to_delete_this_call' => 'Are you sure you want to delete this call?',
+  'Call_deleted' => 'Call deleted',
 );
