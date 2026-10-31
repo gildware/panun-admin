@@ -20,6 +20,44 @@ class AdminWorkspaceEmployeeAccessTest extends TestCase
         $this->assertTrue(AdminWorkspace::userCanEnter(AdminWorkspace::TRAINING));
     }
 
+    public function test_member_role_cannot_open_settings_or_accounts(): void
+    {
+        $this->actingAs($this->userWithRole('admin-employee', 'Member'));
+
+        $this->assertTrue(AdminWorkspace::isOperationsEmployee());
+        $this->assertFalse(AdminWorkspace::userCanEnter(AdminWorkspace::SETTINGS));
+        $this->assertFalse(AdminWorkspace::userCanEnter(AdminWorkspace::ACCOUNTS));
+    }
+
+    public function test_customer_support_role_cannot_open_settings_or_accounts(): void
+    {
+        $this->actingAs($this->userWithRole('admin-employee', 'Customer Support'));
+
+        $this->assertTrue(AdminWorkspace::isOperationsEmployee());
+        $this->assertFalse(AdminWorkspace::userCanEnter(AdminWorkspace::SETTINGS));
+        $this->assertFalse(AdminWorkspace::userCanEnter(AdminWorkspace::ACCOUNTS));
+    }
+
+    public function test_employee_with_customer_support_still_blocked(): void
+    {
+        $employee = new Role();
+        $employee->role_name = 'Employee';
+        $support = new Role();
+        $support->role_name = 'Customer Support';
+
+        $user = new User([
+            'id' => 'user-dual-frontline',
+            'user_type' => 'admin-employee',
+        ]);
+        $user->setRelation('roles', collect([$employee, $support]));
+
+        $this->actingAs($user);
+
+        $this->assertTrue(AdminWorkspace::isOperationsEmployee());
+        $this->assertFalse(AdminWorkspace::userCanEnter(AdminWorkspace::SETTINGS));
+        $this->assertFalse(AdminWorkspace::userCanEnter(AdminWorkspace::ACCOUNTS));
+    }
+
     public function test_super_admin_can_still_open_accounts(): void
     {
         $this->actingAs($this->userWithRole('super-admin', 'Super admin'));
