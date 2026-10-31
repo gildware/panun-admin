@@ -70,6 +70,33 @@
                             · <a href="{{ route('admin.lead.show', $linkedPhoneInfo['linked_as']['owner_id']) }}" @if(!empty($inModal)) target="_top" @endif>#{{ $linkedPhoneInfo['linked_as']['owner_id'] }}</a>
                         @endif
                     </div>
+                    @unless($lead->trashed())
+                        @can('lead_update')
+                            @if(($linkedPhoneInfo['linked_as']['owner_type'] ?? '') === 'provider_lead' && !empty($linkedPhoneInfo['linked_as']['owner_id']))
+                                @php
+                                    $finishMergeTargetId = (int) $linkedPhoneInfo['linked_as']['owner_id'];
+                                    $finishMergeConfirm = translate('Confirm_finish_other_phone_merge')
+                                        ?: ('Move all follow-ups, calls, and history from this lead into #'.$finishMergeTargetId.' and archive this lead?');
+                                    $finishMergeLabel = translate('Move_all_data_into_linked_lead')
+                                        ?: ('Move all data into #'.$finishMergeTargetId);
+                                @endphp
+                                <form method="post"
+                                      action="{{ route('admin.lead.other-phone.finish-merge', $lead->id) }}"
+                                      class="mt-2"
+                                      data-turbo="false"
+                                      onsubmit="return confirm(@json($finishMergeConfirm));">
+                                    @csrf
+                                    @if(!empty($inModal))
+                                        <input type="hidden" name="in_modal" value="1">
+                                    @endif
+                                    <button type="submit" class="ld-btn ld-btn-primary w-100 justify-content-center">
+                                        <span class="material-icons">merge_type</span>
+                                        {{ $finishMergeLabel }}
+                                    </button>
+                                </form>
+                            @endif
+                        @endcan
+                    @endunless
                 </div>
             @endif
 
