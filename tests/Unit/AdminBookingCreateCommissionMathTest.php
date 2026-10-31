@@ -51,12 +51,27 @@ class AdminBookingCreateCommissionMathTest extends TestCase
 
     public function test_calculate_commission_for_admin_booking_create_preview_splits_spare_from_service_basis(): void
     {
-        // Payable grand 600 = 500 (service-side) + 100 spare; 10% on 500 + 20% on 100 = 70 company.
+        // Payable grand 600 = 500 (service-side) + 100 spare; spare excluded by default → 10% on 500 = 50.
         $out = calculate_commission_for_admin_booking_create_preview(
             600.0,
             100.0,
             0.0,
             $this->tierServiceTenPercentSpareTwentyPercent()
+        );
+
+        $this->assertSame(50.0, $out['company_commission']);
+        $this->assertSame(550.0, $out['provider_commission']);
+    }
+
+    public function test_calculate_commission_for_admin_booking_create_preview_includes_per_line_spare_commission(): void
+    {
+        // Service 500 @ 10% = 50; spare line commission override 20 (e.g. 20% of 100).
+        $out = calculate_commission_for_admin_booking_create_preview(
+            600.0,
+            100.0,
+            0.0,
+            $this->tierServiceTenPercentSpareTwentyPercent(),
+            20.0
         );
 
         $this->assertSame(70.0, $out['company_commission']);

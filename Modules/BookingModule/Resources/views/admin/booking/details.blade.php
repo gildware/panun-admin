@@ -1167,11 +1167,15 @@
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Type') }} <span class="text-danger">*</span></label>
-                                    <select name="type" class="form-control" required>
+                                    <select name="type" class="form-control js-extra-type" required>
                                         <option value="service" {{ old('type', 'service') == 'service' ? 'selected' : '' }}>{{ translate('Service') }}</option>
                                         <option value="spare_part" {{ old('type') == 'spare_part' ? 'selected' : '' }}>{{ translate('Spare_Part') }}</option>
                                     </select>
                                 </div>
+                                @include('bookingmodule::admin.booking.partials._extra-service-spare-commission-fields', [
+                                    'uid' => 'details-extra-'.$booking->id,
+                                    'named' => true,
+                                ])
                                 <div class="row">
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label">{{ translate('Qty') }} <span class="text-danger">*</span></label>
@@ -1201,6 +1205,9 @@
 
             @if($bookingCanCorrectLineItems)
             @push('script')
+            @include('bookingmodule::admin.booking.partials._extra-service-spare-commission-script', [
+                'rootSelector' => '#extra-service-form--'.$booking->id,
+            ])
             <script>
                 (function () {
                     var form = document.getElementById('extra-service-form--{{ $booking->id }}');
@@ -1216,6 +1223,7 @@
                     var editLabel = @json(translate('Edit_Extra_Service'));
                     var addBtnLabel = @json(translate('Add'));
                     var updateBtnLabel = @json(translate('Update'));
+                    var spareUi = (window.__spareCommissionUi || {})['#extra-service-form--{{ $booking->id }}'];
 
                     function setField(name, value) {
                         var field = form.querySelector('[name="' + name + '"]');
@@ -1234,6 +1242,9 @@
                         setField('price', '0');
                         setField('discount', '0');
                         setField('type', 'service');
+                        if (spareUi && spareUi.reset) {
+                            spareUi.reset();
+                        }
                         if (titleEl) {
                             titleEl.textContent = addLabel;
                         }
@@ -1253,6 +1264,13 @@
                         setField('quantity', btn.getAttribute('data-quantity') || '1');
                         setField('price', btn.getAttribute('data-price') || '0');
                         setField('discount', btn.getAttribute('data-discount') || '0');
+                        if (spareUi && spareUi.fill) {
+                            spareUi.fill({
+                                commission_included: btn.getAttribute('data-commission-included') || 'exclude',
+                                commission_amount_type: btn.getAttribute('data-commission-amount-type') || 'percentage',
+                                commission_amount: btn.getAttribute('data-commission-amount') || '0'
+                            });
+                        }
                         if (titleEl) {
                             titleEl.textContent = editLabel;
                         }
@@ -2109,6 +2127,20 @@
                                                         <span class="badge badge-{{ $extra->type === 'spare_part' ? 'info' : 'primary' }} mt-1" style="width: fit-content;">
                                                             {{ $extra->type === 'spare_part' ? translate('Spare_Part') : translate('Service') }}
                                                         </span>
+                                                        @if($extra->type === 'spare_part')
+                                                            <small class="text-muted mt-1">
+                                                                @if(!empty($extra->commission_included))
+                                                                    {{ translate('Commission') }}:
+                                                                    @if(($extra->commission_amount_type ?? '') === 'amount')
+                                                                        {{ with_currency_symbol($extra->commission_amount ?? 0) }}
+                                                                    @else
+                                                                        {{ rtrim(rtrim(number_format((float) ($extra->commission_amount ?? 0), 2, '.', ''), '0'), '.') }}%
+                                                                    @endif
+                                                                @else
+                                                                    {{ translate('Excluded_from_commission') }}
+                                                                @endif
+                                                            </small>
+                                                        @endif
                                                         @can('booking_edit')
                                                         @if($bookingCanCorrectLineItems)
                                                         <div class="d-flex flex-wrap gap-2 mt-1">
@@ -2122,7 +2154,10 @@
                                                                     data-type="{{ e($extra->type) }}"
                                                                     data-quantity="{{ (int) $extra->quantity }}"
                                                                     data-price="{{ $extra->price }}"
-                                                                    data-discount="{{ $extra->discount }}">
+                                                                    data-discount="{{ $extra->discount }}"
+                                                                    data-commission-included="{{ !empty($extra->commission_included) ? 'include' : 'exclude' }}"
+                                                                    data-commission-amount-type="{{ e($extra->commission_amount_type ?? 'percentage') }}"
+                                                                    data-commission-amount="{{ $extra->commission_amount ?? 0 }}">
                                                                 {{ translate('Edit') }}
                                                             </button>
                                                             <form method="post" action="{{ route('admin.booking.extra-service.destroy', [$booking->id, $extra->id]) }}" class="d-inline" onsubmit="return confirm('{{ translate('Remove_this_item') }}?');">

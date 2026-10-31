@@ -144,11 +144,15 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">{{ translate('Type') }} <span class="text-danger">*</span></label>
-                    <select class="form-control" id="create-extra-type">
+                    <select class="form-control js-extra-type" id="create-extra-type">
                         <option value="service">{{ translate('Service') }}</option>
                         <option value="spare_part">{{ translate('Spare_Part') }}</option>
                     </select>
                 </div>
+                @include('bookingmodule::admin.booking.partials._extra-service-spare-commission-fields', [
+                    'uid' => 'create-extra',
+                    'named' => false,
+                ])
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label class="form-label">{{ translate('Qty') }} <span class="text-danger">*</span></label>

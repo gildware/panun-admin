@@ -410,6 +410,80 @@ if (!function_exists('get_booking_spare_parts_amount')) {
     }
 }
 
+if (! function_exists('booking_extra_service_spare_admin_commission')) {
+    /**
+     * Admin commission for one spare-part extra line (0 when excluded / not a spare part).
+     *
+     * @param  BookingExtraService|object|array  $extra
+     */
+    function booking_extra_service_spare_admin_commission($extra): float
+    {
+        if ($extra instanceof BookingExtraService) {
+            return $extra->adminCommissionAmount();
+        }
+
+        $type = is_array($extra) ? ($extra['type'] ?? '') : ($extra->type ?? '');
+        if ($type !== BookingExtraService::TYPE_SPARE_PART) {
+            return 0.0;
+        }
+
+        $proxy = new BookingExtraService([
+            'type' => BookingExtraService::TYPE_SPARE_PART,
+            'total' => is_array($extra) ? ($extra['total'] ?? 0) : ($extra->total ?? 0),
+            'commission_included' => is_array($extra)
+                ? ($extra['commission_included'] ?? false)
+                : ($extra->commission_included ?? false),
+            'commission_amount_type' => is_array($extra)
+                ? ($extra['commission_amount_type'] ?? null)
+                : ($extra->commission_amount_type ?? null),
+            'commission_amount' => is_array($extra)
+                ? ($extra['commission_amount'] ?? 0)
+                : ($extra->commission_amount ?? 0),
+        ]);
+
+        return $proxy->adminCommissionAmount();
+    }
+}
+
+if (! function_exists('get_booking_spare_parts_admin_commission')) {
+    /**
+     * Sum of per-line spare-part admin commissions (include + percentage/amount). Excluded lines contribute 0.
+     */
+    function get_booking_spare_parts_admin_commission($booking): float
+    {
+        $query = booking_extra_services_query_for($booking)->where('type', BookingExtraService::TYPE_SPARE_PART);
+        if ($booking instanceof BookingRepeat && $booking->relationLoaded('extra_services')) {
+            $rows = $booking->extra_services->where('type', BookingExtraService::TYPE_SPARE_PART);
+        } elseif ($booking instanceof Booking && $booking->relationLoaded('extra_services')) {
+            $rows = $booking->extra_services->where('type', BookingExtraService::TYPE_SPARE_PART);
+        } else {
+            $rows = $query->get();
+        }
+
+        $sum = 0.0;
+        foreach ($rows as $extra) {
+            $sum += booking_extra_service_spare_admin_commission($extra);
+        }
+
+        return round($sum, 2);
+    }
+}
+
+if (! function_exists('sum_spare_parts_admin_commission_from_extras')) {
+    /**
+     * @param  list<array<string, mixed>|object>  $extras
+     */
+    function sum_spare_parts_admin_commission_from_extras(array $extras): float
+    {
+        $sum = 0.0;
+        foreach ($extras as $extra) {
+            $sum += booking_extra_service_spare_admin_commission($extra);
+        }
+
+        return round($sum, 2);
+    }
+}
+
 if (!function_exists('get_booking_extra_service_line_discount_total')) {
     /**
      * Sum of manual discounts on admin "Extra Service" lines (booking_extra_services.discount, type service only).
@@ -592,16 +666,10 @@ if (!function_exists('calculate_commission_for_booking')) {
             'fixed_amount' => (float) ($setup['service']['fixed_amount'] ?? 0),
             'tiers' => is_array($setup['service']['tiers'] ?? null) ? $setup['service']['tiers'] : [],
         ];
-        $spareGroup = [
-            'mode' => $setup['spare_parts']['mode'] ?? 'tiered',
-            'fixed_amount' => (float) ($setup['spare_parts']['fixed_amount'] ?? 0),
-            'tiers' => is_array($setup['spare_parts']['tiers'] ?? null) ? $setup['spare_parts']['tiers'] : [],
-        ];
 
         $adminOnService = commission_calc_line_preview($serviceLineAmount, $serviceGroup)['admin_commission'];
-        $adminOnSpare = $spareLineAmount > 0
-            ? commission_calc_line_preview($spareLineAmount, $spareGroup)['admin_commission']
-            : 0.0;
+        // Spare parts: per-line include/exclude + percentage/amount (not business-model spare tiers).
+        $adminOnSpare = get_booking_spare_parts_admin_commission($booking);
 
         $commission = round((float) $adminOnService + (float) $adminOnSpare, 2);
         $providerEarning = round($grandTotal - $commission, 2);
@@ -610,6 +678,7 @@ if (!function_exists('calculate_commission_for_booking')) {
             'commissionable_amount' => $serviceLineAmount,
             'service_amount' => $serviceLineAmount,
             'spare_parts_amount' => $spareLineAmount,
+            'spare_parts_admin_commission' => $adminOnSpare,
             'commission' => $commission,
             'provider_earning' => $providerEarning,
         ];
@@ -628,7 +697,8 @@ if (!function_exists('calculate_commission_for_admin_booking_create_preview')) {
         float $grandTotal,
         float $sparePartsAmount,
         float $nonCommissionableAdditionalChargesAmount,
-        array $tierSetup
+        array $tierSetup,
+        float $sparePartsAdminCommission = 0.0
     ): array {
         $commissionableServiceAmount = round(max(0.0, $grandTotal - $sparePartsAmount - $nonCommissionableAdditionalChargesAmount), 2);
 
@@ -637,16 +707,9 @@ if (!function_exists('calculate_commission_for_admin_booking_create_preview')) {
             'fixed_amount' => (float) ($tierSetup['service']['fixed_amount'] ?? 0),
             'tiers' => is_array($tierSetup['service']['tiers'] ?? null) ? $tierSetup['service']['tiers'] : [],
         ];
-        $spareGroup = [
-            'mode' => $tierSetup['spare_parts']['mode'] ?? 'tiered',
-            'fixed_amount' => (float) ($tierSetup['spare_parts']['fixed_amount'] ?? 0),
-            'tiers' => is_array($tierSetup['spare_parts']['tiers'] ?? null) ? $tierSetup['spare_parts']['tiers'] : [],
-        ];
 
         $adminOnService = (float) (commission_calc_line_preview($commissionableServiceAmount, $serviceGroup)['admin_commission'] ?? 0);
-        $adminOnSpare = $sparePartsAmount > 0.0001
-            ? (float) (commission_calc_line_preview($sparePartsAmount, $spareGroup)['admin_commission'] ?? 0)
-            : 0.0;
+        $adminOnSpare = round(max(0.0, $sparePartsAdminCommission), 2);
 
         $companyCommission = round($adminOnService + $adminOnSpare, 2);
         $providerCommission = round(max(0.0, $grandTotal - $companyCommission), 2);

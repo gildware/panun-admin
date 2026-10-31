@@ -204,11 +204,15 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ translate('Type') }} <span class="text-danger">*</span></label>
-                        <select class="form-control" id="visit-extra-type">
+                        <select class="form-control js-extra-type" id="visit-extra-type">
                             <option value="service">{{ translate('Service') }}</option>
                             <option value="spare_part">{{ translate('Spare_Part') }}</option>
                         </select>
                     </div>
+                    @include('bookingmodule::admin.booking.partials._extra-service-spare-commission-fields', [
+                        'uid' => 'add-visit-extra',
+                        'named' => false,
+                    ])
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             <label class="form-label">{{ translate('Qty') }} <span class="text-danger">*</span></label>
@@ -234,6 +238,9 @@
     </div>
 
     <script type="application/json" id="visit-cart-prefill">@json($visitCartPrefill)</script>
+    @include('bookingmodule::admin.booking.partials._extra-service-spare-commission-script', [
+        'rootSelector' => '#addExtraServiceModal--visit',
+    ])
     <script>
         (function () {
             var modal = document.getElementById('addRepeatVisitModal');
@@ -739,19 +746,33 @@
                 if (!title) {
                     return;
                 }
+                var type = $('#visit-extra-type').val() === 'spare_part' ? 'spare_part' : 'service';
+                var spareUi = (window.__spareCommissionUi || {})['#addExtraServiceModal--visit'];
+                var commission = (type === 'spare_part' && spareUi && spareUi.read) ? spareUi.read() : {
+                    commission_included: 'exclude',
+                    commission_amount_type: 'percentage',
+                    commission_amount: 0
+                };
                 visitCart.extras.push({
                     title: title,
                     details: ($('#visit-extra-details').val() || '').trim() || null,
-                    type: $('#visit-extra-type').val() === 'spare_part' ? 'spare_part' : 'service',
+                    type: type,
                     quantity: Math.max(1, parseInt($('#visit-extra-qty').val(), 10) || 1),
                     price: Math.max(0, parseFloat($('#visit-extra-price').val()) || 0),
-                    discount: Math.max(0, parseFloat($('#visit-extra-discount').val()) || 0)
+                    discount: Math.max(0, parseFloat($('#visit-extra-discount').val()) || 0),
+                    commission_included: commission.commission_included,
+                    commission_amount_type: commission.commission_amount_type,
+                    commission_amount: commission.commission_amount
                 });
                 $('#visit-extra-title').val('');
                 $('#visit-extra-details').val('');
                 $('#visit-extra-qty').val('1');
                 $('#visit-extra-price').val('0');
                 $('#visit-extra-discount').val('0');
+                $('#visit-extra-type').val('service');
+                if (spareUi && spareUi.reset) {
+                    spareUi.reset();
+                }
                 persistCart();
                 refreshVisitSummary();
                 hideStackedModal('addExtraServiceModal--visit');
