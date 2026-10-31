@@ -4,6 +4,7 @@ namespace Modules\LeadManagement\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\PartyAlternatePhone;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
@@ -134,6 +135,12 @@ class PartyPhoneDirectory
                     $phones[] = $digits;
                 }
             }
+        } elseif ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+            $lead = Lead::query()->withTrashed()->find($ownerId);
+            $digits = self::normalizeDigits($lead?->phone_number);
+            if ($digits) {
+                $phones[] = $digits;
+            }
         }
 
         $extras = PartyAlternatePhone::query()
@@ -161,9 +168,11 @@ class PartyPhoneDirectory
         if ($existing
             && ($existing['owner_type'] !== $ownerType || (string) $existing['owner_id'] !== (string) $ownerId)
         ) {
-            $who = $existing['owner_type'] === PartyAlternatePhone::OWNER_CUSTOMER
-                ? translate('Customer')
-                : translate('Provider');
+            $who = match ($existing['owner_type']) {
+                PartyAlternatePhone::OWNER_CUSTOMER => translate('Customer'),
+                PartyAlternatePhone::OWNER_PROVIDER_LEAD => translate('Provider_lead') ?: 'Provider lead',
+                default => translate('Provider'),
+            };
             throw new \InvalidArgumentException(
                 (translate('Phone_already_belongs_to') ?: 'This number already belongs to').' '.$who.' '.$existing['label']
             );

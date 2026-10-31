@@ -11609,4 +11609,10 @@ _Message' => 'Customer notification for provider bid offer
   'Select_the_person' => 'Select the person',
   'Select_what_this_call_is_about' => 'Select what this contact is about',
   'Open_lead' => 'Open lead',
+  'Open_provider_lead' => 'Open provider lead',
+  'Provider_lead' => 'Provider lead',
+  'Provider_search_includes_open_leads_hint' => 'Provider search includes registered providers and open provider leads (not registered yet).',
+  'Provider_lead_not_found' => 'Provider lead not found',
+  'Provider_lead_is_not_open' => 'Provider lead is not open',
+  'Booking_does_not_belong_to_this_provider_lead' => 'Booking does not belong to this provider lead',
 );

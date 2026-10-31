@@ -14,8 +14,8 @@ return new class extends Migration
 
         Schema::create('party_alternate_phones', function (Blueprint $table) {
             $table->id();
-            $table->string('owner_type', 20); // customer | provider
-            $table->uuid('owner_id');
+            $table->string('owner_type', 20); // customer | provider | provider_lead
+            $table->string('owner_id', 36); // user/provider uuid, or lead id for provider_lead
             $table->string('phone_digits', 20);
             $table->unsignedBigInteger('linked_from_lead_id')->nullable();
             $table->uuid('created_by')->nullable();
