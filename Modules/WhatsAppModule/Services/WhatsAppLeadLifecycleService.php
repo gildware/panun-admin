@@ -216,16 +216,24 @@ class WhatsAppLeadLifecycleService
             return null;
         }
 
-        $existing = $this->findOpenLeadForPhone($leadPhone);
+        $openStatus = app(LeadOpenStatusService::class);
+        $resolved = $openStatus->resolveInboundLead(
+            $openStatus->leadsForPhoneDigits($leadPhone),
+            $leadPhone
+        );
 
-        if ($existing) {
-            return $this->touchAiOpenLead($existing, $name, $whatsAppPhone);
+        if ($resolved['action'] === 'open' && $resolved['lead']) {
+            return $this->touchAiOpenLead($resolved['lead'], $name, $whatsAppPhone);
         }
 
-        $openStatus = app(LeadOpenStatusService::class);
-        if (! LeadOpenStatusService::shouldCreateNewLead(false, $openStatus->phoneHasOpenBooking($leadPhone))) {
-            // Open booking already exists — reuse its lead; never mint another.
-            return $openStatus->existingLeadForOpenBookingPhone($leadPhone);
+        if ($resolved['action'] === 'booking') {
+            return $resolved['lead'] ?: $openStatus->existingLeadForOpenBookingPhone($leadPhone);
+        }
+
+        if ($resolved['action'] === 'reopen' && $resolved['lead']) {
+            $reopened = $openStatus->reopenNonResponsiveForInbound($resolved['lead'], 'inbound');
+
+            return $this->touchAiOpenLead($reopened, $name, $whatsAppPhone);
         }
 
         // Skip creation for already-onboarded providers.
@@ -276,9 +284,33 @@ class WhatsAppLeadLifecycleService
         }
 
         $openStatus = app(LeadOpenStatusService::class);
-        if (! LeadOpenStatusService::shouldCreateNewLead(false, $openStatus->phoneHasOpenBooking($leadPhone))) {
-            // Open booking already exists — reuse its lead; never mint another.
-            return $openStatus->existingLeadForOpenBookingPhone($leadPhone);
+        $resolved = $openStatus->resolveInboundLead(
+            $openStatus->leadsForPhoneDigits($leadPhone),
+            $leadPhone
+        );
+
+        if ($resolved['action'] === 'booking') {
+            return $resolved['lead'] ?: $openStatus->existingLeadForOpenBookingPhone($leadPhone);
+        }
+
+        if ($resolved['action'] === 'reopen' && $resolved['lead']) {
+            $reopened = $openStatus->reopenNonResponsiveForInbound($resolved['lead'], 'inbound');
+            if ($reopened->lead_type === $leadType) {
+                return $this->touchAiOpenLead($reopened, $name, $whatsAppPhone);
+            }
+            if ($reopened->lead_type === Lead::TYPE_UNKNOWN
+                && in_array($leadType, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)
+            ) {
+                return $this->convertUnknownOpenLeadToType($reopened, $leadType, $name, $whatsAppPhone);
+            }
+
+            return $this->touchAiOpenLead($reopened, $name, $whatsAppPhone);
+        }
+
+        if ($resolved['action'] !== 'mint') {
+            if ($resolved['lead']) {
+                return $this->touchAiOpenLead($resolved['lead'], $name, $whatsAppPhone);
+            }
         }
 
         // Skip creation for already-onboarded providers.

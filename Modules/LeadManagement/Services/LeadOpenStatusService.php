@@ -2,6 +2,8 @@
 
 namespace Modules\LeadManagement\Services;
 
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -199,6 +201,11 @@ class LeadOpenStatusService
         return ! $hasOpenLead && ! $hasOpenBooking;
     }
 
+    public static function nonResponsiveReopenDays(): int
+    {
+        return max(0, (int) config('leadmanagement.inbound_non_responsive_reopen_days', 7));
+    }
+
     /**
      * Pure open/closed rule for inbound reuse: pending/hold-style statuses may absorb
      * the next call; booked/completed, cancelled, invalid, future, and non-responsive may not.
@@ -224,6 +231,158 @@ class LeadOpenStatusService
         $base = strtolower((string) ($baseType ?? 'pending'));
 
         return ! in_array($base, ['completed', 'booked', 'cancel'], true);
+    }
+
+    /**
+     * Auto-reopen eligibility for a non-responsive lead on inbound contact.
+     * Provider: always. Customer / Unknown: within the configured day window.
+     */
+    public function isEligibleNonResponsiveReopen(Lead $lead, ?CarbonInterface $at = null): bool
+    {
+        $this->hydrateUnknownCloseState(collect([$lead]));
+        if (! $lead->isNonResponsive() || ! $lead->non_responsive_at) {
+            return false;
+        }
+
+        if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            return true;
+        }
+
+        if (! in_array($lead->lead_type, [Lead::TYPE_UNKNOWN, Lead::TYPE_CUSTOMER], true)) {
+            return false;
+        }
+
+        $at = Carbon::parse($at ?? now());
+
+        return $lead->non_responsive_at->greaterThanOrEqualTo(
+            $at->copy()->subDays(self::nonResponsiveReopenDays())
+        );
+    }
+
+    /**
+     * Newest non-responsive lead that may be auto-reopened for this phone.
+     *
+     * @param  Collection<int, Lead>  $leads
+     */
+    public function firstReopenableNonResponsiveLead(Collection $leads): ?Lead
+    {
+        if ($leads->isEmpty()) {
+            return null;
+        }
+
+        $this->hydrateUnknownCloseState($leads);
+
+        return $leads
+            ->sortByDesc(fn (Lead $lead) => (int) $lead->id)
+            ->first(fn (Lead $lead) => $this->isEligibleNonResponsiveReopen($lead));
+    }
+
+    /**
+     * Clear non-responsive close so the lead is open again for follow-up.
+     *
+     * @param  'inbound'|'staff'  $via
+     */
+    public function reopenNonResponsiveForInbound(Lead $lead, string $via = 'inbound'): Lead
+    {
+        $this->hydrateUnknownCloseState(collect([$lead]));
+        if (! $lead->isNonResponsive()) {
+            return $lead;
+        }
+
+        $lead->non_responsive_at = null;
+        $lead->non_responsive_by = null;
+        $lead->non_responsive_remarks = null;
+        $lead->next_followup_at = app(LeadFollowupService::class)->defaultNextFollowupAt();
+        $lead->save();
+
+        app(LeadChangeLogService::class)->record((int) $lead->id, [
+            'non_responsive' => [
+                'label' => 'Non_Responsive',
+                'old' => 'Closed as non-responsive',
+                'new' => $via === 'staff'
+                    ? 'Reopened by staff'
+                    : 'Reopened on inbound contact',
+            ],
+        ]);
+
+        return $lead->fresh() ?? $lead;
+    }
+
+    /**
+     * Shared Superfone + WhatsApp decision for a phone's known leads.
+     *
+     * @param  Collection<int, Lead>  $leads
+     * @return array{
+     *     action: 'open'|'booking'|'reopen'|'mint',
+     *     lead: ?Lead,
+     *     has_open_lead: bool,
+     *     has_open_booking: bool
+     * }
+     */
+    public function resolveInboundLead(Collection $leads, string $phoneDigits): array
+    {
+        $openLead = $this->firstOpenLead($leads);
+        $hasOpenBooking = $this->phoneHasOpenBooking($phoneDigits);
+
+        if ($openLead) {
+            return [
+                'action' => 'open',
+                'lead' => $openLead,
+                'has_open_lead' => true,
+                'has_open_booking' => $hasOpenBooking,
+            ];
+        }
+
+        if ($hasOpenBooking) {
+            return [
+                'action' => 'booking',
+                'lead' => $this->existingLeadForOpenBookingPhone($phoneDigits),
+                'has_open_lead' => false,
+                'has_open_booking' => true,
+            ];
+        }
+
+        $reopen = $this->firstReopenableNonResponsiveLead($leads);
+        if ($reopen) {
+            return [
+                'action' => 'reopen',
+                'lead' => $reopen,
+                'has_open_lead' => false,
+                'has_open_booking' => false,
+            ];
+        }
+
+        return [
+            'action' => 'mint',
+            'lead' => null,
+            'has_open_lead' => false,
+            'has_open_booking' => false,
+        ];
+    }
+
+    /**
+     * @return Collection<int, Lead>
+     */
+    public function leadsForPhoneDigits(string $phoneDigits): Collection
+    {
+        $suffix = PartyPhoneDirectory::normalizeDigits($phoneDigits);
+        if ($suffix === null) {
+            return collect();
+        }
+
+        $keys = $this->allPhoneKeysForLookup($suffix);
+
+        return Lead::query()
+            ->where(function ($query) use ($keys) {
+                foreach ($keys as $digits) {
+                    $query->orWhere(function ($inner) use ($digits) {
+                        $this->wherePhoneEndsWith($inner, 'phone_number', $digits);
+                    });
+                }
+            })
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->get();
     }
 
     /**

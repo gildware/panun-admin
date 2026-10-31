@@ -17,6 +17,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\SuperfoneCall;
 use Modules\LeadManagement\Entities\SuperfoneCallContact;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\LeadManagement\Services\SuperfoneCallReport;
 use Modules\LeadManagement\Services\SuperfoneCallService;
 use Modules\LeadManagement\Services\SuperfoneLeadCharts;
@@ -161,11 +162,27 @@ class SuperfoneCallController extends Controller
             }
         }
 
+        $reopenLeadByCall = [];
+        $openStatus = app(LeadOpenStatusService::class);
+        foreach ($calls as $call) {
+            $digits = (string) ($call->customer_phone_digits ?: '');
+            if (strlen($digits) < 8) {
+                continue;
+            }
+            $reopen = $openStatus->firstReopenableNonResponsiveLead(
+                $openStatus->leadsForPhoneDigits($digits)
+            );
+            if ($reopen) {
+                $reopenLeadByCall[$call->id] = $reopen;
+            }
+        }
+
         $rowData = [
             'calls' => $calls,
             'awaitingCallbackIds' => $awaitingCallbackIds,
             'contactMarks' => $contactMarks,
             'bookingChoices' => $bookingChoices,
+            'reopenLeadByCall' => $reopenLeadByCall,
             'rowsOnly' => $rowsOnly,
         ];
 
@@ -468,6 +485,65 @@ class SuperfoneCallController extends Controller
         return back();
     }
 
+    /**
+     * Staff override: force a new Unknown lead for this call.
+     */
+    public function createLead(SuperfoneCall $call): RedirectResponse
+    {
+        $digits = (string) ($call->customer_phone_digits ?: '');
+        if (strlen($digits) < 8) {
+            toastr()->error(translate('Phone_number_is_required'));
+
+            return back();
+        }
+
+        try {
+            $fresh = $this->calls->createLeadFromCall($call);
+        } catch (\Throwable $e) {
+            report($e);
+            toastr()->error(translate('Something_went_wrong'));
+
+            return back();
+        }
+
+        toastr()->success(translate('New_lead_created_from_call'));
+
+        if ($fresh->lead_id) {
+            return redirect()->route('admin.lead.show', $fresh->lead_id);
+        }
+
+        return back();
+    }
+
+    /**
+     * Staff override: reopen a non-responsive lead and attach this call.
+     */
+    public function reopenAndLink(Request $request, SuperfoneCall $call): RedirectResponse
+    {
+        $validated = $request->validate([
+            'lead_id' => 'required|integer|exists:leads,id',
+        ]);
+
+        $lead = Lead::query()->findOrFail($validated['lead_id']);
+        if (! $lead->isNonResponsive()) {
+            toastr()->error(translate('This_lead_is_not_closed_as_non_responsive'));
+
+            return back();
+        }
+
+        try {
+            $this->calls->linkToLead($call, $lead);
+        } catch (\InvalidArgumentException $e) {
+            toastr()->error($e->getMessage());
+
+            return back();
+        }
+
+        toastr()->success(translate('Lead_reopened_and_call_linked'));
+
+        return redirect()->route('admin.lead.show', $lead->id);
+    }
+
     public function markContacted(Request $request, SuperfoneCall $call): RedirectResponse
     {
         $stillOpen = SuperfoneCall::query()->awaitingCallback()->whereKey($call->id)->exists();
@@ -546,9 +622,19 @@ class SuperfoneCallController extends Controller
             }
         }
 
+        $reopenLead = null;
+        $digits = (string) ($call->customer_phone_digits ?: '');
+        if (strlen($digits) >= 8) {
+            $openStatus = app(LeadOpenStatusService::class);
+            $reopenLead = $openStatus->firstReopenableNonResponsiveLead(
+                $openStatus->leadsForPhoneDigits($digits)
+            );
+        }
+
         return view('leadmanagement::admin.calls.show', [
             'call' => $call,
             'bookingChoices' => $bookingChoices,
+            'reopenLead' => $reopenLead,
         ]);
     }
 
