@@ -103,28 +103,13 @@ class LeadOpenStatusService
     }
 
     /**
-     * Superfone should attach to this lead instead of minting an Unknown.
-     * Open leads win. Booked / future leads are reused. Invalid, cancelled,
-     * and non-responsive leads are not.
+     * Attach this lead on an inbound call/WhatsApp thread instead of minting.
+     * Only open leads qualify — closed / booked / future leads do not absorb
+     * the next enquiry (same gate as {@see shouldCreateNewLead()}).
      */
     public function firstLeadForIncomingCall(Collection $leads): ?Lead
     {
-        if ($leads->isEmpty()) {
-            return null;
-        }
-
-        $open = $this->firstOpenLead($leads);
-        if ($open) {
-            return $open;
-        }
-
-        foreach ($leads as $lead) {
-            if ($this->leadCanReceiveCall($lead)) {
-                return $lead;
-            }
-        }
-
-        return null;
+        return $this->firstOpenLead($leads);
     }
 
     public function firstOpenLead(Collection $leads): ?Lead
@@ -141,53 +126,12 @@ class LeadOpenStatusService
     }
 
     /**
-     * Booked (completed) customer/provider leads stay on the same person.
-     * Cancelled, invalid, and non-responsive leads do not absorb the next call.
+     * Whether this lead may absorb an inbound call/chat. Only open leads may;
+     * closed / booked / cancelled / future / non-responsive may not.
      */
     public function leadCanReceiveCall(Lead $lead): bool
     {
-        $this->hydrateUnknownCloseState(collect([$lead]));
-
-        if ($lead->lead_type === Lead::TYPE_INVALID) {
-            return false;
-        }
-
-        if ($lead->isNonResponsive()) {
-            return false;
-        }
-
-        if (in_array($lead->lead_type, [Lead::TYPE_UNKNOWN, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
-            return true;
-        }
-
-        if (! in_array($lead->lead_type, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
-            return false;
-        }
-
-        $history = LeadTypeHistory::query()
-            ->where('lead_id', $lead->id)
-            ->where('type', $lead->lead_type)
-            ->orderByDesc('created_at')
-            ->first();
-        $data = ($history && is_array($history->data)) ? $history->data : [];
-
-        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
-            $statusId = $data['customer_lead_status_id'] ?? null;
-            if (! $statusId) {
-                return true;
-            }
-            $status = CustomerLeadStatus::query()->find($statusId);
-
-            return strtolower((string) ($status?->base_type ?? 'pending')) !== 'cancel';
-        }
-
-        $statusId = $data['provider_lead_status_id'] ?? null;
-        if (! $statusId) {
-            return true;
-        }
-        $status = ProviderLeadStatus::query()->find($statusId);
-
-        return strtolower((string) ($status?->base_type ?? 'pending')) !== 'cancel';
+        return $this->isLeadOpen($lead);
     }
 
     /**
@@ -256,8 +200,8 @@ class LeadOpenStatusService
     }
 
     /**
-     * Pure rule used by tests / voice tooling: booked (completed) customer/provider leads
-     * may absorb the next call; cancelled, invalid, and non-responsive may not.
+     * Pure open/closed rule for inbound reuse: pending/hold-style statuses may absorb
+     * the next call; booked/completed, cancelled, invalid, future, and non-responsive may not.
      */
     public static function canReuseLeadForCall(string $leadType, bool $isNonResponsive, ?string $baseType): bool
     {
@@ -265,7 +209,11 @@ class LeadOpenStatusService
             return false;
         }
 
-        if (in_array($leadType, [Lead::TYPE_UNKNOWN, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
+        if (in_array($leadType, [Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
+            return false;
+        }
+
+        if ($leadType === Lead::TYPE_UNKNOWN) {
             return true;
         }
 
@@ -273,7 +221,9 @@ class LeadOpenStatusService
             return false;
         }
 
-        return strtolower((string) ($baseType ?? 'pending')) !== 'cancel';
+        $base = strtolower((string) ($baseType ?? 'pending'));
+
+        return ! in_array($base, ['completed', 'booked', 'cancel'], true);
     }
 
     /**

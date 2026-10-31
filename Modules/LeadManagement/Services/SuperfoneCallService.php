@@ -654,8 +654,9 @@ class SuperfoneCallService
         $provider = $this->findProviderByDigits($digits);
         $leadMatches = $provider ? collect() : $this->leadsByDigits($digits);
         $openStatus = app(LeadOpenStatusService::class);
-        $lead = $provider ? null : $openStatus->firstLeadForIncomingCall($leadMatches);
-        $closedLeadOnly = self::freshLeadForClosedMatch($lead !== null, $leadMatches->isNotEmpty());
+        // Same gate as WhatsApp: only an open lead or open booking blocks minting.
+        // Closed / booked leads and completed bookings do not absorb the next call.
+        $openLead = $provider ? null : $openStatus->firstOpenLead($leadMatches);
         $customer = $provider ? null : $this->findUserByPhoneDigits($digits, CUSTOMER_USER_TYPES);
         $openBookings = $customer
             ? $this->openBookingsForCustomer((string) $customer->id)->count()
@@ -664,7 +665,11 @@ class SuperfoneCallService
         if ($openBookings === 0 && ! $provider && $openStatus->phoneHasOpenBooking($digits)) {
             $openBookings = 1;
         }
-        $mintUnknown = self::shouldMintUnknownLead($lead !== null, $closedLeadOnly, $openBookings);
+        $lead = $openLead;
+        if (! $lead && $openBookings > 0 && ! $provider) {
+            $lead = $openStatus->existingLeadForOpenBookingPhone($digits);
+        }
+        $mintUnknown = self::shouldMintUnknownLead($openLead !== null, $openBookings);
         $decision = self::decideLink(
             $provider !== null,
             $lead !== null,
@@ -712,24 +717,12 @@ class SuperfoneCallService
     }
 
     /**
-     * Mint an Unknown lead only when every existing lead for the phone is
-     * cancelled, invalid, or non-responsive. Booked and future leads are reused.
+     * Mint an Unknown when the phone has neither an open lead nor an open booking.
+     * Closed / booked leads and completed bookings do not block a new lead.
      */
-    public static function freshLeadForClosedMatch(bool $hasLinkableLead, bool $hasAnyLead): bool
+    public static function shouldMintUnknownLead(bool $hasOpenLead, int $openBookings): bool
     {
-        return ! $hasLinkableLead && $hasAnyLead;
-    }
-
-    /**
-     * An open lead or open booking belongs on the call. Do not mint another lead.
-     */
-    public static function shouldMintUnknownLead(bool $hasLinkableLead, bool $onlyUnusableLeads, int $openBookings): bool
-    {
-        if (! LeadOpenStatusService::shouldCreateNewLead($hasLinkableLead, $openBookings > 0)) {
-            return false;
-        }
-
-        return $onlyUnusableLeads;
+        return LeadOpenStatusService::shouldCreateNewLead($hasOpenLead, $openBookings > 0);
     }
 
     public function linkToLead(SuperfoneCall $call, Lead $lead): SuperfoneCall
