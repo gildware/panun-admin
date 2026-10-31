@@ -23,6 +23,7 @@
             <div class="lead-name-row" id="lead-name-row">
                 <div id="lead-name-view" class="lead-name-view{{ $leadNameEditOpen ? ' d-none' : '' }}">
                     <h1 class="lead-name">
+                        <span class="lead-name__id" title="{{ translate('Lead_ID') }}">#{{ $lead->id }}</span>
                         <span class="lead-name__text">{{ $leadNameForDisplay !== '' ? $leadNameForDisplay : translate('Lead_Details') }}</span>
                         @can('lead_update')
                             <button type="button"
