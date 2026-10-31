@@ -295,6 +295,12 @@ flex: 1; min-width: 180px;
             margin: 0;
             line-height: 1.25;
 }
+.lead-detail-v2 .lead-name__id {
+            flex: 0 0 auto;
+            color: var(--ld-muted, #6b7280);
+            font-weight: 700;
+            white-space: nowrap;
+}
 .lead-detail-v2 .lead-name__text {
             min-width: 0;
             overflow: hidden;
