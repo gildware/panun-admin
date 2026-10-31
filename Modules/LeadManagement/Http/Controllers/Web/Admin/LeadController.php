@@ -2255,7 +2255,18 @@ class LeadController extends Controller
             }
         }
 
-        $linkedPhoneInfo = app(\Modules\LeadManagement\Services\PartyPhoneDirectory::class)->displayForLead($lead);
+        try {
+            $linkedPhoneInfo = app(\Modules\LeadManagement\Services\PartyPhoneDirectory::class)->displayForLead($lead);
+        } catch (\Throwable $e) {
+            report($e);
+            $linkedPhoneInfo = [
+                'other_phones' => [],
+                'linked_as' => null,
+                'owner_type' => null,
+                'owner_id' => null,
+                'owner_label' => null,
+            ];
+        }
 
         return view('leadmanagement::admin.leads.show', compact(
             'lead',

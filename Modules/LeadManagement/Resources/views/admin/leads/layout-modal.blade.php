@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/style.css') }}"/>
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/toastr.css') }}"/>
     <link rel="stylesheet" href="{{ asset('assets/common/css/common.css') }}"/>
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}?v={{ (@filemtime(public_path('assets/admin-module/css/lead-detail-redesign.css')) ?: time()) }}-modal">
     @stack('css_or_js')
 </head>
 <body class="bg-light">
