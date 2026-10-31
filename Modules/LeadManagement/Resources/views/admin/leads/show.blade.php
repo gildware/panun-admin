@@ -1002,6 +1002,7 @@
 
                     @include('leadmanagement::admin.leads.partials._lead-edit-followup-modal')
                     @include('leadmanagement::admin.leads.partials._lead-followup-delete-modal')
+                    @include('leadmanagement::admin.leads.partials._other-phone-link-modal')
 
                     @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
                         @can('lead_outbound_enquiry_add')

@@ -57,10 +57,12 @@
                                     <th>{{ translate('Name') }}</th>
                                     <th>{{ translate('Phone') }}</th>
                                     <th>{{ translate('Lead_Type') }}</th>
+                                    <th>{{ translate('Lead_Source') }}</th>
                                     <th>{{ translate('Recieved_On') }}</th>
                                     <th>{{ translate('Handled_By') }}</th>
                                     <th>{{ translate('Lead_Status') }}</th>
                                     <th>{{ translate('Deleted_by') }}</th>
+                                    <th>{{ translate('Deletion_reason') }}</th>
                                     <th>{{ translate('Deleted_at') }}</th>
                                     <th class="text-center">{{ translate('Action') }}</th>
                                 </tr>
@@ -96,6 +98,7 @@
                                         <td>
                                             <span class="badge rounded-pill {{ $typeBadgeClass }} text-capitalize">{{ $typeLabel }}</span>
                                         </td>
+                                        <td>{{ $lead->source?->name ?? '—' }}</td>
                                         <td>{{ $lead->date_time_of_lead_received?->format('d M Y, h:i a') ?? '—' }}</td>
                                         <td>
                                             @if(! \Modules\LeadManagement\Entities\Lead::assigneeIsHuman($handledBy))
@@ -108,6 +111,7 @@
                                             <span class="badge rounded-pill {{ $leadStatusBadgeClass }}">{{ $leadStatusLabel }}</span>
                                         </td>
                                         <td>{{ $deleterName !== '' ? $deleterName : '—' }}</td>
+                                        <td style="white-space: normal; min-width: 180px;">{{ $lead->deletion_reason ?: '—' }}</td>
                                         <td>{{ optional($lead->deleted_at)->format('d M Y, h:i a') }}</td>
                                         <td class="text-center">
                                             <div class="deleted-lead-actions">
@@ -135,7 +139,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="10" class="text-center py-4">{{ translate('No_deleted_leads') }}</td>
+                                        <td colspan="11" class="text-center py-4">{{ translate('No_deleted_leads') }}</td>
                                     </tr>
                                 @endforelse
                                 </tbody>

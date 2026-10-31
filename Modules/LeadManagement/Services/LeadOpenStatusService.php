@@ -4,10 +4,14 @@ namespace Modules\LeadManagement\Services;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\PartyAlternatePhone;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
+use Modules\UserManagement\Entities\User;
 
 class LeadOpenStatusService
 {
@@ -221,7 +225,7 @@ class LeadOpenStatusService
             $status = $customerStatuses?->get((int) $statusId) ?? CustomerLeadStatus::find($statusId);
             $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
 
-            return !in_array($baseType, ['completed', 'cancel'], true);
+            return ! in_array($baseType, ['completed', 'booked', 'cancel'], true);
         }
 
         if ($lead->lead_type === Lead::TYPE_PROVIDER) {
@@ -237,10 +241,201 @@ class LeadOpenStatusService
             $status = $providerStatuses?->get((int) $statusId) ?? ProviderLeadStatus::find($statusId);
             $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
 
-            return !in_array($baseType, ['completed', 'cancel'], true);
+            return ! in_array($baseType, ['completed', 'booked', 'cancel'], true);
         }
 
         return false;
+    }
+
+    /**
+     * Mint a new CRM lead only when the phone has neither an open lead nor an open booking.
+     */
+    public static function shouldCreateNewLead(bool $hasOpenLead, bool $hasOpenBooking): bool
+    {
+        return ! $hasOpenLead && ! $hasOpenBooking;
+    }
+
+    /**
+     * Pure rule used by tests / voice tooling: booked (completed) customer/provider leads
+     * may absorb the next call; cancelled, invalid, and non-responsive may not.
+     */
+    public static function canReuseLeadForCall(string $leadType, bool $isNonResponsive, ?string $baseType): bool
+    {
+        if ($isNonResponsive || $leadType === Lead::TYPE_INVALID) {
+            return false;
+        }
+
+        if (in_array($leadType, [Lead::TYPE_UNKNOWN, Lead::TYPE_FUTURE_CUSTOMER, Lead::TYPE_FUTURE_PROVIDER], true)) {
+            return true;
+        }
+
+        if (! in_array($leadType, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
+            return false;
+        }
+
+        return strtolower((string) ($baseType ?? 'pending')) !== 'cancel';
+    }
+
+    /**
+     * Whether this phone already has a non-terminal booking (customer account, alternate phone, or linked lead).
+     */
+    public function phoneHasOpenBooking(string $phoneDigits): bool
+    {
+        $suffix = PartyPhoneDirectory::normalizeDigits($phoneDigits);
+        if ($suffix === null) {
+            return false;
+        }
+
+        $customerIds = $this->customerIdsForPhone($suffix);
+        if ($customerIds !== []
+            && Booking::query()
+                ->whereIn('customer_id', $customerIds)
+                ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
+                ->exists()
+        ) {
+            return true;
+        }
+
+        $leadIds = $this->leadIdsForPhone($suffix);
+        if ($leadIds === []) {
+            return false;
+        }
+
+        return Booking::query()
+            ->whereIn('lead_id', $leadIds)
+            ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
+            ->exists();
+    }
+
+    /**
+     * Prefer the lead already tied to an open booking for this phone (do not mint another).
+     */
+    public function existingLeadForOpenBookingPhone(string $phoneDigits): ?Lead
+    {
+        $suffix = PartyPhoneDirectory::normalizeDigits($phoneDigits);
+        if ($suffix === null) {
+            return null;
+        }
+
+        $customerIds = $this->customerIdsForPhone($suffix);
+        $openBooking = null;
+        if ($customerIds !== []) {
+            $openBooking = Booking::query()
+                ->whereIn('customer_id', $customerIds)
+                ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
+                ->whereNotNull('lead_id')
+                ->orderByDesc('created_at')
+                ->first(['id', 'lead_id']);
+        }
+
+        if (! $openBooking) {
+            $leadIds = $this->leadIdsForPhone($suffix);
+            if ($leadIds !== []) {
+                $openBooking = Booking::query()
+                    ->whereIn('lead_id', $leadIds)
+                    ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
+                    ->orderByDesc('created_at')
+                    ->first(['id', 'lead_id']);
+            }
+        }
+
+        if ($openBooking?->lead_id) {
+            return Lead::query()->find($openBooking->lead_id);
+        }
+
+        return Lead::query()
+            ->where(function ($query) use ($suffix) {
+                foreach ($this->allPhoneKeysForLookup($suffix) as $digits) {
+                    $query->orWhere(function ($inner) use ($digits) {
+                        $this->wherePhoneEndsWith($inner, 'phone_number', $digits);
+                    });
+                }
+            })
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function customerIdsForPhone(string $suffix): array
+    {
+        $ids = User::query()
+            ->whereIn('user_type', CUSTOMER_USER_TYPES)
+            ->where(function ($query) use ($suffix) {
+                $this->wherePhoneEndsWith($query, 'phone', $suffix);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        $altIds = PartyAlternatePhone::query()
+            ->where('owner_type', PartyAlternatePhone::OWNER_CUSTOMER)
+            ->where('phone_digits', $suffix)
+            ->pluck('owner_id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        return array_values(array_unique(array_merge($ids, $altIds)));
+    }
+
+    /**
+     * Lead IDs whose phone matches this number or any other phone of the same party.
+     *
+     * @return list<int>
+     */
+    private function leadIdsForPhone(string $suffix): array
+    {
+        $keys = $this->allPhoneKeysForLookup($suffix);
+        if ($keys === []) {
+            return [];
+        }
+
+        return Lead::query()
+            ->where(function ($query) use ($keys) {
+                foreach ($keys as $digits) {
+                    $query->orWhere(function ($inner) use ($digits) {
+                        $this->wherePhoneEndsWith($inner, 'phone_number', $digits);
+                    });
+                }
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allPhoneKeysForLookup(string $suffix): array
+    {
+        $keys = [$suffix];
+        $directory = app(PartyPhoneDirectory::class);
+        $owner = $directory->findOwner($suffix);
+        if ($owner) {
+            $keys = array_merge($keys, $directory->phonesForOwner($owner['owner_type'], $owner['owner_id']));
+        }
+
+        return array_values(array_unique($keys));
+    }
+
+    /**
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
+    private function wherePhoneEndsWith($query, string $column, string $digits): void
+    {
+        $query->where(function ($inner) use ($column, $digits) {
+            if (DB::connection()->getDriverName() === 'mysql') {
+                $inner->whereRaw(
+                    "RIGHT(REGEXP_REPLACE(COALESCE({$column}, ''), '[^0-9]', ''), ?) = ?",
+                    [strlen($digits), $digits]
+                );
+
+                return;
+            }
+
+            $inner->where($column, $digits)->orWhere($column, 'like', '%'.$digits);
+        });
     }
 
     /**

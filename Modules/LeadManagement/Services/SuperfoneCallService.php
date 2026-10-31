@@ -17,6 +17,7 @@ use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
+use Modules\LeadManagement\Entities\PartyAlternatePhone;
 use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\SuperfoneCall;
 use Modules\LeadManagement\Jobs\DownloadSuperfoneRecording;
@@ -439,14 +440,6 @@ class SuperfoneCallService
 
     public const LINK_UNMATCHED = 'unmatched';
 
-    /** @var list<string> */
-    private const CLOSED_BOOKING_STATUSES = [
-        'completed',
-        'canceled',
-        'cancelled',
-        'refund_request',
-    ];
-
     /**
      * @return array{party: string, booking: 'one'|'choose'|null, needs_lead_link: bool}
      */
@@ -660,12 +653,17 @@ class SuperfoneCallService
 
         $provider = $this->findProviderByDigits($digits);
         $leadMatches = $provider ? collect() : $this->leadsByDigits($digits);
-        $lead = $provider ? null : app(LeadOpenStatusService::class)->firstLeadForIncomingCall($leadMatches);
+        $openStatus = app(LeadOpenStatusService::class);
+        $lead = $provider ? null : $openStatus->firstLeadForIncomingCall($leadMatches);
         $closedLeadOnly = self::freshLeadForClosedMatch($lead !== null, $leadMatches->isNotEmpty());
         $customer = $provider ? null : $this->findUserByPhoneDigits($digits, CUSTOMER_USER_TYPES);
         $openBookings = $customer
             ? $this->openBookingsForCustomer((string) $customer->id)->count()
             : 0;
+        // Also catch open bookings tied to the lead phone when no customer user row matched.
+        if ($openBookings === 0 && ! $provider && $openStatus->phoneHasOpenBooking($digits)) {
+            $openBookings = 1;
+        }
         $mintUnknown = self::shouldMintUnknownLead($lead !== null, $closedLeadOnly, $openBookings);
         $decision = self::decideLink(
             $provider !== null,
@@ -723,11 +721,11 @@ class SuperfoneCallService
     }
 
     /**
-     * An open booking belongs on the call. Do not open a second lead for it.
+     * An open lead or open booking belongs on the call. Do not mint another lead.
      */
     public static function shouldMintUnknownLead(bool $hasLinkableLead, bool $onlyUnusableLeads, int $openBookings): bool
     {
-        if ($hasLinkableLead || $openBookings > 0) {
+        if (! LeadOpenStatusService::shouldCreateNewLead($hasLinkableLead, $openBookings > 0)) {
             return false;
         }
 
@@ -866,7 +864,7 @@ class SuperfoneCallService
                 'subCategory:id,name',
             ])
             ->where($column, $id)
-            ->whereNotIn('booking_status', self::CLOSED_BOOKING_STATUSES)
+            ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
             ->orderByDesc('created_at')
             ->limit(12)
             ->get([
@@ -1001,7 +999,7 @@ class SuperfoneCallService
             }
         }
 
-        return Provider::query()
+        $provider = Provider::query()
             ->where(function ($query) use ($digits) {
                 $this->wherePhoneEndsWith($query, 'company_phone', $digits);
                 $query->orWhere(function ($inner) use ($digits) {
@@ -1009,14 +1007,31 @@ class SuperfoneCallService
                 });
             })
             ->first();
+        if ($provider) {
+            return $provider;
+        }
+
+        $owner = app(PartyPhoneDirectory::class)->findOwner($digits);
+        if ($owner && $owner['owner_type'] === PartyAlternatePhone::OWNER_PROVIDER) {
+            return Provider::query()->find($owner['owner_id']);
+        }
+
+        return null;
     }
 
     private function leadsByDigits(string $digits): Collection
     {
+        $keys = $this->phoneKeysIncludingAlternates($digits);
         $leadQuery = Lead::query()
+            ->where(function ($outer) use ($keys) {
+                foreach ($keys as $key) {
+                    $outer->orWhere(function ($inner) use ($key) {
+                        $this->wherePhoneEndsWith($inner, 'phone_number', $key);
+                    });
+                }
+            })
             ->orderByDesc('updated_at')
             ->orderByDesc('id');
-        $this->wherePhoneEndsWith($leadQuery, 'phone_number', $digits);
 
         return $leadQuery->get();
     }
@@ -1025,8 +1040,46 @@ class SuperfoneCallService
     {
         $query = User::query()->whereIn('user_type', $userTypes);
         $this->wherePhoneEndsWith($query, 'phone', $digits);
+        $user = $query->first();
+        if ($user) {
+            return $user;
+        }
 
-        return $query->first();
+        $owner = app(PartyPhoneDirectory::class)->findOwner($digits);
+        if (! $owner) {
+            return null;
+        }
+
+        if (in_array(CUSTOMER_USER_TYPES[0], $userTypes, true)
+            && $owner['owner_type'] === PartyAlternatePhone::OWNER_CUSTOMER
+        ) {
+            return User::query()->find($owner['owner_id']);
+        }
+
+        if ($owner['owner_type'] === PartyAlternatePhone::OWNER_PROVIDER
+            && count(array_intersect($userTypes, PROVIDER_USER_TYPES)) > 0
+        ) {
+            $provider = Provider::query()->with('owner')->find($owner['owner_id']);
+
+            return $provider?->owner ?: $provider?->user;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function phoneKeysIncludingAlternates(string $digits): array
+    {
+        $keys = [$digits];
+        $directory = app(PartyPhoneDirectory::class);
+        $owner = $directory->findOwner($digits);
+        if ($owner) {
+            $keys = array_merge($keys, $directory->phonesForOwner($owner['owner_type'], $owner['owner_id']));
+        }
+
+        return array_values(array_unique($keys));
     }
 
     private function wherePhoneEndsWith($query, string $column, string $digits): void
@@ -1049,7 +1102,7 @@ class SuperfoneCallService
     {
         return Booking::query()
             ->where('customer_id', $customerId)
-            ->whereNotIn('booking_status', self::CLOSED_BOOKING_STATUSES)
+            ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
             ->orderByDesc('created_at')
             ->get(['id', 'readable_id', 'booking_status', 'customer_id']);
     }

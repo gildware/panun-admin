@@ -112,9 +112,12 @@
             cursor: pointer;
             transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
         }
-        #booking-status-overview-actions .booking-status-pill:disabled {
+        #booking-status-overview-actions .booking-status-pill:disabled,
+        #booking-status-overview-actions .booking-status-pill.is-disabled,
+        #booking-status-overview-actions .booking-status-pill[aria-disabled="true"] {
             opacity: 0.45;
             cursor: not-allowed;
+            pointer-events: none;
         }
         #booking-status-overview-actions .booking-status-pill:focus-visible {
             outline: 2px solid var(--bs-primary, #0d6efd);
@@ -2486,6 +2489,14 @@
                 'maxRefundAmount' => $maxRefundAmount ?? 0,
             ])
 
+            {{-- Visible layout: was previously trapped under a d-none legacy column so Override commission never showed. --}}
+            @if(! $booking->blocksAdminCommissionOverrideAndCompensation())
+                @include('bookingmodule::admin.booking.partials.details._booking-commission-override', [
+                    'booking' => $booking,
+                    'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
+                ])
+            @endif
+
             <div class="row gy-3 align-items-start d-none">
                 <div class="col-lg-8 col-xl-7 d-flex flex-column gap-3 align-items-stretch">
                     @can('booking_can_manage_status')
@@ -2599,13 +2610,6 @@
                                     </div>
                                 </div>
                             @endif
-
-                            @if(! $booking->blocksAdminCommissionOverrideAndCompensation())
-                                @include('bookingmodule::admin.booking.partials.details._booking-commission-override', [
-                                    'booking' => $booking,
-                                    'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
-                                ])
-                            @endif
                 </div>
             </div>
                     @include('bookingmodule::admin.booking.partials._booking-detail-delete-footer', ['booking' => $booking])
@@ -2654,7 +2658,10 @@
     <div class="modal fade" id="providerModal" tabindex="-1" aria-labelledby="providerModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content modal-content-data" id="modal-data-info">
-                @include('bookingmodule::admin.booking.partials.details.provider-info-modal-data')
+                <div class="p-5 text-center text-muted" data-provider-modal-placeholder="1">
+                    <div class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true"></div>
+                    <div class="mt-2 fs-12">{{ translate('Loading') }}...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -3164,6 +3171,11 @@
                         bookingDetailsRevertStatusSelect($select, previous_status);
                         return;
                     }
+                    if (booking_status === 'ongoing' && !@json(booking_can_mark_ongoing_by_service_schedule($booking))) {
+                        toastr.error('{{ translate('Booking_ongoing_only_on_or_after_schedule_date') }}', { CloseButton: true, ProgressBar: true });
+                        bookingDetailsRevertStatusSelect($select, previous_status);
+                        return;
+                    }
                     if ((booking_status === 'accepted' || booking_status === 'ongoing') && !bookingCurrentProviderId) {
                         toastr.error('{{ translate('Assign_provider_before_accept_or_ongoing') }}', { CloseButton: true, ProgressBar: true });
                         bookingDetailsRevertStatusSelect($select, previous_status);
@@ -3191,8 +3203,48 @@
                 return;
             }
 
+            function hideBookingStatusDisabledTooltips(exceptEl) {
+                $('.booking-status-disabled-info.is-open').each(function () {
+                    if (exceptEl && this === exceptEl) {
+                        return;
+                    }
+                    $(this).removeClass('is-open').attr('aria-expanded', 'false');
+                    $(this).find('.booking-status-disabled-tooltip').remove();
+                });
+            }
+
+            $(document).off('click.bookingOverviewStatusInfo').on('click.bookingOverviewStatusInfo', '.booking-status-disabled-info', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                var $btn = $(this);
+                var reason = $btn.attr('data-disabled-reason') || $btn.data('disabledReason') || '';
+                if (!reason) {
+                    return;
+                }
+                if ($btn.hasClass('is-open')) {
+                    hideBookingStatusDisabledTooltips();
+                    return;
+                }
+                hideBookingStatusDisabledTooltips();
+                var $tip = $('<span class="booking-status-disabled-tooltip" role="tooltip"></span>').text(reason);
+                $btn.append($tip).addClass('is-open').attr('aria-expanded', 'true');
+            });
+
+            $(document).off('click.bookingOverviewStatusInfoOutside').on('click.bookingOverviewStatusInfoOutside', function (event) {
+                if (!$(event.target).closest('.booking-status-disabled-info').length) {
+                    hideBookingStatusDisabledTooltips();
+                }
+            });
+
+            $(document).off('keydown.bookingOverviewStatusInfo').on('keydown.bookingOverviewStatusInfo', function (event) {
+                if (event.key === 'Escape') {
+                    hideBookingStatusDisabledTooltips();
+                }
+            });
+
             $(document).off('click.bookingOverviewStatus').on('click.bookingOverviewStatus', '.booking-status-overview-btn:not(:disabled)', function () {
-                var status = $(this).data('status');
+                var $btn = $(this);
+                var status = $btn.data('status');
                 var $select = $('#booking_status');
                 if (!$select.length) {
                     toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
@@ -3204,6 +3256,10 @@
                 }
                 if (status === 'completed' && $select.data('can-complete') === '0') {
                     toastr.error('{{ translate('Booking cannot be completed until full payment is received.') }}', { CloseButton: true, ProgressBar: true });
+                    return;
+                }
+                if (status === 'ongoing' && String($btn.data('can-mark-ongoing')) === '0') {
+                    toastr.error('{{ translate('Booking_ongoing_only_on_or_after_schedule_date') }}', { CloseButton: true, ProgressBar: true });
                     return;
                 }
                 if ((status === 'accepted' || status === 'ongoing') && !bookingCurrentProviderId) {
@@ -4522,74 +4578,14 @@
         })
     </script>
 
+    @include('bookingmodule::admin.booking.partials.details._provider-modal-lazy-load')
+
     <script>
-        $(document).ready(function() {
-
-            $(document).on('click', '.sort-by-class', function() {
-                console.log('hi')
-                const route = '{{ url('admin/provider/available-provider') }}'
-                var sortOption = document.querySelector('input[name="sort"]:checked').value;
-                var bookingId = "{{ $booking->id }}"
-
-                $.get({
-                    url: route,
-                    dataType: 'json',
-                    data: {
-                        sort_by: sortOption,
-                        booking_id: bookingId
-                    },
-                    beforeSend: function() {
-
-                    },
-                    success: function(response) {
-                        $('.modal-content-data').html(response.view);
-                    },
-                    complete: function() {},
-                    error: function() {
-                        toastr.error('{{ translate('Failed to load') }}')
-                    }
-                });
-            })
-        });
-
-        $(document).ready(function() {
-            $(document).on('keyup', '.search-form-input', function() {
-                const route = '{{ url('admin/provider/available-provider') }}';
-                let sortOption = document.querySelector('input[name="sort"]:checked').value;
-                let bookingId = "{{ $booking->id }}";
-                let searchTerm = $('.search-form-input').val();
-
-                $.get({
-                    url: route,
-                    dataType: 'json',
-                    data: {
-                        sort_by: sortOption,
-                        booking_id: bookingId,
-                        search: searchTerm,
-                    },
-                    beforeSend: function() {},
-                    success: function(response) {
-                        $('.modal-content-data').html(response.view);
-
-
-                        var cursorPosition = searchTerm.lastIndexOf(searchTerm.charAt(searchTerm
-                            .length - 1)) + 1;
-                        $('.search-form-input').focus().get(0).setSelectionRange(cursorPosition,
-                            cursorPosition);
-                    },
-                    complete: function() {},
-                    error: function() {
-                        toastr.error('{{ translate('Failed to load') }}');
-                    }
-                });
-            });
-        });
-
         function updateProvider(providerId) {
             const bookingId = "{{ $booking->id }}";
             const route = '{{ url('admin/provider/reassign-provider') }}' + '/' + bookingId;
-            const sortOption = document.querySelector('input[name="sort"]:checked').value;
-            const searchTerm = $('.search-form-input').val();
+            const sortOption = document.querySelector('#providerModal input[name="sort"]:checked')?.value ?? 'default';
+            const searchTerm = $('.search-form-input').val() ?? '';
 
             $.ajaxSetup({
                 headers: {

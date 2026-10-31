@@ -280,7 +280,19 @@ class BookingController extends Controller
         $bookings = $bookingListQuery
             ->applySharedFilters(
                 $this->booking->with(array_merge(
-                    ['customer', 'assignee', 'followups', 'extra_services', 'provider', 'subCategory', 'zone', 'service_address', 'repeat'],
+                    [
+                        'customer',
+                        'assignee',
+                        'followups' => function ($query) {
+                            $query->where('status', 'scheduled')->orderBy('date')->orderBy('id');
+                        },
+                        'extra_services',
+                        'provider',
+                        'subCategory',
+                        'zone',
+                        'service_address',
+                        'repeat',
+                    ],
                     $bookingStatus === 'reopened' ? [
                         'reopenEvents.holdReopenReason',
                         'spawnedFollowupBookings',
@@ -3102,44 +3114,9 @@ class BookingController extends Controller
             $customerAddress = $this->userAddress->find($booking['service_address_id']);
             $zones = Zone::ofStatus(1)->withoutGlobalScope('translate')->get();
 
-            // Important: the booking details page itself may contain `?search=...` from the booking list filters.
-            // That query param is unrelated to provider search, and it caused the reassign-provider modal to
-            // sometimes open with an empty provider list. Provider searching is handled via the modal AJAX.
-            $allProviders = $this->provider
-                ->when($request->filled('provider_search'), function ($query) use ($request) {
-                    $keys = explode(' ', (string) $request->input('provider_search'));
-                    return $query->where(function ($query) use ($keys) {
-                        foreach ($keys as $key) {
-                            $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_email', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_name', 'LIKE', '%' . $key . '%');
-                        }
-                    });
-                })
-                ->when(isset($booking->sub_category_id), function ($query) use ($request, $booking) {
-                    $query->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                        $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
-                    });
-                })
-                ->coveringLeafZone($booking->zone_id)
-                ->withCount('bookings', 'reviews')
-                ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
-                    $query->where('is_suspended', 0);
-                })
-                ->where('service_availability', 1)
-                ->where('is_active_for_jobs', 1)
-                ->withCount('reviews')
-                ->ofApproval(1)->ofStatus(1)
-                ->get();
-
+            // Eligible providers are loaded via AJAX when the reassign modal opens
+            // (admin/provider/available-provider) — avoids a heavy zone/subcategory scan on every details view.
             $providers = [];
-
-            foreach ($allProviders as $provider) {
-                if (provider_accepts_booking_service_location($provider->id, $booking->service_location)) {
-                    $providers[] = $provider;
-                }
-            }
-
             $sort_by = 'default';
             $zoneCenter = Zone::selectRaw("*,ST_AsText(ST_Centroid(`coordinates`)) as center")->withoutGlobalScope('translate')->find($booking->zone_id);
 
@@ -4938,32 +4915,8 @@ class BookingController extends Controller
         $customerAddress = $this->userAddress->find($booking['service_address_id']);
         $zones = Zone::ofStatus(1)->withoutGlobalScope('translate')->get();
 
-        $providers = $this->provider
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
-                            ->orWhere('company_email', 'LIKE', '%' . $key . '%')
-                            ->orWhere('company_name', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->when(isset($booking->sub_category_id), function ($query) use ($request, $booking) {
-                $query->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                    $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
-                });
-            })
-            ->coveringLeafZone($booking->zone_id)
-            ->withCount('bookings', 'reviews')
-            ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
-                $query->where('is_suspended', 0);
-            })
-            ->where('service_availability', 1)
-            ->where('is_active_for_jobs', 1)
-            ->withCount('reviews')
-            ->ofApproval(1)->ofStatus(1)->get();
-
+        // Providers load on demand via admin/provider/available-provider when the modal opens.
+        $providers = [];
         $sort_by = 'default';
         $id = "325778a8-53bd-4de5-a6bb-826f62edf603";
         $zoneCenter = Zone::selectRaw("*,ST_AsText(ST_Centroid(`coordinates`)) as center")->withoutGlobalScope('translate')->find($id);
@@ -10054,32 +10007,8 @@ class BookingController extends Controller
             $customerAddress = $this->userAddress->find($booking['service_address_id']);
             $zones = Zone::ofStatus(1)->withoutGlobalScope('translate')->get();
 
-            $providers = $this->provider
-                ->when($request->has('search'), function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
-                    return $query->where(function ($query) use ($keys) {
-                        foreach ($keys as $key) {
-                            $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_email', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_name', 'LIKE', '%' . $key . '%');
-                        }
-                    });
-                })
-                ->when(isset($booking->sub_category_id), function ($query) use ($request, $booking) {
-                    $query->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                        $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
-                    });
-                })
-                ->coveringLeafZone($booking->zone_id)
-                ->withCount('bookings', 'reviews')
-                ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
-                    $query->where('is_suspended', 0);
-                })
-                ->where('service_availability', 1)
-                ->where('is_active_for_jobs', 1)
-                ->withCount('reviews')
-                ->ofApproval(1)->ofStatus(1)->get();
-
+            // Providers load on demand via admin/provider/available-provider when the modal opens.
+            $providers = [];
             $sort_by = 'default';
             $id = "325778a8-53bd-4de5-a6bb-826f62edf603";
             $zoneCenter = Zone::selectRaw("*,ST_AsText(ST_Centroid(`coordinates`)) as center")->withoutGlobalScope('translate')->find($id);
@@ -10113,25 +10042,7 @@ class BookingController extends Controller
             $customerAddress = $this->userAddress->find($booking['service_address_id']);
             $zones = Zone::ofStatus(1)->withoutGlobalScope('translate')->get();
 
-            $providers = $this->provider
-                ->when($request->has('search'), function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
-                    return $query->where(function ($query) use ($keys) {
-                        foreach ($keys as $key) {
-                            $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_email', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_name', 'LIKE', '%' . $key . '%');
-                        }
-                    });
-                })
-                ->when(isset($booking->sub_category_id), function ($query) use ($request, $booking) {
-                    $query->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                        $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
-                    });
-                })
-                ->coveringLeafZone($booking->zone_id)
-                ->withCount('bookings', 'reviews')
-                ->ofApproval(1)->ofStatus(1)->get();
+            $providers = [];
             $sort_by = 'default';
             return view('bookingmodule::admin.booking.service-log', array_merge(compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by'), $this->bookingConfigurationReasonVariables()));
         }
