@@ -621,12 +621,6 @@
 @unless($lead->trashed())
 <section class="panel delete-panel">
     <div class="panel__body py-3">
-        <p class="text-muted small mb-2">{{ translate('Link_as_other_phone_help_short') }}</p>
-        @can('lead_update')
-            <button type="button" class="btn btn--primary me-2" data-bs-toggle="modal" data-bs-target="#linkOtherPhoneModal">
-                {{ translate('Link_as_other_phone') }}
-            </button>
-        @endcan
         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteLeadModal">{{ translate('Delete_Lead') }}</button>
         <p class="text-muted small mt-2 mb-0">{{ translate('Deleted_leads_help') }}</p>
     </div>
