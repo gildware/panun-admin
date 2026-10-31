@@ -71,20 +71,59 @@ class DeletedLeadController extends Controller
 
     public function restore(int $id): RedirectResponse
     {
-        $lead = Lead::onlyTrashed()->findOrFail($id);
-        $lead->deleted_by = null;
-        $lead->deletion_reason = null;
-        $lead->restore();
+        // withTrashed (not onlyTrashed): a second click / browser resubmit after a
+        // successful restore used to 404 via findOrFail on an already-active lead.
+        $lead = Lead::withTrashed()->find($id);
+        if (! $lead) {
+            toastr()->error(translate('Lead_not_found') ?: 'Lead not found.');
+
+            return redirect()->route('admin.lead.deleted');
+        }
+
+        if (! $lead->trashed()) {
+            toastr()->info(translate('Lead_already_restored') ?: 'This lead is already active.');
+
+            return redirect()->route('admin.lead.show', $lead->id);
+        }
+
+        try {
+            $lead->deleted_by = null;
+            $lead->deletion_reason = null;
+            $lead->restore();
+        } catch (\Throwable $e) {
+            report($e);
+            toastr()->error(translate('Lead_restore_failed') ?: 'Could not restore this lead. Please try again.');
+
+            return redirect()->route('admin.lead.deleted');
+        }
 
         toastr()->success(translate('Lead_restored_successfully'));
 
-        return redirect()->route('admin.lead.deleted');
+        return redirect()->route('admin.lead.show', $lead->id);
     }
 
     public function forceDestroy(int $id): RedirectResponse
     {
-        $lead = Lead::onlyTrashed()->findOrFail($id);
-        $lead->forceDelete();
+        $lead = Lead::onlyTrashed()->find($id);
+        if (! $lead) {
+            $exists = Lead::withTrashed()->whereKey($id)->exists();
+            toastr()->info(
+                $exists
+                    ? (translate('Lead_already_restored') ?: 'This lead is already active.')
+                    : (translate('Lead_not_found') ?: 'Lead not found.')
+            );
+
+            return redirect()->route('admin.lead.deleted');
+        }
+
+        try {
+            $lead->forceDelete();
+        } catch (\Throwable $e) {
+            report($e);
+            toastr()->error(translate('Lead_delete_failed') ?: 'Could not permanently delete this lead. Please try again.');
+
+            return redirect()->route('admin.lead.deleted');
+        }
 
         toastr()->success(translate('Lead_deleted_permanently'));
 
