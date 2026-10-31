@@ -118,7 +118,28 @@
         </form>
     @endif
     @if($personRow)
-        @php $editing = $editId !== '' && $editId === (string) $personRow['user_id']; @endphp
+        @php
+            $editing = $editId !== '' && $editId === (string) $personRow['user_id'];
+            $personHours = $personRow['hours'] ?? ['logged' => 0, 'supposed' => 0, 'work' => 0, 'overtime' => 0, 'leave' => 0];
+            $hoursText = fn (float $hours) => \Modules\AdminModule\Services\PeopleWorkspace::hoursText($hours).'h';
+        @endphp
+        <div class="people-ws-grid-3 people-att-hour-widgets">
+            <article class="people-ws-card people-ws-stat">
+                <div class="label">Logged / supposed</div>
+                <div class="value">{{ $hoursText((float) ($personHours['logged'] ?? 0)) }} <span class="people-att-hour-slash">/</span> {{ $hoursText((float) ($personHours['supposed'] ?? 0)) }}</div>
+                <div class="sub">Work {{ $hoursText((float) ($personHours['work'] ?? 0)) }} · day target {{ $hoursText((float) ($personRow['day_hours'] ?? 0)) }}</div>
+            </article>
+            <article class="people-ws-card people-ws-stat is-overtime">
+                <div class="label">Overtime hours</div>
+                <div class="value">{{ $hoursText((float) ($personHours['overtime'] ?? 0)) }}</div>
+                <div class="sub">Logged separately this month</div>
+            </article>
+            <article class="people-ws-card people-ws-stat is-leave">
+                <div class="label">Leave hours</div>
+                <div class="value">{{ $hoursText((float) ($personHours['leave'] ?? 0)) }}</div>
+                <div class="sub">Approved and pending leave</div>
+            </article>
+        </div>
         <section class="people-att-cal" aria-label="{{ $personRow['name'] }} attendance for {{ $monthLabel }}">
             <div class="people-att-cal-head">
                 <div>
@@ -161,6 +182,10 @@
                                 $cell = $slot['cell'];
                                 $bits = explode(' · ', (string) ($cell['title'] ?? ''), 2);
                                 $status = $bits[1] ?? '';
+                                $workHours = (float) ($cell['work'] ?? 0);
+                                $overtimeHours = (float) ($cell['overtime'] ?? 0);
+                                $leaveHours = (float) ($cell['leave'] ?? 0);
+                                $hasHours = $workHours > 0 || $overtimeHours > 0 || $leaveHours > 0;
                             @endphp
                             <div class="people-att-cal-cell is-{{ $cell['kind'] }}{{ ! empty($day['today']) ? ' is-today' : '' }}" title="{{ $cell['title'] }}">
                                 <span class="people-att-cal-num">{{ $day['day'] }}</span>
@@ -174,7 +199,19 @@
                                 @elseif(($cell['mark'] ?? '') !== '')
                                     <span class="people-att-mark is-{{ $cell['kind'] }}{{ ! empty($cell['hand']) ? ' is-manual' : '' }}">{{ $cell['mark'] }}</span>
                                 @endif
-                                @if($status !== '')
+                                @if($hasHours)
+                                    <ul class="people-att-cal-hours">
+                                        @if($workHours > 0)
+                                            <li class="is-work" title="Work hours">{{ $hoursText($workHours) }}</li>
+                                        @endif
+                                        @if($overtimeHours > 0)
+                                            <li class="is-overtime" title="Overtime hours">OT {{ $hoursText($overtimeHours) }}</li>
+                                        @endif
+                                        @if($leaveHours > 0)
+                                            <li class="is-leave" title="Leave hours">L {{ $hoursText($leaveHours) }}</li>
+                                        @endif
+                                    </ul>
+                                @elseif($status !== '')
                                     <span class="people-att-cal-status">{{ $status }}</span>
                                 @endif
                             </div>

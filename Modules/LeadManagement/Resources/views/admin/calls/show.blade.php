@@ -68,7 +68,7 @@
                                 </dd>
 
                                     <dt class="col-sm-4">{{ translate('Actions') }}</dt>
-                                    <dd class="col-sm-8">
+                                    <dd class="col-sm-8 d-flex flex-wrap gap-2">
                                         @if($call->lead || $call->booking)
                                             <form method="post" action="{{ route('admin.calls.unmatch', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Unmatch_this_call')));">
                                                 @csrf
@@ -88,6 +88,7 @@
                                                 $linkParty = 'none';
                                                 $linkPartyName = '';
                                             }
+                                            $showReopenLead = $reopenLead ?? null;
                                         @endphp
                                         <button type="button"
                                                 class="btn btn--primary calls-link-lead-btn"
@@ -101,7 +102,24 @@
                                                 data-booking-action="{{ route('admin.calls.booking', $call) }}">
                                             {{ translate('Link_call') }}
                                         </button>
+                                        @if($showReopenLead)
+                                            @can('lead_update')
+                                                <form method="post" action="{{ route('admin.calls.reopen-link', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Reopen_non_responsive_lead_and_link_call')));">
+                                                    @csrf
+                                                    <input type="hidden" name="lead_id" value="{{ $showReopenLead->id }}">
+                                                    <button type="submit" class="btn btn-outline-secondary">{{ translate('Reopen') }} #{{ $showReopenLead->id }}</button>
+                                                </form>
+                                            @endcan
                                         @endif
+                                        @endif
+                                        @can('lead_add')
+                                            @if(strlen((string) ($call->customer_phone_digits ?: '')) >= 8)
+                                                <form method="post" action="{{ route('admin.calls.create-lead', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Create_new_lead_from_this_call_confirm')));">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-outline-primary">{{ translate('New_lead') }}</button>
+                                                </form>
+                                            @endif
+                                        @endcan
                                     </dd>
 
                                 <dt class="col-sm-4">{{ translate('Call_id') }}</dt>

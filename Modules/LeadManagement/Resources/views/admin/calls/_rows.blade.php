@@ -160,6 +160,7 @@
                         $linkParty = 'none';
                         $linkPartyName = '';
                     }
+                    $reopenLead = (($reopenLeadByCall ?? [])[$call->id] ?? null);
                 @endphp
                 <button type="button"
                         class="btn btn--primary calls-link-lead-btn"
@@ -173,12 +174,29 @@
                         data-booking-action="{{ route('admin.calls.booking', $call) }}">
                     {{ translate('Link_call') }}
                 </button>
+                @if($reopenLead)
+                    @can('lead_update')
+                        <form method="post" action="{{ route('admin.calls.reopen-link', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Reopen_non_responsive_lead_and_link_call')));">
+                            @csrf
+                            <input type="hidden" name="lead_id" value="{{ $reopenLead->id }}">
+                            <button type="submit" class="btn btn-outline-secondary calls-link-lead-btn">{{ translate('Reopen') }} #{{ $reopenLead->id }}</button>
+                        </form>
+                    @endcan
+                @endif
             @else
                 <form method="post" action="{{ route('admin.calls.unmatch', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Unmatch_this_call')));">
                     @csrf
                     <button type="submit" class="btn btn--danger calls-unmatch-btn">{{ translate('Unmatch') }}</button>
                 </form>
             @endif
+            @can('lead_add')
+                @if(strlen((string) ($call->customer_phone_digits ?: '')) >= 8)
+                    <form method="post" action="{{ route('admin.calls.create-lead', $call) }}" class="d-inline" onsubmit="return confirm(@json(translate('Create_new_lead_from_this_call_confirm')));">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-primary calls-link-lead-btn">{{ translate('New_lead') }}</button>
+                    </form>
+                @endif
+            @endcan
             </div>
         </td>
     </tr>

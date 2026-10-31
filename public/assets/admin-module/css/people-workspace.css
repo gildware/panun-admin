@@ -105,16 +105,27 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  background: #fff;
-  box-shadow: inset 0 -1px 0 var(--pw-line);
+  background: var(--pw-ink);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
 }
 .people-ts-month tfoot td {
   position: sticky;
   bottom: 0;
   z-index: 2;
-  background: #f8fafc;
+  background: var(--pw-ink);
+  color: #fff;
+  font-size: 14px;
   font-weight: 700;
-  box-shadow: inset 0 1px 0 var(--pw-line);
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 .people-ts-month th.num, .people-ts-month td.num { text-align: center; font-variant-numeric: tabular-nums; }
 .people-ts-month td.actions, .people-ts-month th:last-child { text-align: right; white-space: nowrap; }
@@ -157,8 +168,12 @@
   white-space: nowrap;
 }
 .people-ts-chip.is-more { border: 0; cursor: pointer; background: #52525b; }
+.people-ts-chip.is-overtime { background: #dbeafe; color: #1e40af; }
+.people-ts-chip.is-more.is-overtime { background: #2563eb; color: #fff; }
 .people-ts-queue td:nth-child(4),
-.people-ts-month td:nth-child(2) {
+.people-ts-queue td:nth-child(5),
+.people-ts-month td:nth-child(2),
+.people-ts-month td:nth-child(3) {
   max-width: 280px;
 }
 .people-ts-month .people-ws-actions { justify-content: flex-end; align-items: center; }
@@ -1576,6 +1591,8 @@ body:has(#attendanceUnlockModal.show) .modal-backdrop.show { z-index: 20055; }
 .ts-info-pill span { font-size: 12px; }
 .ts-info-pill.is-filled { background: #fff4ed; color: #9a3412; }
 .ts-info-pill.is-filled strong { color: #c2410c; }
+.ts-info-pill.is-overtime { background: #eff6ff; color: #1e40af; }
+.ts-info-pill.is-overtime strong { color: #1d4ed8; }
 .ts-info-pill.is-leave { background: var(--ts-leave); color: var(--ts-leave-ink); }
 .ts-info-pill.is-leave strong { color: var(--ts-leave-ink); }
 .ts-leave-btn, .ts-submit { border: 0; cursor: pointer; background: var(--ts-purple); color: #fff; font-weight: 750; }
@@ -2012,6 +2029,8 @@ body:has(#attendanceUnlockModal.show) .modal-backdrop.show { z-index: 20055; }
 .ts-day-add button { border: 1px solid var(--pw-brand); background: #fff; color: var(--pw-brand); font-weight: 650; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border-radius: 10px; padding: 8px 12px; line-height: 1.2; white-space: nowrap; }
 .ts-day-add button[hidden] { display: none !important; }
 .ts-day-add button:hover { background: #fff7ed; }
+.ts-day-add button[data-add="overtime"] { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
+.ts-day-add button[data-add="overtime"]:hover { background: #dbeafe; border-color: #1d4ed8; color: #1e40af; }
 .ts-day-add span { width: 18px; height: 18px; border-radius: 999px; border: 1.5px solid currentColor; display: inline-grid; place-items: center; font-size: 14px; line-height: 1; }
 .ts-status { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 12px; border-top: 1px solid #f2f4f7; }
 .ts-status-top { display: flex; align-items: center; gap: 8px 10px; min-width: 0; flex-wrap: nowrap; }
@@ -3018,6 +3037,10 @@ body.nav-top .main-area:has(.ts-app) {
   margin-bottom: 8px;
 }
 .people-pay-modal-line form { display: flex; }
+.people-att-hour-widgets { margin: 0 0 16px; }
+.people-att-hour-widgets .people-ws-stat.is-overtime .value { color: #1d4ed8; }
+.people-att-hour-widgets .people-ws-stat.is-leave .value { color: #be123c; }
+.people-att-hour-slash { color: var(--pw-muted); font-weight: 500; margin: 0 2px; }
 .people-att-cal { margin-top: 4px; }
 .people-att-cal-head {
   display: flex;
@@ -3082,7 +3105,7 @@ body.nav-top .main-area:has(.ts-app) {
   font-weight: 650;
 }
 .people-att-cal-cell {
-  min-height: 78px;
+  min-height: 96px;
   padding: 8px;
   border: 1px solid var(--pw-line);
   border-radius: 10px;
@@ -3106,8 +3129,27 @@ body.nav-top .main-area:has(.ts-app) {
   font-size: 11px;
   line-height: 1.3;
 }
+.people-att-cal-hours {
+  list-style: none;
+  margin: auto 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+.people-att-cal-hours li {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: .01em;
+}
+.people-att-cal-hours .is-work { color: #9a3412; }
+.people-att-cal-hours .is-overtime { color: #1d4ed8; }
+.people-att-cal-hours .is-leave { color: #be123c; }
 .people-att-cal .people-att-select { width: 100%; max-width: 72px; }
 @media (max-width: 720px) {
-  .people-att-cal-cell { min-height: 64px; padding: 6px; }
+  .people-att-cal-cell { min-height: 72px; padding: 6px; }
   .people-att-cal-status { display: none; }
+  .people-att-cal-hours li { font-size: 10px; }
 }

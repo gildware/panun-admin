@@ -654,22 +654,24 @@ class SuperfoneCallService
         $provider = $this->findProviderByDigits($digits);
         $leadMatches = $provider ? collect() : $this->leadsByDigits($digits);
         $openStatus = app(LeadOpenStatusService::class);
-        // Same gate as WhatsApp: only an open lead or open booking blocks minting.
-        // Closed / booked leads and completed bookings do not absorb the next call.
-        $openLead = $provider ? null : $openStatus->firstOpenLead($leadMatches);
         $customer = $provider ? null : $this->findUserByPhoneDigits($digits, CUSTOMER_USER_TYPES);
+        $resolved = $provider
+            ? ['action' => 'mint', 'lead' => null, 'has_open_lead' => false, 'has_open_booking' => false]
+            : $openStatus->resolveInboundLead($leadMatches, $digits);
         $openBookings = $customer
             ? $this->openBookingsForCustomer((string) $customer->id)->count()
             : 0;
-        // Also catch open bookings tied to the lead phone when no customer user row matched.
-        if ($openBookings === 0 && ! $provider && $openStatus->phoneHasOpenBooking($digits)) {
+        if ($openBookings === 0 && ($resolved['has_open_booking'] ?? false)) {
             $openBookings = 1;
         }
-        $lead = $openLead;
-        if (! $lead && $openBookings > 0 && ! $provider) {
-            $lead = $openStatus->existingLeadForOpenBookingPhone($digits);
+
+        $lead = $resolved['lead'] ?? null;
+        if (($resolved['action'] ?? null) === 'reopen' && $lead) {
+            $lead = $openStatus->reopenNonResponsiveForInbound($lead, 'inbound');
         }
-        $mintUnknown = self::shouldMintUnknownLead($openLead !== null, $openBookings);
+
+        $mintUnknown = ($resolved['action'] ?? null) === 'mint'
+            && self::shouldMintUnknownLead(false, $openBookings);
         $decision = self::decideLink(
             $provider !== null,
             $lead !== null,
@@ -685,7 +687,7 @@ class SuperfoneCallService
             return;
         }
 
-        if ($decision['party'] === self::LINK_LEAD && $lead) {
+        if ($lead && in_array($decision['party'], [self::LINK_LEAD, self::LINK_CUSTOMER, self::LINK_UNKNOWN], true)) {
             $call->lead_id = $lead->id;
             $call->called_party_type = in_array($lead->lead_type, [Lead::TYPE_PROVIDER, Lead::TYPE_FUTURE_PROVIDER], true)
                 ? LeadFollowup::CALLED_PARTY_PROVIDER
@@ -728,6 +730,11 @@ class SuperfoneCallService
     public function linkToLead(SuperfoneCall $call, Lead $lead): SuperfoneCall
     {
         return DB::transaction(function () use ($call, $lead) {
+            // Staff override: linking to a non-responsive lead always reopens it.
+            if ($lead->isNonResponsive()) {
+                $lead = app(LeadOpenStatusService::class)->reopenNonResponsiveForInbound($lead, 'staff');
+            }
+
             $call->manual_unmatched = false;
             $call->lead_id = $lead->id;
             if (! $call->provider_id) {
@@ -753,6 +760,19 @@ class SuperfoneCallService
             $this->syncBookingFollowup($call);
 
             return $call->fresh();
+        });
+    }
+
+    /**
+     * Staff override: mint a fresh Unknown for this call and attach it
+     * (even when an open / reopened lead already exists).
+     */
+    public function createLeadFromCall(SuperfoneCall $call): SuperfoneCall
+    {
+        return DB::transaction(function () use ($call) {
+            $created = $this->createUnknownLead($call, 'Created by staff from a Superfone call (new enquiry).');
+
+            return $this->linkToLead($call->fresh() ?? $call, $created);
         });
     }
 
@@ -875,15 +895,16 @@ class SuperfoneCallService
             ]);
     }
 
-    private function createUnknownLead(SuperfoneCall $call): Lead
+    private function createUnknownLead(SuperfoneCall $call, ?string $remarks = null): Lead
     {
+        $note = $remarks ?: 'Created from an unmatched Superfone call.';
         $lead = Lead::query()->create([
             'name' => 'Unknown',
             'phone_number' => $call->customer_phone ?: $call->customer_phone_digits,
             'source_id' => Source::ensureSuperfoneSource()->id,
             'lead_type' => Lead::TYPE_UNKNOWN,
             'date_time_of_lead_received' => $call->started_at ?? now(),
-            'remarks' => 'Created from an unmatched Superfone call.',
+            'remarks' => $note,
             'next_followup_at' => app(LeadFollowupService::class)->defaultNextFollowupAt(),
             'created_by' => null,
         ]);
@@ -895,7 +916,7 @@ class SuperfoneCallService
                 'lead_added' => [
                     'label' => 'Lead_Added',
                     'old' => '—',
-                    'new' => 'Created from an unmatched Superfone call.',
+                    'new' => $note,
                 ],
             ],
         ]);

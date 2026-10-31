@@ -1,10 +1,12 @@
 @php
     $taskTotal = 0.0;
     $additionalTotal = 0.0;
+    $overtimeTotal = 0.0;
     $leaveTotal = 0.0;
     foreach ($timesheetReview['days'] as $sumDay) {
         $taskTotal += (float) $sumDay['task'];
         $additionalTotal += (float) $sumDay['additional'];
+        $overtimeTotal += (float) ($sumDay['overtime'] ?? 0);
         $leaveTotal += (float) $sumDay['leave'];
     }
     $hoursText = $hoursText ?? fn (float $hours) => \Modules\AdminModule\Services\PeopleWorkspace::hoursText($hours);
@@ -15,8 +17,10 @@
             <tr>
                 <th>Date</th>
                 <th>Work detail</th>
+                <th>Overtime</th>
                 <th class="num">Task hours</th>
                 <th class="num">Additional hrs</th>
+                <th class="num">Overtime hrs</th>
                 <th class="num">Leave hours</th>
                 <th class="num">Total hours</th>
                 <th>Actions</th>
@@ -24,24 +28,43 @@
         </thead>
         <tbody>
         @forelse($timesheetReview['days'] as $day)
+            @php
+                $workChips = $day['chips'] ?? [];
+                $overtimeChips = $day['overtimeChips'] ?? [];
+            @endphp
             <tr @class(['is-even' => ((int) substr($day['date'], 8, 2)) % 2 === 0])>
                 <td>{{ $day['label'] }}</td>
                 <td>
-                    @if(($day['chips'] ?? []) === [])
+                    @if($workChips === [])
                         —
                     @else
                         <div class="people-ts-chips">
-                            @foreach($day['chips'] as $index => $chip)
+                            @foreach($workChips as $index => $chip)
                                 <span class="people-ts-chip" title="{{ $chip }}" @if($index >= 4) hidden data-extra-chip @endif>{{ $chip }}</span>
                             @endforeach
-                            @if(count($day['chips']) > 4)
-                                <button type="button" class="people-ts-chip is-more" data-show-chips title="{{ implode(', ', array_slice($day['chips'], 4)) }}">...</button>
+                            @if(count($workChips) > 4)
+                                <button type="button" class="people-ts-chip is-more" data-show-chips title="{{ implode(', ', array_slice($workChips, 4)) }}">...</button>
+                            @endif
+                        </div>
+                    @endif
+                </td>
+                <td>
+                    @if($overtimeChips === [])
+                        —
+                    @else
+                        <div class="people-ts-chips">
+                            @foreach($overtimeChips as $index => $chip)
+                                <span class="people-ts-chip is-overtime" title="{{ $chip }}" @if($index >= 4) hidden data-extra-chip @endif>{{ $chip }}</span>
+                            @endforeach
+                            @if(count($overtimeChips) > 4)
+                                <button type="button" class="people-ts-chip is-more is-overtime" data-show-chips title="{{ implode(', ', array_slice($overtimeChips, 4)) }}">...</button>
                             @endif
                         </div>
                     @endif
                 </td>
                 <td class="num">{{ $hoursText((float) $day['task']) }}</td>
                 <td class="num">{{ $hoursText((float) $day['additional']) }}</td>
+                <td class="num">{{ $hoursText((float) ($day['overtime'] ?? 0)) }}</td>
                 <td class="num">{{ $hoursText((float) $day['leave']) }}</td>
                 <td class="num">{{ $hoursText((float) $day['total']) }}</td>
                 <td class="actions">
@@ -88,17 +111,19 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="7" class="people-ws-note">No days in this month.</td></tr>
+            <tr><td colspan="9" class="people-ws-note">No days in this month.</td></tr>
         @endforelse
         </tbody>
         <tfoot>
             <tr>
                 <td>Total</td>
                 <td></td>
+                <td></td>
                 <td class="num">{{ $hoursText($taskTotal) }}</td>
                 <td class="num">{{ $hoursText($additionalTotal) }}</td>
+                <td class="num">{{ $hoursText($overtimeTotal) }}</td>
                 <td class="num">{{ $hoursText($leaveTotal) }}</td>
-                <td class="num">{{ $hoursText($taskTotal + $additionalTotal + $leaveTotal) }}</td>
+                <td class="num">{{ $hoursText($taskTotal + $additionalTotal + $overtimeTotal + $leaveTotal) }}</td>
                 <td></td>
             </tr>
         </tfoot>

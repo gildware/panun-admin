@@ -27,33 +27,54 @@
             $description = $reason;
         }
     }
-    $kind = ($kind ?? 'task') === 'extra' ? 'extra' : 'task';
-    $options = $kind === 'extra' ? ($extras ?? []) : ($assigned ?? []);
+    $kind = match ($kind ?? 'task') {
+        'extra' => 'extra',
+        'overtime' => 'overtime',
+        default => 'task',
+    };
+    if ($kind === 'overtime') {
+        $ticketId = 'overtime';
+        $task = $task !== '' ? $task : 'Overtime';
+        $options = [['id' => 'overtime', 'task' => 'Overtime', 'deadline' => '']];
+    } else {
+        $options = $kind === 'extra' ? ($extras ?? []) : ($assigned ?? []);
+    }
     $knownIds = collect($options)->pluck('id')->all();
     $matched = $ticketId !== '' && in_array($ticketId, $knownIds, true);
     if (! $matched) {
         $matched = collect($options)->contains(fn ($option) => $option['task'] === $task);
     }
-    $placeholder = $kind === 'extra' ? 'Select additional hours' : 'Select task';
+    $placeholder = match ($kind) {
+        'extra' => 'Select additional hours',
+        'overtime' => 'Overtime',
+        default => 'Select task',
+    };
+    $fieldLabel = match ($kind) {
+        'extra' => 'Additional hours',
+        'overtime' => 'Overtime',
+        default => 'Task',
+    };
     $hoursLocked = (bool) $locked && ! ($hoursOpen ?? false);
     $canRevokeLeave = (bool) ($canRevokeLeave ?? false);
 @endphp
-<div class="ts-row">
+<div class="ts-row" data-kind="{{ $kind }}">
     <div class="ts-entry-top{{ $showTimes ? ' has-times' : '' }}{{ $locked ? '' : ' has-remove' }}{{ $canRevokeLeave ? ' has-revoke' : '' }}">
         <div class="ts-entry-main">
             <div class="ts-field ts-field-task">
-                <span class="ts-field-label">{{ $kind === 'extra' ? 'Additional hours' : 'Task' }}</span>
+                <span class="ts-field-label">{{ $fieldLabel }}</span>
                 @if($locked && ($hoursOpen ?? false))
                     <input type="hidden" name="rows[{{ $index }}][ticket_id]" value="{{ $ticketId }}">
                 @endif
                 <select class="ts-task-select" name="rows[{{ $index }}][ticket_id]" data-task data-placeholder="{{ $placeholder }}" @disabled($locked)>
-                    <option value="">{{ $placeholder }}</option>
+                    @unless($kind === 'overtime')
+                        <option value="">{{ $placeholder }}</option>
+                    @endunless
                     @foreach($options as $option)
                         <option
                             value="{{ $option['id'] }}"
                             data-title="{{ $option['task'] }}"
                             data-deadline="{{ $option['deadline'] }}"
-                            @selected($ticketId === $option['id'] || ($ticketId === '' && $task === $option['task']))
+                            @selected($kind === 'overtime' || $ticketId === $option['id'] || ($ticketId === '' && $task === $option['task']))
                         >{{ $option['task'] }}</option>
                     @endforeach
                     @if(in_array($ticketId, ['leave', 'partial-leave'], true))
@@ -119,6 +140,6 @@
     </div>
     <label class="ts-field ts-field-desc">
         <span class="ts-field-label">Description</span>
-        <textarea class="ts-desc" name="rows[{{ $index }}][description]" rows="2" maxlength="500" placeholder="What did you work on?" @disabled($locked)>{{ $description }}</textarea>
+        <textarea class="ts-desc" name="rows[{{ $index }}][description]" rows="2" maxlength="500" placeholder="{{ $kind === 'overtime' ? 'What overtime work did you do?' : 'What did you work on?' }}" @disabled($locked)>{{ $description }}</textarea>
     </label>
 </div>

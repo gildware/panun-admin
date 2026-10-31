@@ -364,6 +364,7 @@
                                         <th>Filled on</th>
                                         <th>Filled for</th>
                                         <th>Work detail</th>
+                                        <th>Overtime</th>
                                         <th>Status</th>
                                         <th>Actions</th>
                                     </tr>
@@ -373,6 +374,7 @@
                                     @php
                                         $sheet = $row['sheet'];
                                         $filledFor = $row['filled_for']->format('l, j F Y');
+                                        $overtimeDetails = $row['overtimeDetails'] ?? [];
                                     @endphp
                                     <tr>
                                         <td>{{ $row['person'] }}</td>
@@ -385,6 +387,17 @@
                                                 <div class="people-ts-chips">
                                                     @foreach($row['details'] as $detail)
                                                         <span class="people-ts-chip" title="{{ $detail }}">{{ $detail }}</span>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($overtimeDetails === [])
+                                                —
+                                            @else
+                                                <div class="people-ts-chips">
+                                                    @foreach($overtimeDetails as $detail)
+                                                        <span class="people-ts-chip is-overtime" title="{{ $detail }}">{{ $detail }}</span>
                                                     @endforeach
                                                 </div>
                                             @endif
@@ -431,7 +444,7 @@
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="people-ws-note">No timesheets submitted for approval in this month.</td></tr>
+                                    <tr><td colspan="7" class="people-ws-note">No timesheets submitted for approval in this month.</td></tr>
                                 @endforelse
                                 </tbody>
                             </table>
@@ -545,6 +558,7 @@
 
                                     function kindLabel(kind) {
                                         if (kind === 'leave') return 'Leave';
+                                        if (kind === 'overtime') return 'Overtime';
                                         if (kind === 'extra') return 'Additional hours';
                                         return 'Task';
                                     }

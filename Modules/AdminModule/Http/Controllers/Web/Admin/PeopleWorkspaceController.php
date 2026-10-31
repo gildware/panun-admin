@@ -1191,6 +1191,7 @@ class PeopleWorkspaceController extends Controller
 
         $total = 0.0;
         $filled = 0.0;
+        $overtimeTotal = 0.0;
         $leaveTotal = 0.0;
         $cards = [];
         $statusDays = $this->timesheetMonthStates($month->copy(), $today, $holidays, $saved, $user);
@@ -1212,6 +1213,8 @@ class PeopleWorkspaceController extends Controller
                     $ticket = (string) ($row['ticket_id'] ?? '');
                     if ($ticket === 'leave' || $ticket === 'partial-leave') {
                         $leaveTotal += $amount;
+                    } elseif ($ticket === 'overtime' || ($row['kind'] ?? '') === 'overtime') {
+                        $overtimeTotal += $amount;
                     } else {
                         $filled += $amount;
                     }
@@ -1271,6 +1274,7 @@ class PeopleWorkspaceController extends Controller
             'statusDays' => $statusDays,
             'expected' => round($expectedDays * $dayHours, 2),
             'filled' => round($filled, 2),
+            'overtimeTotal' => round($overtimeTotal, 2),
             'leaveTotal' => round($leaveTotal, 2),
             'total' => $total,
             'pendingMonths' => $pendingMonths,
@@ -1281,7 +1285,7 @@ class PeopleWorkspaceController extends Controller
     }
 
     /**
-     * Board tasks this person can log, configured additional hours, and leave.
+     * Board tasks this person can log, configured additional hours, overtime, and leave.
      *
      * @return array<int, array{id: string, task: string, deadline: string}>
      */
@@ -1291,6 +1295,7 @@ class PeopleWorkspaceController extends Controller
             $this->workspace->assignedBoardTasks($user),
             $this->workspace->configuredTimesheetTasks(),
             [
+                ['id' => 'overtime', 'task' => 'Overtime', 'deadline' => ''],
                 ['id' => 'partial-leave', 'task' => 'Partial Leave', 'deadline' => ''],
                 ['id' => 'leave', 'task' => 'Leave', 'deadline' => ''],
             ],
@@ -1471,7 +1476,7 @@ class PeopleWorkspaceController extends Controller
             }
             $deadline = $known['deadline'];
             $description = trim((string) ($row['description'] ?? ''));
-            $clean[] = [
+            $entry = [
                 'ticket_id' => $known['id'] ?? ($ticketId !== '' ? $ticketId : null),
                 'task' => $task,
                 'description' => $description !== '' ? $description : null,
@@ -1480,6 +1485,10 @@ class PeopleWorkspaceController extends Controller
                 'to_time' => sprintf('%02d:%02d', intdiv($to, 60), $to % 60),
                 'hours' => $hours,
             ];
+            if ($ticketId === 'overtime') {
+                $entry['kind'] = 'overtime';
+            }
+            $clean[] = $entry;
         }
 
         return $clean;
@@ -1692,6 +1701,7 @@ class PeopleWorkspaceController extends Controller
                     continue;
                 }
                 $details = [];
+                $overtimeDetails = [];
                 $detailRows = [];
                 foreach ($entry['rows'] ?? [] as $row) {
                     if (! is_array($row)) {
@@ -1701,7 +1711,11 @@ class PeopleWorkspaceController extends Controller
                     if ($detail === null) {
                         continue;
                     }
-                    $details[] = $detail['chip'];
+                    if ($detail['kind'] === 'overtime') {
+                        $overtimeDetails[] = $detail['chip'];
+                    } else {
+                        $details[] = $detail['chip'];
+                    }
                     $detailRows[] = $detail;
                 }
                 $rows->push([
@@ -1711,6 +1725,7 @@ class PeopleWorkspaceController extends Controller
                     'filled_on' => $sheet->updated_at,
                     'filled_for' => $day,
                     'details' => $details,
+                    'overtimeDetails' => $overtimeDetails,
                     'rows' => $detailRows,
                     'state' => match ((string) $sheet->status) {
                         'approved' => 'approved',
@@ -1781,9 +1796,11 @@ class PeopleWorkspaceController extends Controller
             $sheet = $record['sheet'] ?? null;
             $entryStatus = is_array($entry) ? (string) ($entry['status'] ?? '') : '';
             $chips = [];
+            $overtimeChips = [];
             $detailRows = [];
             $task = 0.0;
             $additional = 0.0;
+            $overtime = 0.0;
             $leave = 0.0;
             if (in_array($entryStatus, ['submitted', 'approved'], true)) {
                 foreach ($entry['rows'] ?? [] as $row) {
@@ -1798,10 +1815,16 @@ class PeopleWorkspaceController extends Controller
                         continue;
                     }
                     $hours = (float) $detail['hours_value'];
-                    $chips[] = $detail['chip'];
+                    if ($detail['kind'] === 'overtime') {
+                        $overtimeChips[] = $detail['chip'];
+                    } else {
+                        $chips[] = $detail['chip'];
+                    }
                     $detailRows[] = $detail;
                     if ($detail['kind'] === 'leave') {
                         $leave += $hours;
+                    } elseif ($detail['kind'] === 'overtime') {
+                        $overtime += $hours;
                     } elseif ($detail['kind'] === 'extra') {
                         $additional += $hours;
                     } else {
@@ -1815,11 +1838,13 @@ class PeopleWorkspaceController extends Controller
                 'date' => $key,
                 'label' => $cursor->format('l, j F Y'),
                 'chips' => $chips,
+                'overtimeChips' => $overtimeChips,
                 'rows' => $detailRows,
                 'task' => round($task, 2),
                 'additional' => round($additional, 2),
+                'overtime' => round($overtime, 2),
                 'leave' => round($leave, 2),
-                'total' => round($task + $additional + $leave, 2),
+                'total' => round($task + $additional + $overtime + $leave, 2),
                 'state' => $state,
                 'sheet' => $sheet,
                 'actionable' => $entryStatus === 'submitted' && in_array($sheetStatus, ['pending', 'draft'], true),
@@ -1847,11 +1872,12 @@ class PeopleWorkspaceController extends Controller
         $ticket = (string) ($row['ticket_id'] ?? '');
         $hours = round((float) ($row['hours'] ?? 0), 2);
         $isLeave = in_array($ticket, ['leave', 'partial-leave'], true);
+        $isOvertime = $ticket === 'overtime' || ($row['kind'] ?? '') === 'overtime';
         $extraIds = $extras['extra_ids'] ?? [];
         $extraNames = $extras['extra_names'] ?? [];
-        $isExtra = isset($extraIds[$ticket]) || ($ticket === '' && $name !== '' && isset($extraNames[mb_strtolower($name)]));
-        $kind = $isLeave ? 'leave' : ($isExtra ? 'extra' : 'task');
-        $label = $name !== '' ? $name : ($isLeave ? 'Leave' : ($isExtra ? 'Additional hours' : 'Task'));
+        $isExtra = ! $isOvertime && (isset($extraIds[$ticket]) || ($ticket === '' && $name !== '' && isset($extraNames[mb_strtolower($name)])));
+        $kind = $isLeave ? 'leave' : ($isOvertime ? 'overtime' : ($isExtra ? 'extra' : 'task'));
+        $label = $name !== '' ? $name : ($isLeave ? 'Leave' : ($isOvertime ? 'Overtime' : ($isExtra ? 'Additional hours' : 'Task')));
         $from = PeopleWorkspace::timeText((string) ($row['from_time'] ?? ''));
         $to = PeopleWorkspace::timeText((string) ($row['to_time'] ?? ''));
         $hoursLabel = PeopleWorkspace::hoursText($hours);

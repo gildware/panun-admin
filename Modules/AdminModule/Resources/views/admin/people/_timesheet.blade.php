@@ -128,6 +128,10 @@
                         <strong id="ts-filled">{{ $fmt($board['filled'] ?? $board['total']) }}</strong>
                         <span>Filled hours</span>
                     </p>
+                    <p class="ts-info-pill is-overtime" title="Overtime hours logged this month">
+                        <strong id="ts-overtime-hours">{{ $fmt($board['overtimeTotal'] ?? 0) }}</strong>
+                        <span>Overtime hours</span>
+                    </p>
                     <p class="ts-info-pill is-leave" title="Hours marked as leave this month">
                         <strong id="ts-leave-hours">{{ $fmt($board['leaveTotal'] ?? 0) }}</strong>
                         <span>Leave hours</span>
@@ -326,9 +330,11 @@
                                         @php
                                             $rowTicket = (string) ($row['ticket_id'] ?? '');
                                             $rowName = (string) ($row['task'] ?? '');
-                                            $rowKind = collect($board['extras'])->contains(fn ($option) => $option['id'] === $rowTicket || ($rowTicket === '' && $rowName !== '' && $option['task'] === $rowName))
-                                                ? 'extra'
-                                                : 'task';
+                                            $rowKind = ($rowTicket === 'overtime' || ($row['kind'] ?? '') === 'overtime')
+                                                ? 'overtime'
+                                                : (collect($board['extras'])->contains(fn ($option) => $option['id'] === $rowTicket || ($rowTicket === '' && $rowName !== '' && $option['task'] === $rowName))
+                                                    ? 'extra'
+                                                    : 'task');
                                         @endphp
                                         @include('adminmodule::admin.people._timesheet_row', ['row' => $row, 'index' => $index, 'locked' => ! $open || $rowTicket === 'leave', 'hoursOpen' => $open && ($card['halfLeave'] ?? false) && $rowTicket === 'leave', 'kind' => $rowKind, 'assigned' => $board['assigned'], 'extras' => $board['extras'], 'leaveName' => $rowTicket === 'leave' ? ($card['leaveName'] ?? '') : '', 'leaveReason' => $rowTicket === 'leave' ? ($card['leaveReason'] ?? '') : '', 'canRevokeLeave' => $canRevokeLeave && $rowTicket === 'leave', 'leaveRevokeAction' => $canRevokeLeave && $rowTicket === 'leave' ? route('admin.people.leave.cancel', $card['leaveRequestId']) : '', 'leaveRevokeSummary' => $card['leaveRevokeSummary'] ?? ''])
                                     @endforeach
@@ -339,6 +345,7 @@
                                 <button type="button" data-copy-previous hidden>Same as yesterday</button>
                                 <button type="button" data-add="task">Add task <span>+</span></button>
                                 <button type="button" data-add="extra">Add additional hours <span>+</span></button>
+                                <button type="button" data-add="overtime">Add overtime <span>+</span></button>
                                 @unless($card['onLeave'] ?? false)
                                     <button type="button" data-bs-toggle="modal" data-bs-target="#weekOffModal" data-weekoff-label="{{ $card['label'] }}">Apply week off</button>
                                 @endunless
@@ -428,6 +435,9 @@
 <template id="ts-row-extra-tpl">
     @include('adminmodule::admin.people._timesheet_row', ['row' => [], 'index' => '__I__', 'locked' => false, 'kind' => 'extra', 'assigned' => $board['assigned'], 'extras' => $board['extras']])
 </template>
+<template id="ts-row-overtime-tpl">
+    @include('adminmodule::admin.people._timesheet_row', ['row' => ['ticket_id' => 'overtime', 'task' => 'Overtime'], 'index' => '__I__', 'locked' => false, 'kind' => 'overtime', 'assigned' => $board['assigned'], 'extras' => $board['extras']])
+</template>
 
 <div class="modal fade" id="revokeLeaveModal" tabindex="-1" aria-labelledby="revokeLeaveModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -478,6 +488,7 @@
     var minHours = Number(root.getAttribute('data-min-hours')) || 0;
     var tpl = document.getElementById('ts-row-tpl');
     var extraTpl = document.getElementById('ts-row-extra-tpl');
+    var overtimeTpl = document.getElementById('ts-row-overtime-tpl');
     var query = '';
     var rowSeq = 1;
 
@@ -623,8 +634,12 @@
     }
 
     function rowKind(row) {
+        var kind = row.getAttribute('data-kind');
+        if (kind === 'extra' || kind === 'overtime' || kind === 'task') return kind;
         var select = row.querySelector('.ts-task-select');
-        return select && select.getAttribute('data-placeholder') === 'Select additional hours' ? 'extra' : 'task';
+        if (select && select.value === 'overtime') return 'overtime';
+        if (select && select.getAttribute('data-placeholder') === 'Select additional hours') return 'extra';
+        return 'task';
     }
 
     function rowSnapshot(row) {
@@ -702,6 +717,7 @@
 
     function refresh() {
         var filled = 0;
+        var overtime = 0;
         var leave = 0;
         root.querySelectorAll('.ts-day').forEach(function (day) {
             var totals = dayTotals(day);
@@ -712,6 +728,7 @@
                     var amount = hourInput ? Number(hourInput.value) || 0 : 0;
                     var ticket = rowTicket(row);
                     if (ticket === 'leave' || ticket === 'partial-leave') leave += amount;
+                    else if (ticket === 'overtime' || rowKind(row) === 'overtime') overtime += amount;
                     else filled += amount;
                 });
             }
@@ -741,8 +758,10 @@
             }
         });
         var filledNode = document.getElementById('ts-filled');
+        var overtimeNode = document.getElementById('ts-overtime-hours');
         var leaveNode = document.getElementById('ts-leave-hours');
         if (filledNode) filledNode.textContent = fmt(filled, false);
+        if (overtimeNode) overtimeNode.textContent = fmt(overtime, false);
         if (leaveNode) leaveNode.textContent = fmt(leave, false);
     }
 
@@ -1061,7 +1080,9 @@
 
     function addRow(day, preset) {
         var body = day.querySelector('.ts-entries');
-        var source = preset && preset.kind === 'extra' ? extraTpl : tpl;
+        var source = tpl;
+        if (preset && preset.kind === 'overtime') source = overtimeTpl;
+        else if (preset && preset.kind === 'extra') source = extraTpl;
         if (!body || !source) return;
         var html = source.innerHTML.split('__I__').join('n' + (rowSeq++));
         var holder = document.createElement('div');
@@ -1251,7 +1272,8 @@
             var day = add.closest('.ts-day');
             if (!day) return;
             var addKind = add.getAttribute('data-add');
-            if (addKind === 'extra') addRow(day, { kind: 'extra' });
+            if (addKind === 'overtime') addRow(day, { kind: 'overtime', ticket: 'overtime', label: 'Overtime' });
+            else if (addKind === 'extra') addRow(day, { kind: 'extra' });
             else addRow(day);
             return;
         }

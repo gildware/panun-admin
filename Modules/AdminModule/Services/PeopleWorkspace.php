@@ -1835,8 +1835,11 @@ class PeopleWorkspace
             $userLeave = $leaveByUser[(string) $user->id] ?? [];
             $userHands = $handsByUser[(string) $user->id] ?? [];
             $skipsTimesheet = ! $this->requiresTimesheet($user);
+            $dayHours = $this->requiredDayHours($user);
+            $halfHours = $this->halfLeaveHours($user);
             $cells = [];
             $counts = ['present' => 0, 'absent' => 0, 'leave' => 0, 'half' => 0];
+            $hours = ['work' => 0.0, 'overtime' => 0.0, 'leave' => 0.0, 'logged' => 0.0, 'supposed' => 0.0];
             foreach ($days as $day) {
                 $when = Carbon::parse($day['date']);
                 $dayKey = self::DAY_KEYS[$when->dayOfWeekIso - 1] ?? '';
@@ -1853,12 +1856,25 @@ class PeopleWorkspace
                     $userLeave[$day['date']] ?? null,
                     $userHands[$day['date']] ?? null,
                     $skipsTimesheet,
+                    $dayHours,
+                    $halfHours,
                 );
                 $cells[] = $cell;
                 if (isset($counts[$cell['kind']])) {
                     $counts[$cell['kind']]++;
                 }
+                $hours['work'] += (float) ($cell['work'] ?? 0);
+                $hours['overtime'] += (float) ($cell['overtime'] ?? 0);
+                $hours['leave'] += (float) ($cell['leave'] ?? 0);
+                if (! empty($cell['counts_toward_supposed'])) {
+                    $hours['supposed'] += $dayHours;
+                }
             }
+            $hours['work'] = round($hours['work'], 2);
+            $hours['overtime'] = round($hours['overtime'], 2);
+            $hours['leave'] = round($hours['leave'], 2);
+            $hours['logged'] = round($hours['work'] + $hours['overtime'], 2);
+            $hours['supposed'] = round($hours['supposed'], 2);
             $rows[] = [
                 'user_id' => (string) $user->id,
                 'name' => $this->displayName($user),
@@ -1866,6 +1882,8 @@ class PeopleWorkspace
                 'joined' => ($joined && $joined > $start->toDateString()) ? $joinedLabel : '',
                 'cells' => $cells,
                 'counts' => $counts,
+                'hours' => $hours,
+                'day_hours' => $dayHours,
             ];
         }
 
@@ -1877,8 +1895,42 @@ class PeopleWorkspace
 
     /**
      * @param  array<string, mixed>|null  $entry
+     * @return array{work: float, overtime: float, leave: float}
+     */
+    private function attendanceEntryHours(?array $entry): array
+    {
+        $work = 0.0;
+        $overtime = 0.0;
+        $leave = 0.0;
+        foreach (is_array($entry['rows'] ?? null) ? $entry['rows'] : [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $amount = (float) ($row['hours'] ?? 0);
+            if ($amount <= 0) {
+                continue;
+            }
+            $ticket = (string) ($row['ticket_id'] ?? '');
+            if (in_array($ticket, ['leave', 'partial-leave'], true)) {
+                $leave += $amount;
+            } elseif ($ticket === 'overtime' || ($row['kind'] ?? '') === 'overtime') {
+                $overtime += $amount;
+            } else {
+                $work += $amount;
+            }
+        }
+
+        return [
+            'work' => round($work, 2),
+            'overtime' => round($overtime, 2),
+            'leave' => round($leave, 2),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $entry
      * @param  array{status: string, half: bool, code: string, label: string}|null  $leave
-     * @return array{kind: string, mark: string, title: string, editable: bool, hand: ?string}
+     * @return array{kind: string, mark: string, title: string, editable: bool, hand: ?string, work: float, overtime: float, leave: float, counts_toward_supposed: bool}
      */
     private function attendanceDay(
         CarbonInterface $day,
@@ -1893,17 +1945,34 @@ class PeopleWorkspace
         ?array $leave,
         ?string $hand,
         bool $skipsTimesheet = false,
+        float $dayHours = 8.0,
+        float $halfHours = 4.0,
     ): array {
         $key = $day->toDateString();
         $when = $day->format('D j M Y');
         $hand = in_array($hand, ['present', 'absent', 'half'], true) ? $hand : null;
-        $cell = function (string $kind, string $mark, string $title, bool $editable, ?string $chosen = null): array {
+        $split = $this->attendanceEntryHours($entry);
+        $cell = function (
+            string $kind,
+            string $mark,
+            string $title,
+            bool $editable,
+            ?string $chosen = null,
+            float $work = 0.0,
+            float $overtime = 0.0,
+            float $leaveHours = 0.0,
+            bool $countsTowardSupposed = false,
+        ): array {
             return [
                 'kind' => $kind,
                 'mark' => $mark,
                 'title' => $title,
                 'editable' => $editable,
                 'hand' => $chosen,
+                'work' => round($work, 2),
+                'overtime' => round($overtime, 2),
+                'leave' => round($leaveHours, 2),
+                'counts_toward_supposed' => $countsTowardSupposed,
             ];
         };
         $employed = ($joined === null || $key >= $joined) && ($left === null || $key <= $left);
@@ -1923,20 +1992,26 @@ class PeopleWorkspace
             return $cell('holiday', 'H', $when.' · '.$holidayName, false);
         }
         if (! $day->gt($today) && $hand === 'present') {
-            return $cell('present', 'P', $when.' · Present · Set by hand', true, 'present');
+            $work = $split['work'] > 0 ? $split['work'] : $dayHours;
+
+            return $cell('present', 'P', $when.' · Present · Set by hand', true, 'present', $work, $split['overtime'], $split['leave'], true);
         }
         if (! $day->gt($today) && $hand === 'absent') {
-            return $cell('absent', 'A', $when.' · Absent · Set by hand', true, 'absent');
+            return $cell('absent', 'A', $when.' · Absent · Set by hand', true, 'absent', 0, 0, 0, true);
         }
         if (! $day->gt($today) && $hand === 'half') {
-            return $cell('half', 'HD', $when.' · Half day · Set by hand', true, 'half');
+            $work = $split['work'] > 0 ? $split['work'] : $halfHours;
+
+            return $cell('half', 'HD', $when.' · Half day · Set by hand', true, 'half', $work, $split['overtime'], $split['leave'], true);
         }
 
         $open = ! $day->gt($today);
         if ($leave && $leave['status'] === 'approved') {
             $kind = $leave['half'] ? 'half' : 'leave';
+            $leaveHours = $split['leave'] > 0 ? $split['leave'] : ($leave['half'] ? $halfHours : $dayHours);
+            $work = $leave['half'] ? $split['work'] : 0.0;
 
-            return $cell($kind, $leave['code'], $when.' · '.$leave['label'].' · Approved', $open);
+            return $cell($kind, $leave['code'], $when.' · '.$leave['label'].' · Approved', $open, null, $work, $split['overtime'], $leaveHours, false);
         }
 
         if ($this->timesheetDayFilled($entry)) {
@@ -1944,18 +2019,23 @@ class PeopleWorkspace
             $onlyLeave = $rows !== [] && collect($rows)->every(fn ($row) => is_array($row) && ($row['ticket_id'] ?? '') === 'leave');
             if (! empty($entry['half']) || ($leave['half'] ?? false)) {
                 $label = $leave['label'] ?? 'Half day';
+                $leaveHours = $split['leave'] > 0 ? $split['leave'] : $halfHours;
 
-                return $cell('half', 'HD', $when.' · '.$label, $open);
+                return $cell('half', 'HD', $when.' · '.$label, $open, null, $split['work'], $split['overtime'], $leaveHours, true);
             }
             if ($onlyLeave) {
-                return $cell('leave', 'L', $when.' · Leave', $open);
+                $leaveHours = $split['leave'] > 0 ? $split['leave'] : $dayHours;
+
+                return $cell('leave', 'L', $when.' · Leave', $open, null, 0, 0, $leaveHours, false);
             }
 
-            return $cell('present', 'P', $when.' · Present', $open);
+            return $cell('present', 'P', $when.' · Present', $open, null, $split['work'], $split['overtime'], $split['leave'], true);
         }
 
         if ($leave && $leave['status'] === 'pending') {
-            return $cell('pending', $leave['code'], $when.' · '.$leave['label'].' · Pending', $open);
+            $leaveHours = $leave['half'] ? $halfHours : $dayHours;
+
+            return $cell('pending', $leave['code'], $when.' · '.$leave['label'].' · Pending', $open, null, 0, 0, $leaveHours, false);
         }
 
         if ($startsOn && $day->copy()->startOfDay()->lt($startsOn)) {
@@ -1965,13 +2045,13 @@ class PeopleWorkspace
             return $cell('future', '', $when, false);
         }
         if ($day->isSameDay($today)) {
-            return $cell('today', '', $when.' · Today', $open);
+            return $cell('today', '', $when.' · Today', $open, null, $split['work'], $split['overtime'], $split['leave'], true);
         }
         if ($skipsTimesheet) {
-            return $cell('none', '', $when.' · No timesheet. Mark this day by hand.', $open);
+            return $cell('none', '', $when.' · No timesheet. Mark this day by hand.', $open, null, 0, 0, 0, true);
         }
 
-        return $cell('absent', 'A', $when.' · Absent', $open);
+        return $cell('absent', 'A', $when.' · Absent', $open, null, 0, 0, 0, true);
     }
 
     /**
