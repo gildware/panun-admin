@@ -38,7 +38,11 @@ class LeadOtherPhoneLinkService
         $targetLeadId = isset($input['target_lead_id']) ? (int) $input['target_lead_id'] : null;
         $bookingId = isset($input['booking_id']) ? (string) $input['booking_id'] : null;
 
-        if (! in_array($ownerType, [PartyAlternatePhone::OWNER_CUSTOMER, PartyAlternatePhone::OWNER_PROVIDER], true)) {
+        if (! in_array($ownerType, [
+            PartyAlternatePhone::OWNER_CUSTOMER,
+            PartyAlternatePhone::OWNER_PROVIDER,
+            PartyAlternatePhone::OWNER_PROVIDER_LEAD,
+        ], true)) {
             throw new \InvalidArgumentException(translate('Select_customer_or_provider') ?: 'Select customer or provider');
         }
         if ($ownerId === '') {
@@ -136,6 +140,15 @@ class LeadOtherPhoneLinkService
      */
     public function openLeadsForOwner(string $ownerType, string $ownerId): \Illuminate\Support\Collection
     {
+        if ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+            $lead = Lead::query()->find($ownerId);
+            if (! $lead || ! $this->openStatus->isLeadOpen($lead)) {
+                return collect();
+            }
+
+            return collect([$lead]);
+        }
+
         $phones = $this->phones->phonesForOwner($ownerType, $ownerId);
         if ($phones === []) {
             return collect();
@@ -169,8 +182,13 @@ class LeadOtherPhoneLinkService
 
         if ($ownerType === PartyAlternatePhone::OWNER_CUSTOMER) {
             $query->where('customer_id', $ownerId);
-        } else {
+        } elseif ($ownerType === PartyAlternatePhone::OWNER_PROVIDER) {
             $query->where('provider_id', $ownerId);
+        } elseif ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+            // Unregistered provider lead: only bookings already tied to that lead (usually none).
+            $query->where('lead_id', (int) $ownerId);
+        } else {
+            return collect();
         }
 
         return $query->get();
@@ -185,6 +203,18 @@ class LeadOtherPhoneLinkService
                 ->exists();
             if (! $exists) {
                 throw new \InvalidArgumentException(translate('Customer_not_found') ?: 'Customer not found');
+            }
+
+            return;
+        }
+
+        if ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+            $lead = Lead::query()->find($ownerId);
+            if (! $lead || $lead->lead_type !== Lead::TYPE_PROVIDER) {
+                throw new \InvalidArgumentException(translate('Provider_lead_not_found') ?: 'Provider lead not found');
+            }
+            if (! $this->openStatus->isLeadOpen($lead)) {
+                throw new \InvalidArgumentException(translate('Provider_lead_is_not_open') ?: 'Provider lead is not open');
             }
 
             return;
@@ -206,6 +236,11 @@ class LeadOtherPhoneLinkService
             && (string) $booking->provider_id !== $ownerId
         ) {
             throw new \InvalidArgumentException(translate('Booking_does_not_belong_to_this_provider') ?: 'Booking does not belong to this provider');
+        }
+        if ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD
+            && (int) $booking->lead_id !== (int) $ownerId
+        ) {
+            throw new \InvalidArgumentException(translate('Booking_does_not_belong_to_this_provider_lead') ?: 'Booking does not belong to this provider lead');
         }
     }
 
@@ -302,8 +337,11 @@ class LeadOtherPhoneLinkService
         ];
         if ($ownerType === PartyAlternatePhone::OWNER_CUSTOMER) {
             $payload['customer_user_id'] = $ownerId;
-        } else {
+        } elseif ($ownerType === PartyAlternatePhone::OWNER_PROVIDER) {
             $payload['provider_id'] = $ownerId;
+        } elseif ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+            // Keep call on the target provider lead until a registered provider exists.
+            $payload['lead_id'] = (int) $ownerId;
         }
 
         SuperfoneCall::query()

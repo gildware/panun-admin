@@ -17,6 +17,10 @@ class LeadOtherPhoneLinkTest extends TestCase
         $this->assertStringContainsString('class="form-control"', $html);
         $this->assertStringContainsString('btn btn--secondary', $html);
         $this->assertStringContainsString('btn btn--primary', $html);
+        $this->assertStringContainsString('id="other-phone-owner-type"', $html);
+        $this->assertStringContainsString('other_phone_search_type', $html);
+        $this->assertStringContainsString('exclude_lead_id', $html);
+        $this->assertStringContainsString('Provider_search_includes_open_leads_hint', $html);
         $this->assertStringNotContainsString('btn-check', $html);
         $this->assertStringNotContainsString('other-phone-step', $html);
         $this->assertStringNotContainsString('form-select-lg', $html);
