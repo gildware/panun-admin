@@ -98,20 +98,20 @@ class SuperfoneCallWebhookTest extends TestCase
         $this->assertNull($decision['booking']);
     }
 
-    public function test_a_closed_lead_starts_a_new_lead_and_an_open_lead_is_reused(): void
+    public function test_closed_lead_or_no_open_work_mints_and_open_lead_or_booking_blocks(): void
     {
-        $this->assertTrue(SuperfoneCallService::freshLeadForClosedMatch(false, true));
-        $this->assertFalse(SuperfoneCallService::freshLeadForClosedMatch(true, true));
-        $this->assertFalse(SuperfoneCallService::freshLeadForClosedMatch(false, false));
+        // Closed booked lead + completed booking → mint
+        $this->assertTrue(SuperfoneCallService::shouldMintUnknownLead(false, 0));
+        // Open lead → reuse, do not mint
+        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(true, 0));
+        // Open booking → reuse, do not mint
+        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(false, 1));
+        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(false, 2));
+        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(true, 1));
     }
 
     public function test_an_open_booking_is_linked_instead_of_minting_an_unknown_lead(): void
     {
-        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(false, true, 1));
-        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(true, true, 0));
-        $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(false, true, 2));
-        $this->assertTrue(SuperfoneCallService::shouldMintUnknownLead(false, true, 0));
-
         $booked = SuperfoneCallService::decideLink(false, true, true, 'OUTBOUND', 1);
         $this->assertSame('lead', $booked['party']);
         $this->assertSame('one', $booked['booking']);
