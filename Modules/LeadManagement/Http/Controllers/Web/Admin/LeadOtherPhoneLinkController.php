@@ -230,12 +230,8 @@ class LeadOtherPhoneLinkController extends Controller
      */
     public function finishMerge(Request $request, int $id): RedirectResponse|\Illuminate\Http\Response
     {
-        $lead = Lead::query()->findOrFail($id);
-        if ($lead->trashed()) {
-            toastr()->error(translate('Cannot_link_other_phone_on_deleted_lead') ?: 'Cannot merge a deleted lead');
-
-            return redirect()->route('admin.lead.show', $id);
-        }
+        // Allow finishing an incomplete merge even when the source is already soft-deleted.
+        $lead = Lead::withTrashed()->findOrFail($id);
 
         try {
             $result = $this->linker->finishMergeIntoLinkedProviderLead($lead);
