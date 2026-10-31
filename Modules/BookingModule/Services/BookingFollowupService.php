@@ -448,20 +448,31 @@ class BookingFollowupService
     }
 
     /**
+     * Next scheduled follow-up per party (earliest by date).
+     *
+     * @param  bool  $persistDedupe  When true, cancel duplicate scheduled rows in the DB.
+     *                               Keep false on list/read paths to avoid write locks and list slowness.
      * @return array{customer: ?BookingFollowup, provider: ?BookingFollowup}
      */
-    public function nextScheduledFollowups(Booking $booking): array
+    public function nextScheduledFollowups(Booking $booking, bool $persistDedupe = false): array
     {
-        $this->dedupeAllScheduledParties($booking);
+        if ($persistDedupe) {
+            $this->dedupeAllScheduledParties($booking);
+        }
 
-        $scheduled = ($booking->followups ?? BookingFollowup::query()
-            ->where('booking_id', $booking->id)
+        $scheduled = ($booking->relationLoaded('followups')
+            ? $booking->followups
+            : BookingFollowup::query()
+                ->where('booking_id', $booking->id)
+                ->where('status', 'scheduled')
+                ->orderBy('date')
+                ->orderBy('id')
+                ->get())
             ->where('status', 'scheduled')
-            ->orderBy('date')
-            ->orderBy('id')
-            ->get())
-            ->where('status', 'scheduled')
-            ->sortBy('date');
+            ->sortBy([
+                ['date', 'asc'],
+                ['id', 'asc'],
+            ]);
 
         return [
             'customer' => $scheduled->where('for', 'customer')->first(),
@@ -514,7 +525,8 @@ class BookingFollowupService
 
         foreach ($bookings as $booking) {
             $open = $booking->requiresMandatoryNextFollowup();
-            $next = $this->nextScheduledFollowups($booking);
+            // Read-only: never cancel duplicates while rendering the list.
+            $next = $this->nextScheduledFollowups($booking, false);
             $bookingMeta = [];
 
             foreach (['customer', 'provider'] as $party) {

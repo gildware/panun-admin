@@ -9,6 +9,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\PartyAlternatePhone;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\UserManagement\Entities\User;
 
@@ -276,24 +277,17 @@ class LeadOpenStatusService
     }
 
     /**
-     * Whether this phone already has a non-terminal booking (customer account or linked lead).
+     * Whether this phone already has a non-terminal booking (customer account, alternate phone, or linked lead).
      */
     public function phoneHasOpenBooking(string $phoneDigits): bool
     {
-        $digits = preg_replace('/\D+/', '', $phoneDigits) ?? '';
-        if (strlen($digits) < 8) {
+        $suffix = PartyPhoneDirectory::normalizeDigits($phoneDigits);
+        if ($suffix === null) {
             return false;
         }
-        $suffix = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
 
-        $customerIds = User::query()
-            ->whereIn('user_type', CUSTOMER_USER_TYPES)
-            ->where(function ($query) use ($suffix) {
-                $this->wherePhoneEndsWith($query, 'phone', $suffix);
-            })
-            ->pluck('id');
-
-        if ($customerIds->isNotEmpty()
+        $customerIds = $this->customerIdsForPhone($suffix);
+        if ($customerIds !== []
             && Booking::query()
                 ->whereIn('customer_id', $customerIds)
                 ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
@@ -302,13 +296,8 @@ class LeadOpenStatusService
             return true;
         }
 
-        $leadIds = Lead::query()
-            ->where(function ($query) use ($suffix) {
-                $this->wherePhoneEndsWith($query, 'phone_number', $suffix);
-            })
-            ->pluck('id');
-
-        if ($leadIds->isEmpty()) {
+        $leadIds = $this->leadIdsForPhone($suffix);
+        if ($leadIds === []) {
             return false;
         }
 
@@ -323,21 +312,14 @@ class LeadOpenStatusService
      */
     public function existingLeadForOpenBookingPhone(string $phoneDigits): ?Lead
     {
-        $digits = preg_replace('/\D+/', '', $phoneDigits) ?? '';
-        if (strlen($digits) < 8) {
+        $suffix = PartyPhoneDirectory::normalizeDigits($phoneDigits);
+        if ($suffix === null) {
             return null;
         }
-        $suffix = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
 
-        $customerIds = User::query()
-            ->whereIn('user_type', CUSTOMER_USER_TYPES)
-            ->where(function ($query) use ($suffix) {
-                $this->wherePhoneEndsWith($query, 'phone', $suffix);
-            })
-            ->pluck('id');
-
+        $customerIds = $this->customerIdsForPhone($suffix);
         $openBooking = null;
-        if ($customerIds->isNotEmpty()) {
+        if ($customerIds !== []) {
             $openBooking = Booking::query()
                 ->whereIn('customer_id', $customerIds)
                 ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
@@ -347,12 +329,8 @@ class LeadOpenStatusService
         }
 
         if (! $openBooking) {
-            $leadIds = Lead::query()
-                ->where(function ($query) use ($suffix) {
-                    $this->wherePhoneEndsWith($query, 'phone_number', $suffix);
-                })
-                ->pluck('id');
-            if ($leadIds->isNotEmpty()) {
+            $leadIds = $this->leadIdsForPhone($suffix);
+            if ($leadIds !== []) {
                 $openBooking = Booking::query()
                     ->whereIn('lead_id', $leadIds)
                     ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
@@ -367,10 +345,78 @@ class LeadOpenStatusService
 
         return Lead::query()
             ->where(function ($query) use ($suffix) {
-                $this->wherePhoneEndsWith($query, 'phone_number', $suffix);
+                foreach ($this->allPhoneKeysForLookup($suffix) as $digits) {
+                    $query->orWhere(function ($inner) use ($digits) {
+                        $this->wherePhoneEndsWith($inner, 'phone_number', $digits);
+                    });
+                }
             })
             ->orderByDesc('id')
             ->first();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function customerIdsForPhone(string $suffix): array
+    {
+        $ids = User::query()
+            ->whereIn('user_type', CUSTOMER_USER_TYPES)
+            ->where(function ($query) use ($suffix) {
+                $this->wherePhoneEndsWith($query, 'phone', $suffix);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        $altIds = PartyAlternatePhone::query()
+            ->where('owner_type', PartyAlternatePhone::OWNER_CUSTOMER)
+            ->where('phone_digits', $suffix)
+            ->pluck('owner_id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        return array_values(array_unique(array_merge($ids, $altIds)));
+    }
+
+    /**
+     * Lead IDs whose phone matches this number or any other phone of the same party.
+     *
+     * @return list<int>
+     */
+    private function leadIdsForPhone(string $suffix): array
+    {
+        $keys = $this->allPhoneKeysForLookup($suffix);
+        if ($keys === []) {
+            return [];
+        }
+
+        return Lead::query()
+            ->where(function ($query) use ($keys) {
+                foreach ($keys as $digits) {
+                    $query->orWhere(function ($inner) use ($digits) {
+                        $this->wherePhoneEndsWith($inner, 'phone_number', $digits);
+                    });
+                }
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allPhoneKeysForLookup(string $suffix): array
+    {
+        $keys = [$suffix];
+        $directory = app(PartyPhoneDirectory::class);
+        $owner = $directory->findOwner($suffix);
+        if ($owner) {
+            $keys = array_merge($keys, $directory->phonesForOwner($owner['owner_type'], $owner['owner_id']));
+        }
+
+        return array_values(array_unique($keys));
     }
 
     /**

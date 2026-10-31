@@ -79,6 +79,16 @@ class WhatsAppInboundOpenBookingLeadGateTest extends TestCase
             $table->string('referral_body')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('party_alternate_phones', function (Blueprint $table) {
+            $table->id();
+            $table->string('owner_type', 20);
+            $table->uuid('owner_id');
+            $table->string('phone_digits', 20)->unique();
+            $table->unsignedBigInteger('linked_from_lead_id')->nullable();
+            $table->uuid('created_by')->nullable();
+            $table->timestamps();
+        });
     }
 
     public function test_should_create_new_lead_only_when_neither_open_lead_nor_open_booking(): void

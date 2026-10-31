@@ -11,13 +11,13 @@
     $followupListMeta = $followupListMeta ?? [];
     $showsTemperature = in_array($tab ?? 'all', ['all', 'customer', 'provider'], true);
     $emptyColspan = match (true) {
-        $isProviderTab => 15,
-        $isCustomerTab => 17,
-        $isFutureCustomerTab => 10,
-        ($tab ?? 'all') === 'all' => 10,
-        $isFutureProviderTab => 9,
-        $isInvalidTab => 9,
-        default => 9,
+        $isProviderTab => 16,
+        $isCustomerTab => 18,
+        $isFutureCustomerTab => 11,
+        ($tab ?? 'all') === 'all' => 11,
+        $isFutureProviderTab => 10,
+        $isInvalidTab => 10,
+        default => 10,
     };
 @endphp
 <div class="card table-leads-card">
@@ -56,6 +56,7 @@
                     @else
                         <th>{{ translate('Lead_Type') }}</th>
                     @endif
+                    <th>{{ translate('Lead_Source') }}</th>
                     <th>{{ translate('Recieved_On') }}</th>
                     <th class="lead-followup-col">{{ translate('Followup_On') }}</th>
                     <th>{{ translate('Handled_By') }}</th>
@@ -144,6 +145,7 @@
                                 <span class="badge rounded-pill {{ $badgeClass }} text-capitalize">{{ $label }}</span>
                             </td>
                         @endif
+                        <td>{{ $lead->source?->name ?? '—' }}</td>
                         <td>{{ $lead->date_time_of_lead_received?->format('d M Y, h:i a') ?? '—' }}</td>
                         <td class="lead-followup-col">
                             @if($lead->next_followup_at)

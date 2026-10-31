@@ -29,6 +29,9 @@ class WhatsAppProviderInboundLeadTest extends TestCase
 
         Schema::create('providers', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->uuid('user_id')->nullable();
+            $table->string('company_name')->nullable();
+            $table->string('contact_person_name')->nullable();
             $table->string('company_phone')->nullable();
             $table->string('contact_person_phone')->nullable();
             $table->timestamp('deleted_at')->nullable();
@@ -49,6 +52,16 @@ class WhatsAppProviderInboundLeadTest extends TestCase
             $table->unsignedBigInteger('lead_id')->nullable();
             $table->string('booking_status')->nullable();
             $table->timestamp('deleted_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('party_alternate_phones', function (Blueprint $table) {
+            $table->id();
+            $table->string('owner_type', 20);
+            $table->uuid('owner_id');
+            $table->string('phone_digits', 20)->unique();
+            $table->unsignedBigInteger('linked_from_lead_id')->nullable();
+            $table->uuid('created_by')->nullable();
             $table->timestamps();
         });
     }

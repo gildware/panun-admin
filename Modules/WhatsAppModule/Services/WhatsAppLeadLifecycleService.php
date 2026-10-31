@@ -13,6 +13,7 @@ use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Services\LeadChangeLogService;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
+use Modules\LeadManagement\Services\PartyPhoneDirectory;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
@@ -215,10 +216,7 @@ class WhatsAppLeadLifecycleService
             return null;
         }
 
-        $existing = Lead::where('phone_number', $leadPhone)
-            ->orderByDesc('id')
-            ->get()
-            ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
+        $existing = $this->findOpenLeadForPhone($leadPhone);
 
         if ($existing) {
             return $this->touchAiOpenLead($existing, $name, $whatsAppPhone);
@@ -262,11 +260,7 @@ class WhatsAppLeadLifecycleService
         }
 
         // 1) Reuse an already-open lead of the requested type (newest first).
-        $sameTypeOpen = Lead::where('phone_number', $leadPhone)
-            ->where('lead_type', $leadType)
-            ->orderByDesc('id')
-            ->get()
-            ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
+        $sameTypeOpen = $this->findOpenLeadForPhone($leadPhone, $leadType);
 
         if ($sameTypeOpen) {
             return $this->touchAiOpenLead($sameTypeOpen, $name, $whatsAppPhone);
@@ -274,11 +268,7 @@ class WhatsAppLeadLifecycleService
 
         // 2) Upgrade the AI "unknown" thread lead in place — do not create a second row for the same chat.
         if (in_array($leadType, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
-            $unknownOpen = Lead::where('phone_number', $leadPhone)
-                ->where('lead_type', Lead::TYPE_UNKNOWN)
-                ->orderBy('id')
-                ->get()
-                ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
+            $unknownOpen = $this->findOpenLeadForPhone($leadPhone, Lead::TYPE_UNKNOWN, oldestFirst: true);
 
             if ($unknownOpen) {
                 return $this->convertUnknownOpenLeadToType($unknownOpen, $leadType, $name, $whatsAppPhone);
@@ -576,6 +566,32 @@ class WhatsAppLeadLifecycleService
         }
 
         return false;
+    }
+
+    /**
+     * Open lead for this phone, including other phones linked to the same customer/provider.
+     */
+    protected function findOpenLeadForPhone(string $leadPhone, ?string $leadType = null, bool $oldestFirst = false): ?Lead
+    {
+        $keys = [$leadPhone];
+        $directory = app(PartyPhoneDirectory::class);
+        $owner = $directory->findOwner($leadPhone);
+        if ($owner) {
+            $keys = array_merge($keys, $directory->phonesForOwner($owner['owner_type'], $owner['owner_id']));
+        }
+        $keys = array_values(array_unique($keys));
+
+        $query = Lead::query()->where(function ($outer) use ($keys) {
+            foreach ($keys as $digits) {
+                $outer->orWhere('phone_number', $digits);
+            }
+        });
+        if ($leadType !== null) {
+            $query->where('lead_type', $leadType);
+        }
+        $oldestFirst ? $query->orderBy('id') : $query->orderByDesc('id');
+
+        return $query->get()->first(fn (Lead $lead) => $this->isLeadOpen($lead));
     }
 
     public function isLeadOpen(Lead $lead): bool

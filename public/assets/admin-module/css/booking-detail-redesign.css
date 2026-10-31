@@ -1201,6 +1201,79 @@
   cursor: pointer;
   background: #fff;
 }
+.booking-detail-v2 .status-pill:disabled,
+.booking-detail-v2 .status-pill.is-disabled,
+.booking-detail-v2 .status-pill[aria-disabled="true"] {
+  opacity: .45;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+}
+.booking-detail-v2 .booking-status-btn-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: .15rem;
+}
+.booking-detail-v2 .booking-status-btn-wrap--stack {
+  display: flex;
+  width: 100%;
+}
+.booking-detail-v2 .booking-status-btn-wrap--stack .booking-status-overview-btn {
+  flex: 1 1 auto;
+}
+.booking-detail-v2 .booking-status-disabled-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #6c757d;
+  line-height: 1;
+  cursor: pointer;
+}
+.booking-detail-v2 .booking-status-disabled-info:hover,
+.booking-detail-v2 .booking-status-disabled-info:focus-visible,
+.booking-detail-v2 .booking-status-disabled-info.is-open {
+  color: var(--bk-accent-dark, #0d6efd);
+  outline: none;
+}
+.booking-detail-v2 .booking-status-disabled-info .material-icons {
+  font-size: 1rem;
+  line-height: 1;
+}
+.booking-detail-v2 .booking-status-disabled-tooltip {
+  position: absolute;
+  top: calc(100% + .35rem);
+  right: 0;
+  z-index: 20;
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: .45rem .6rem;
+  border-radius: .35rem;
+  background: #212529;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .18);
+  pointer-events: none;
+}
+.booking-detail-v2 .booking-status-disabled-tooltip::before {
+  content: "";
+  position: absolute;
+  top: -.35rem;
+  right: .35rem;
+  border-left: .35rem solid transparent;
+  border-right: .35rem solid transparent;
+  border-bottom: .35rem solid #212529;
+}
 .booking-detail-v2 .status-pill--warning { color: #856404; border-color: #ffc107; background: rgba(255,193,7,.18); }
 .booking-detail-v2 .status-pill--success { color: #0f5132; border-color: #198754; background: rgba(25,135,84,.12); }
 .booking-detail-v2 .status-pill--primary { color: var(--bk-accent-dark); border-color: var(--bk-accent); background: var(--bk-accent-soft); }

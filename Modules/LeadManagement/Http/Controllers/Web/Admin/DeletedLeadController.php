@@ -26,7 +26,7 @@ class DeletedLeadController extends Controller
         $search = trim((string) $request->input('search', ''));
 
         $leads = Lead::onlyTrashed()
-            ->with('deletedByUser')
+            ->with(['deletedByUser', 'source'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', '%'.$search.'%')

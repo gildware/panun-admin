@@ -4,12 +4,28 @@
     </span>
     @can('booking_can_manage_status')
         @if($bookingStatusChangeable ?? !$bookingNotEditable)
+            @php
+                $__canMarkOngoingBySchedule = booking_can_mark_ongoing_by_service_schedule($booking);
+                $__ongoingBlockedBySchedule = in_array('ongoing', $__adminNextStatuses ?? [], true) && ! $__canMarkOngoingBySchedule;
+                $__ongoingBlockedScheduleDate = null;
+                if ($__ongoingBlockedBySchedule && ! empty($booking->service_schedule)) {
+                    try {
+                        $__ongoingBlockedScheduleDate = \Carbon\Carbon::parse($booking->service_schedule)->format('d M Y');
+                    } catch (\Throwable $e) {
+                        $__ongoingBlockedScheduleDate = null;
+                    }
+                }
+                $__ongoingBlockedMessage = translate('Booking_ongoing_only_on_or_after_schedule_date');
+                if ($__ongoingBlockedScheduleDate) {
+                    $__ongoingBlockedMessage .= ' ('.$__ongoingBlockedScheduleDate.')';
+                }
+            @endphp
             <div class="d-flex flex-column gap-2 w-100" id="booking-status-overview-actions">
                 @forelse ($__adminNextStatuses as $__nextSt)
                     @php
                         $__cashBlockTargets = ['pending', 'ongoing', 'completed'];
                         $__btnDisabled = $__overviewStatusCashBlock && in_array($__nextSt, $__cashBlockTargets, true);
-                        if ($__nextSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                        if ($__nextSt === 'ongoing' && ! $__canMarkOngoingBySchedule) {
                             $__btnDisabled = true;
                         }
                         if (booking_status_requires_assigned_provider($__nextSt) && ! booking_has_assigned_provider($booking)) {
@@ -19,8 +35,8 @@
                             $__btnDisabled = true;
                         }
                         $__btnDisabledTitle = translate('Not available for this booking');
-                        if ($__nextSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
-                            $__btnDisabledTitle = translate('Booking_ongoing_only_on_or_after_schedule_date');
+                        if ($__nextSt === 'ongoing' && ! $__canMarkOngoingBySchedule) {
+                            $__btnDisabledTitle = $__ongoingBlockedMessage;
                         } elseif (booking_status_requires_assigned_provider($__nextSt) && ! booking_has_assigned_provider($booking)) {
                             $__btnDisabledTitle = translate('Assign_provider_before_accept_or_ongoing');
                         }
@@ -42,8 +58,19 @@
                             default => ucwords(str_replace('_', ' ', $__nextSt)),
                         };
                     @endphp
-                    <button type="button" class="btn {{ $__btnClass }} w-100 booking-status-overview-btn" data-status="{{ $__nextSt }}"
-                        @if($__btnDisabled) disabled title="{{ $__btnDisabledTitle }}" @endif>{{ $__pillLabel }}</button>
+                    <span class="booking-status-btn-wrap booking-status-btn-wrap--stack">
+                        <button type="button" class="btn {{ $__btnClass }} w-100 booking-status-overview-btn{{ $__btnDisabled ? ' is-disabled' : '' }}" data-status="{{ $__nextSt }}"
+                            @if($__nextSt === 'ongoing') data-can-mark-ongoing="{{ $__canMarkOngoingBySchedule ? '1' : '0' }}" @endif
+                            @if($__btnDisabled) disabled aria-disabled="true" @endif>{{ $__pillLabel }}</button>
+                        @if($__btnDisabled)
+                            <button type="button"
+                                class="booking-status-disabled-info"
+                                data-disabled-reason="{{ $__btnDisabledTitle }}"
+                                aria-label="{{ translate('Why_is_this_disabled') }}">
+                                <span class="material-icons" aria-hidden="true">info</span>
+                            </button>
+                        @endif
+                    </span>
                 @empty
                     <p class="fz-12 text-muted mb-0">{{ translate('No_status_changes_available') }}</p>
                 @endforelse
@@ -117,12 +144,28 @@
     <div class="party-card__body party-card__body--status">
         @can('booking_can_manage_status')
             @if($bookingStatusChangeable ?? !$bookingNotEditable)
+                @php
+                    $__canMarkOngoingBySchedule = booking_can_mark_ongoing_by_service_schedule($booking);
+                    $__ongoingBlockedBySchedule = in_array('ongoing', $__adminNextStatuses ?? [], true) && ! $__canMarkOngoingBySchedule;
+                    $__ongoingBlockedScheduleDate = null;
+                    if ($__ongoingBlockedBySchedule && ! empty($booking->service_schedule)) {
+                        try {
+                            $__ongoingBlockedScheduleDate = \Carbon\Carbon::parse($booking->service_schedule)->format('d M Y');
+                        } catch (\Throwable $e) {
+                            $__ongoingBlockedScheduleDate = null;
+                        }
+                    }
+                    $__ongoingBlockedMessage = translate('Booking_ongoing_only_on_or_after_schedule_date');
+                    if ($__ongoingBlockedScheduleDate) {
+                        $__ongoingBlockedMessage .= ' ('.$__ongoingBlockedScheduleDate.')';
+                    }
+                @endphp
                 <div class="d-flex flex-wrap gap-2 w-100" id="booking-status-overview-actions">
                     @forelse ($__adminNextStatuses as $__nextSt)
                         @php
                             $__cashBlockTargets = ['pending', 'ongoing', 'completed'];
                             $__btnDisabled = $__overviewStatusCashBlock && in_array($__nextSt, $__cashBlockTargets, true);
-                            if ($__nextSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                            if ($__nextSt === 'ongoing' && ! $__canMarkOngoingBySchedule) {
                                 $__btnDisabled = true;
                             }
                             if (booking_status_requires_assigned_provider($__nextSt) && ! booking_has_assigned_provider($booking)) {
@@ -132,8 +175,8 @@
                                 $__btnDisabled = true;
                             }
                             $__btnDisabledTitle = translate('Not available for this booking');
-                            if ($__nextSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
-                                $__btnDisabledTitle = translate('Booking_ongoing_only_on_or_after_schedule_date');
+                            if ($__nextSt === 'ongoing' && ! $__canMarkOngoingBySchedule) {
+                                $__btnDisabledTitle = $__ongoingBlockedMessage;
                             } elseif (booking_status_requires_assigned_provider($__nextSt) && ! booking_has_assigned_provider($booking)) {
                                 $__btnDisabledTitle = translate('Assign_provider_before_accept_or_ongoing');
                             }
@@ -158,8 +201,19 @@
                                 default => ucwords(str_replace('_', ' ', $__nextSt)),
                             };
                         @endphp
-                        <button type="button" class="booking-status-pill {{ $__pillClass }} booking-status-overview-btn" data-status="{{ $__nextSt }}"
-                            @if($__btnDisabled) disabled title="{{ $__btnDisabledTitle }}" @endif>{{ $__pillLabel }}</button>
+                        <span class="booking-status-btn-wrap">
+                            <button type="button" class="booking-status-pill {{ $__pillClass }} booking-status-overview-btn{{ $__btnDisabled ? ' is-disabled' : '' }}" data-status="{{ $__nextSt }}"
+                                @if($__nextSt === 'ongoing') data-can-mark-ongoing="{{ $__canMarkOngoingBySchedule ? '1' : '0' }}" @endif
+                                @if($__btnDisabled) disabled aria-disabled="true" @endif>{{ $__pillLabel }}</button>
+                            @if($__btnDisabled)
+                                <button type="button"
+                                    class="booking-status-disabled-info"
+                                    data-disabled-reason="{{ $__btnDisabledTitle }}"
+                                    aria-label="{{ translate('Why_is_this_disabled') }}">
+                                    <span class="material-icons" aria-hidden="true">info</span>
+                                </button>
+                            @endif
+                        </span>
                     @empty
                         <p class="fz-12 text-muted mb-0">{{ translate('No_status_changes_available') }}</p>
                     @endforelse

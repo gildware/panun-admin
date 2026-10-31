@@ -7,6 +7,7 @@ use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadCommentController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadConfigurationController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadHuntingBoardController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadOtherPhoneLinkController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadFollowupController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadOutboundEnquiryController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadReportController;
@@ -87,6 +88,19 @@ Route::group([
         Route::post('{lead}/initial-call-recording/transcribe', [LeadController::class, 'transcribeInitialCallRecording'])->middleware(['can:lead_update'])->name('initial-call-recording.transcribe');
         Route::put('{id}', [LeadController::class, 'update'])->middleware(['can:lead_update'])->name('update');
         Route::delete('{id}', [LeadController::class, 'destroy'])->middleware(['can:lead_delete'])->name('destroy');
+
+        Route::get('other-phone/search-people', [LeadOtherPhoneLinkController::class, 'searchPeople'])
+            ->middleware(['can:lead_update'])
+            ->name('other-phone.search-people');
+        Route::get('other-phone/check', [LeadOtherPhoneLinkController::class, 'checkPhone'])
+            ->middleware(['can:lead_update'])
+            ->name('other-phone.check');
+        Route::get('{id}/other-phone/options', [LeadOtherPhoneLinkController::class, 'options'])
+            ->middleware(['can:lead_update'])
+            ->name('other-phone.options');
+        Route::post('{id}/other-phone', [LeadOtherPhoneLinkController::class, 'store'])
+            ->middleware(['can:lead_update'])
+            ->name('other-phone.store');
 
         Route::get('configuration', [LeadConfigurationController::class, 'index'])->middleware(['can:lead_configuration_view'])->name('configuration.index');
         Route::post('configuration', [LeadConfigurationController::class, 'store'])->middleware(['can:lead_configuration_add'])->name('configuration.store');

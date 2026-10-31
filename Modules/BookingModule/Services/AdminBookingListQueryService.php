@@ -4,10 +4,16 @@ namespace Modules\BookingModule\Services;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Modules\BookingModule\Entities\Booking;
 
 class AdminBookingListQueryService
 {
+    /**
+     * How long tab badge counts may be slightly stale (seconds).
+     */
+    private const TAB_COUNTS_CACHE_TTL = 45;
+
     /**
      * Filters shared by the booking table and the status-tab counts.
      * Status itself is applied separately so each tab can keep its own total.
@@ -52,10 +58,44 @@ class AdminBookingListQueryService
     /**
      * Status tab totals for the current list filters (not the unfiltered database).
      *
+     * Simple status badges are computed in one conditional aggregate query.
+     * Complex tabs (reopen / loss / hold-after-visit / etc.) still need scoped counts,
+     * and the full result is cached briefly to avoid repeating that work on every refresh.
+     *
      * @param  array<int, string>  $assigneeIds
      * @return array<string, int>
      */
     public function statusTabCounts(
+        Request $request,
+        array $assigneeIds,
+        bool $repeatOnly,
+        mixed $maxBookingAmount
+    ): array {
+        $cacheKey = 'admin_booking_tab_counts:'.md5((string) json_encode([
+            'search' => (string) $request->input('search', ''),
+            'provider_assigned' => (string) $request->input('provider_assigned', ''),
+            'zone_ids' => array_values((array) $request->input('zone_ids', [])),
+            'sub_category_ids' => array_values((array) $request->input('sub_category_ids', [])),
+            'category_ids' => array_values((array) $request->input('category_ids', [])),
+            'start_date' => (string) $request->input('start_date', ''),
+            'end_date' => (string) $request->input('end_date', ''),
+            'schedule_start_date' => (string) $request->input('schedule_start_date', ''),
+            'schedule_end_date' => (string) $request->input('schedule_end_date', ''),
+            'assignee_ids' => array_values($assigneeIds),
+            'repeat_only' => $repeatOnly,
+            'max_booking_amount' => $maxBookingAmount,
+        ]));
+
+        return Cache::remember($cacheKey, self::TAB_COUNTS_CACHE_TTL, function () use ($request, $assigneeIds, $repeatOnly, $maxBookingAmount) {
+            return $this->computeStatusTabCounts($request, $assigneeIds, $repeatOnly, $maxBookingAmount);
+        });
+    }
+
+    /**
+     * @param  array<int, string>  $assigneeIds
+     * @return array<string, int>
+     */
+    private function computeStatusTabCounts(
         Request $request,
         array $assigneeIds,
         bool $repeatOnly,
@@ -66,24 +106,101 @@ class AdminBookingListQueryService
             return $this->applySharedFilters(Booking::query(), $request, $assigneeIds, $repeatOnly);
         };
 
-        return [
-            'all' => $scoped()->count(),
-            'pending' => $scoped()->applyBookingListStatusTab('pending', $tabOptions)->count(),
-            'accepted' => $scoped()->applyBookingListStatusTab('accepted', $tabOptions)->count(),
-            'ongoing' => $scoped()->applyBookingListStatusTab('ongoing', $tabOptions)->count(),
-            'completed' => $scoped()->applyBookingListStatusTab('completed', $tabOptions)->count(),
-            'reopened' => $scoped()->applyBookingListStatusTab('reopened', $tabOptions)->count(),
-            'on_hold' => $scoped()->applyBookingListStatusTab('on_hold', $tabOptions)->count(),
-            'canceled' => $scoped()->applyBookingListStatusTab('canceled', $tabOptions)->count(),
-            'hold_after_visit' => $scoped()->applyBookingListStatusTab('hold_after_visit', $tabOptions)->count(),
-            'resolved' => $scoped()->applyBookingListStatusTab('resolved', $tabOptions)->count(),
-            'disputed_cancelled' => $scoped()->applyBookingListStatusTab('disputed_cancelled', $tabOptions)->count(),
-            'disputed_completed' => $scoped()->applyBookingListStatusTab('disputed_completed', $tabOptions)->count(),
-            'completed_no_or_little' => $scoped()->applyBookingListStatusTab('completed_no_or_little', $tabOptions)->count(),
-            'cancelled_after_visit' => $scoped()->applyBookingListStatusTab('cancelled_after_visit', $tabOptions)->count(),
-            'loss_making_pending' => $scoped()->applyBookingListStatusTab('loss_making_pending', $tabOptions)->count(),
-            'loss_recovered' => $scoped()->applyBookingListStatusTab('loss_recovered', $tabOptions)->count(),
-            'loss_settled' => $scoped()->applyBookingListStatusTab('loss_settled', $tabOptions)->count(),
+        $max = is_numeric($maxBookingAmount) ? (float) $maxBookingAmount : null;
+        $simple = $this->simpleStatusTabCounts($scoped(), $max);
+
+        $complexTabs = [
+            'reopened',
+            'hold_after_visit',
+            'resolved',
+            'disputed_cancelled',
+            'disputed_completed',
+            'completed_no_or_little',
+            'cancelled_after_visit',
+            'loss_making_pending',
+            'loss_recovered',
+            'loss_settled',
         ];
+
+        $counts = $simple;
+        foreach ($complexTabs as $tab) {
+            $counts[$tab] = (int) $scoped()->applyBookingListStatusTab($tab, $tabOptions)->count();
+        }
+
+        return $counts;
+    }
+
+    /**
+     * One query for the common status tabs (plus "all").
+     *
+     * @return array<string, int>
+     */
+    private function simpleStatusTabCounts(Builder $query, ?float $maxBookingAmount): array
+    {
+        $table = $query->getModel()->getTable();
+        $pendingSql = $this->adminPendingCaseSql($table, $maxBookingAmount);
+        $acceptedSql = $this->adminAcceptedCaseSql($table, $maxBookingAmount);
+
+        $bindings = [];
+        if ($maxBookingAmount !== null) {
+            $bindings[] = $maxBookingAmount;
+            $bindings[] = $maxBookingAmount;
+        }
+
+        $row = $query
+            ->reorder()
+            ->toBase()
+            ->selectRaw(
+                "COUNT(*) as `all_count`,
+                SUM(CASE WHEN {$pendingSql} THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN {$acceptedSql} THEN 1 ELSE 0 END) as accepted_count,
+                SUM(CASE WHEN {$table}.booking_status = 'ongoing' THEN 1 ELSE 0 END) as ongoing_count,
+                SUM(CASE WHEN {$table}.booking_status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN {$table}.booking_status = 'on_hold' THEN 1 ELSE 0 END) as on_hold_count,
+                SUM(CASE WHEN {$table}.booking_status IN ('canceled', 'refunded') THEN 1 ELSE 0 END) as canceled_count",
+                $bindings
+            )
+            ->first();
+
+        return [
+            'all' => (int) ($row->all_count ?? 0),
+            'pending' => (int) ($row->pending_count ?? 0),
+            'accepted' => (int) ($row->accepted_count ?? 0),
+            'ongoing' => (int) ($row->ongoing_count ?? 0),
+            'completed' => (int) ($row->completed_count ?? 0),
+            'on_hold' => (int) ($row->on_hold_count ?? 0),
+            'canceled' => (int) ($row->canceled_count ?? 0),
+        ];
+    }
+
+    private function adminPendingCaseSql(string $table, ?float $maxBookingAmount): string
+    {
+        if ($maxBookingAmount === null) {
+            return "{$table}.booking_status = 'pending'";
+        }
+
+        // Mirrors scopeAdminPendingBookings (cash_after_service amount / verified gate).
+        return "{$table}.booking_status = 'pending' AND (
+            {$table}.payment_method != 'cash_after_service'
+            OR (
+                {$table}.payment_method = 'cash_after_service'
+                AND ({$table}.total_booking_amount <= ? OR {$table}.is_verified = 1)
+            )
+        )";
+    }
+
+    private function adminAcceptedCaseSql(string $table, ?float $maxBookingAmount): string
+    {
+        if ($maxBookingAmount === null) {
+            return "{$table}.booking_status = 'accepted'";
+        }
+
+        return "{$table}.booking_status = 'accepted' AND (
+            {$table}.payment_method != 'cash_after_service'
+            OR (
+                {$table}.payment_method = 'cash_after_service'
+                AND ({$table}.total_booking_amount <= ? OR {$table}.is_verified = 1)
+            )
+        )";
     }
 }

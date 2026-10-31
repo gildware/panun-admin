@@ -842,7 +842,10 @@
     <div class="modal fade" id="providerModal" tabindex="-1" aria-labelledby="providerModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content modal-content-data" id="modal-data-info">
-                @include('bookingmodule::admin.booking.partials.details.provider-info-modal-data')
+                <div class="p-5 text-center text-muted" data-provider-modal-placeholder="1">
+                    <div class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true"></div>
+                    <div class="mt-2 fs-12">{{ translate('Loading') }}...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -1678,74 +1681,14 @@
         })
     </script>
 
+    @include('bookingmodule::admin.booking.partials.details._provider-modal-lazy-load')
+
     <script>
-        $(document).ready(function() {
-
-            $(document).on('click', '.sort-by-class', function() {
-                console.log('hi')
-                const route = '{{ url('admin/provider/available-provider') }}'
-                var sortOption = document.querySelector('input[name="sort"]:checked').value;
-                var bookingId = "{{ $booking->id }}"
-
-                $.get({
-                    url: route,
-                    dataType: 'json',
-                    data: {
-                        sort_by: sortOption,
-                        booking_id: bookingId
-                    },
-                    beforeSend: function() {
-
-                    },
-                    success: function(response) {
-                        $('.modal-content-data').html(response.view);
-                    },
-                    complete: function() {},
-                    error: function() {
-                        toastr.error('{{ translate('Failed to load') }}')
-                    }
-                });
-            })
-        });
-
-        $(document).ready(function() {
-            $(document).on('keyup', '.search-form-input', function() {
-                const route = '{{ url('admin/provider/available-provider') }}';
-                let sortOption = document.querySelector('input[name="sort"]:checked').value;
-                let bookingId = "{{ $booking->id }}";
-                let searchTerm = $('.search-form-input').val();
-
-                $.get({
-                    url: route,
-                    dataType: 'json',
-                    data: {
-                        sort_by: sortOption,
-                        booking_id: bookingId,
-                        search: searchTerm,
-                    },
-                    beforeSend: function() {},
-                    success: function(response) {
-                        $('.modal-content-data').html(response.view);
-
-
-                        var cursorPosition = searchTerm.lastIndexOf(searchTerm.charAt(searchTerm
-                            .length - 1)) + 1;
-                        $('.search-form-input').focus().get(0).setSelectionRange(cursorPosition,
-                            cursorPosition);
-                    },
-                    complete: function() {},
-                    error: function() {
-                        toastr.error('{{ translate('Failed to load') }}');
-                    }
-                });
-            });
-        });
-
         function updateProvider(providerId) {
             const bookingId = "{{ $booking->id }}";
             const route = '{{ url('admin/provider/reassign-provider') }}' + '/' + bookingId;
-            const sortOption = document.querySelector('input[name="sort"]:checked').value;
-            const searchTerm = $('.search-form-input').val();
+            const sortOption = document.querySelector('#providerModal input[name="sort"]:checked')?.value ?? 'default';
+            const searchTerm = $('.search-form-input').val() ?? '';
 
             $.ajaxSetup({
                 headers: {

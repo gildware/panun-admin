@@ -3731,13 +3731,7 @@ class ProviderController extends Controller
             ->ofStatus(1)
             ->get();
 
-        $providers = [];
-
-        foreach ($allProviders as $provider) {
-            if (provider_accepts_booking_service_location($provider->id, $booking->service_location)) {
-                $providers[] = $provider;
-            }
-        }
+        $providers = filter_providers_accepting_booking_service_location($allProviders, $booking->service_location);
 
         $booking = $this->booking->with(['detail.service' => function ($query) {
             $query->withTrashed();
@@ -3947,14 +3941,7 @@ class ProviderController extends Controller
             ->when($request->sort_by === 'default', fn ($q) => $q->orderByRaw("CASE performance_status WHEN 'active' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END"))
             ->get();
 
-        $providers = [];
-        foreach ($allProviders as $provider) {
-            if (provider_accepts_booking_service_location($provider->id, $booking->service_location)) {
-                $providers[] = $provider;
-            }
-        }
-
-        return $providers;
+        return filter_providers_accepting_booking_service_location($allProviders, $booking->service_location);
     }
 
     public function getProviderInfo($providerId): JsonResponse

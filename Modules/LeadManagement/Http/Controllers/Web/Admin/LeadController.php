@@ -121,7 +121,7 @@ class LeadController extends Controller
             ? max(0, (int) $request->get('outbound_enquiry_count'))
             : null;
 
-        $with = [];
+        $with = ['source'];
         if ($tab === 'customer') {
             $with[] = 'customerLeadTags';
         }

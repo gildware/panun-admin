@@ -3469,6 +3469,63 @@ if (!function_exists('provider_accepts_booking_service_location')) {
     }
 }
 
+if (!function_exists('filter_providers_accepting_booking_service_location')) {
+    /**
+     * Filter providers by booking service_location using one batched ProviderSetting query (avoids N+1).
+     *
+     * @param  iterable<\Modules\ProviderManagement\Entities\Provider>  $providers
+     * @return list<\Modules\ProviderManagement\Entities\Provider>
+     */
+    function filter_providers_accepting_booking_service_location(iterable $providers, ?string $bookingServiceLocation): array
+    {
+        $providerList = [];
+        foreach ($providers as $provider) {
+            $providerList[] = $provider;
+        }
+
+        if ($providerList === []) {
+            return [];
+        }
+
+        if ($bookingServiceLocation === null || $bookingServiceLocation === '') {
+            return $providerList;
+        }
+
+        $ids = array_map(static fn ($provider) => (string) $provider->id, $providerList);
+        $settingsByProvider = \Modules\ProviderManagement\Entities\ProviderSetting::query()
+            ->whereIn('provider_id', $ids)
+            ->where('key_name', 'service_location')
+            ->where('settings_type', 'provider_config')
+            ->get()
+            ->keyBy(static fn ($row) => (string) $row->provider_id);
+
+        $normalizedBooking = (string) $bookingServiceLocation;
+        $accepted = [];
+
+        foreach ($providerList as $provider) {
+            $setting = $settingsByProvider->get((string) $provider->id);
+            $configured = $setting?->live_values;
+            if (is_string($configured) && $configured !== '') {
+                $decoded = json_decode($configured, true);
+                $configured = json_last_error() === JSON_ERROR_NONE ? $decoded : [];
+            }
+            if (! is_array($configured) || $configured === []) {
+                $accepted[] = $provider;
+                continue;
+            }
+
+            foreach (array_values($configured) as $value) {
+                if ((string) $value === $normalizedBooking) {
+                    $accepted[] = $provider;
+                    break;
+                }
+            }
+        }
+
+        return $accepted;
+    }
+}
+
 if (!function_exists('checkActiveSMSGatewayCount')) {
     function checkActiveSMSGatewayCount()
     {

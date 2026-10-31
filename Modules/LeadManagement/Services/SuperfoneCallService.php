@@ -17,6 +17,7 @@ use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
+use Modules\LeadManagement\Entities\PartyAlternatePhone;
 use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\SuperfoneCall;
 use Modules\LeadManagement\Jobs\DownloadSuperfoneRecording;
@@ -998,7 +999,7 @@ class SuperfoneCallService
             }
         }
 
-        return Provider::query()
+        $provider = Provider::query()
             ->where(function ($query) use ($digits) {
                 $this->wherePhoneEndsWith($query, 'company_phone', $digits);
                 $query->orWhere(function ($inner) use ($digits) {
@@ -1006,14 +1007,31 @@ class SuperfoneCallService
                 });
             })
             ->first();
+        if ($provider) {
+            return $provider;
+        }
+
+        $owner = app(PartyPhoneDirectory::class)->findOwner($digits);
+        if ($owner && $owner['owner_type'] === PartyAlternatePhone::OWNER_PROVIDER) {
+            return Provider::query()->find($owner['owner_id']);
+        }
+
+        return null;
     }
 
     private function leadsByDigits(string $digits): Collection
     {
+        $keys = $this->phoneKeysIncludingAlternates($digits);
         $leadQuery = Lead::query()
+            ->where(function ($outer) use ($keys) {
+                foreach ($keys as $key) {
+                    $outer->orWhere(function ($inner) use ($key) {
+                        $this->wherePhoneEndsWith($inner, 'phone_number', $key);
+                    });
+                }
+            })
             ->orderByDesc('updated_at')
             ->orderByDesc('id');
-        $this->wherePhoneEndsWith($leadQuery, 'phone_number', $digits);
 
         return $leadQuery->get();
     }
@@ -1022,8 +1040,46 @@ class SuperfoneCallService
     {
         $query = User::query()->whereIn('user_type', $userTypes);
         $this->wherePhoneEndsWith($query, 'phone', $digits);
+        $user = $query->first();
+        if ($user) {
+            return $user;
+        }
 
-        return $query->first();
+        $owner = app(PartyPhoneDirectory::class)->findOwner($digits);
+        if (! $owner) {
+            return null;
+        }
+
+        if (in_array(CUSTOMER_USER_TYPES[0], $userTypes, true)
+            && $owner['owner_type'] === PartyAlternatePhone::OWNER_CUSTOMER
+        ) {
+            return User::query()->find($owner['owner_id']);
+        }
+
+        if ($owner['owner_type'] === PartyAlternatePhone::OWNER_PROVIDER
+            && count(array_intersect($userTypes, PROVIDER_USER_TYPES)) > 0
+        ) {
+            $provider = Provider::query()->with('owner')->find($owner['owner_id']);
+
+            return $provider?->owner ?: $provider?->user;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function phoneKeysIncludingAlternates(string $digits): array
+    {
+        $keys = [$digits];
+        $directory = app(PartyPhoneDirectory::class);
+        $owner = $directory->findOwner($digits);
+        if ($owner) {
+            $keys = array_merge($keys, $directory->phonesForOwner($owner['owner_type'], $owner['owner_id']));
+        }
+
+        return array_values(array_unique($keys));
     }
 
     private function wherePhoneEndsWith($query, string $column, string $digits): void
