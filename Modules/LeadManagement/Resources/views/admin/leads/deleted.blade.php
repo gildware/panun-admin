@@ -157,7 +157,7 @@
     <div class="modal fade" id="restoreLeadModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <form method="post" action="">
+                <form method="post" action="" data-turbo="false" data-once-submit>
                     @csrf
                     <div class="modal-header border-0">
                         <h5 class="modal-title">{{ translate('Restore') }}</h5>
@@ -178,7 +178,7 @@
     <div class="modal fade" id="forceDeleteLeadModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <form method="post" action="">
+                <form method="post" action="" data-turbo="false" data-once-submit>
                     @csrf
                     @method('DELETE')
                     <div class="modal-header border-0">
@@ -219,7 +219,13 @@
                 modal.addEventListener('show.bs.modal', function (event) {
                     var button = event.relatedTarget;
                     if (!button) return;
-                    modal.querySelector('form').action = button.getAttribute('data-action') || '';
+                    var form = modal.querySelector('form');
+                    form.action = button.getAttribute('data-action') || '';
+                    form.dataset.submitting = '';
+                    var submitBtn = form.querySelector('[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
                     var text = modal.querySelector('[data-confirm-text]');
                     if (!text) return;
                     if (!text.getAttribute('data-base')) {
@@ -227,6 +233,20 @@
                     }
                     var name = button.getAttribute('data-name') || '';
                     text.textContent = text.getAttribute('data-base') + (name ? ' (' + name + ')' : '');
+                });
+            });
+
+            document.querySelectorAll('form[data-once-submit]').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (form.dataset.submitting === '1') {
+                        event.preventDefault();
+                        return;
+                    }
+                    form.dataset.submitting = '1';
+                    var submitBtn = form.querySelector('[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                    }
                 });
             });
         });
