@@ -11,6 +11,7 @@ use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\TimeScheduleCont
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderController as ProviderProviderController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\DashboardBundleController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderShowcaseController;
+use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderQuestionnaireController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ServiceController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\AccountController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\WithdrawController;
@@ -52,6 +53,9 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
     Route::delete('delete', [ProviderProviderController::class, 'deleteProvider']);
     Route::get('transaction', [ProviderProviderController::class, 'transaction']);
     Route::get('subscribed/sub-categories', [ProviderProviderController::class, 'subscribedSubCategories']);
+
+    Route::get('questionnaire', [ProviderQuestionnaireController::class, 'show']);
+    Route::put('questionnaire', [ProviderQuestionnaireController::class, 'update']);
 
     Route::group(['prefix' => 'payment', 'as' => 'payment.'], function () {
         Route::get('overview', [ProviderPaymentController::class, 'overview']);

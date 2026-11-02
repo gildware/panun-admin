@@ -139,7 +139,7 @@ class PartyPhoneDirectory
                     $phones[] = $digits;
                 }
             }
-        } elseif ($ownerType === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+        } elseif (PartyAlternatePhone::isLeadOwnerType($ownerType)) {
             $lead = Lead::query()->withTrashed()->find($ownerId);
             $digits = self::normalizeDigits($lead?->phone_number);
             if ($digits) {
@@ -175,6 +175,7 @@ class PartyPhoneDirectory
             $who = match ($existing['owner_type']) {
                 PartyAlternatePhone::OWNER_CUSTOMER => translate('Customer'),
                 PartyAlternatePhone::OWNER_PROVIDER_LEAD => translate('Provider_lead') ?: 'Provider lead',
+                PartyAlternatePhone::OWNER_CUSTOMER_LEAD => translate('Customer_lead') ?: 'Customer lead',
                 default => translate('Provider'),
             };
             throw new \InvalidArgumentException(
@@ -264,12 +265,12 @@ class PartyPhoneDirectory
             $ownerId = null;
             $ownerLabel = null;
 
-            $asProviderLead = PartyAlternatePhone::query()
-                ->where('owner_type', PartyAlternatePhone::OWNER_PROVIDER_LEAD)
+            $asLeadOwner = PartyAlternatePhone::query()
+                ->whereIn('owner_type', PartyAlternatePhone::leadOwnerTypes())
                 ->where('owner_id', (string) $lead->id)
-                ->exists();
-            if ($asProviderLead) {
-                $ownerType = PartyAlternatePhone::OWNER_PROVIDER_LEAD;
+                ->first();
+            if ($asLeadOwner) {
+                $ownerType = $asLeadOwner->owner_type;
                 $ownerId = (string) $lead->id;
                 $ownerLabel = trim((string) ($lead->name ?? '')) ?: ('Lead #'.$lead->id);
             }
@@ -325,7 +326,7 @@ class PartyPhoneDirectory
             if ($digits !== null) {
                 $altRow = PartyAlternatePhone::query()->where('phone_digits', $digits)->first();
                 if ($altRow
-                    && ! ($altRow->owner_type === PartyAlternatePhone::OWNER_PROVIDER_LEAD
+                    && ! (PartyAlternatePhone::isLeadOwnerType((string) $altRow->owner_type)
                         && (string) $altRow->owner_id === (string) $lead->id)
                 ) {
                     $linkedAs = [
@@ -384,7 +385,7 @@ class PartyPhoneDirectory
         $ids = [];
         $owner = $this->findOwner($digits);
         if ($owner) {
-            if ($owner['owner_type'] === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+            if (PartyAlternatePhone::isLeadOwnerType($owner['owner_type'])) {
                 $ids[] = (int) $owner['owner_id'];
             }
             foreach ($this->phonesForOwner($owner['owner_type'], $owner['owner_id']) as $key) {
@@ -412,7 +413,7 @@ class PartyPhoneDirectory
 
         $alt = PartyAlternatePhone::query()->where('phone_digits', $digits)->first();
         if ($alt) {
-            if ($alt->owner_type === PartyAlternatePhone::OWNER_PROVIDER_LEAD) {
+            if (PartyAlternatePhone::isLeadOwnerType((string) $alt->owner_type)) {
                 $ids[] = (int) $alt->owner_id;
             }
             if ($alt->linked_from_lead_id) {

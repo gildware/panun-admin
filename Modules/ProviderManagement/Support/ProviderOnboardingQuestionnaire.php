@@ -24,10 +24,18 @@ class ProviderOnboardingQuestionnaire
                         ],
                     ],
                     [
-                        'id' => 'working_area',
-                        'label' => 'What is your main working area and what other areas can you cover?',
-                        'type' => 'textarea',
-                        'max' => 1000,
+                        'id' => 'main_working_area',
+                        'label' => 'What is your main working area?',
+                        'type' => 'multi_select',
+                        'other_key' => 'main_working_area_other',
+                        'options' => self::areaOptions(),
+                    ],
+                    [
+                        'id' => 'other_working_areas',
+                        'label' => 'What other areas can you cover?',
+                        'type' => 'multi_select',
+                        'other_key' => 'other_working_areas_other',
+                        'options' => self::areaOptions(),
                     ],
                     [
                         'id' => 'days_available',
@@ -38,6 +46,7 @@ class ProviderOnboardingQuestionnaire
                             ['value' => '5_days', 'label' => '5 Days'],
                             ['value' => '6_days', 'label' => '6 days'],
                             ['value' => '7_days', 'label' => '7 Days'],
+                            ['value' => 'flexible', 'label' => 'Flexible'],
                             ['value' => 'other', 'label' => 'Other', 'other' => true],
                         ],
                     ],
@@ -50,6 +59,7 @@ class ProviderOnboardingQuestionnaire
                             ['value' => '1_4_kms', 'label' => '1-4 Kms'],
                             ['value' => '5_10_kms', 'label' => '5-10 Kms'],
                             ['value' => '10_15_kms', 'label' => '10-15 Kms'],
+                            ['value' => 'any', 'label' => 'Any distance'],
                             ['value' => 'other', 'label' => 'Other', 'other' => true],
                         ],
                     ],
@@ -115,6 +125,7 @@ class ProviderOnboardingQuestionnaire
                             ['value' => 'by_foot', 'label' => 'By Foot'],
                             ['value' => 'bike_scooter', 'label' => 'Bike/scooter'],
                             ['value' => 'public_transport', 'label' => 'Public Transport'],
+                            ['value' => 'car', 'label' => 'Car / van'],
                             ['value' => 'other', 'label' => 'Other', 'other' => true],
                         ],
                     ],
@@ -134,6 +145,7 @@ class ProviderOnboardingQuestionnaire
                             ['value' => '200_300', 'label' => '₹ 200-300'],
                             ['value' => '400_500', 'label' => '₹ 400-500'],
                             ['value' => 'daily_basis', 'label' => 'Daily Basis'],
+                            ['value' => 'negotiable', 'label' => 'Negotiable'],
                             ['value' => 'other', 'label' => 'Other', 'other' => true],
                         ],
                     ],
@@ -143,10 +155,37 @@ class ProviderOnboardingQuestionnaire
                         'type' => 'checkbox',
                         'other_key' => 'problems_other',
                         'options' => [
-                            ['value' => 'finding_customers', 'label' => 'Difficulty finding new customers'],
-                            ['value' => 'no_regular_work', 'label' => 'Not getting regular work'],
-                            ['value' => 'payment_delays', 'label' => 'Payment delays'],
-                            ['value' => 'other', 'label' => 'Other', 'other' => true],
+                            [
+                                'value' => 'finding_customers',
+                                'label' => 'Finding customers',
+                                'description' => 'Hard to get consistent new leads for my services',
+                            ],
+                            [
+                                'value' => 'no_regular_work',
+                                'label' => 'Irregular work',
+                                'description' => 'Jobs come in bursts with long quiet periods in between',
+                            ],
+                            [
+                                'value' => 'payment_delays',
+                                'label' => 'Payment delays',
+                                'description' => 'Customers or platforms take too long to pay after the job',
+                            ],
+                            [
+                                'value' => 'low_rates',
+                                'label' => 'Low rates',
+                                'description' => 'Clients push prices below what the work is worth',
+                            ],
+                            [
+                                'value' => 'travel_cost',
+                                'label' => 'Travel cost',
+                                'description' => 'Fuel and travel eat into already thin margins',
+                            ],
+                            [
+                                'value' => 'other',
+                                'label' => 'Other',
+                                'description' => 'A problem not listed above',
+                                'other' => true,
+                            ],
                         ],
                     ],
                     [
@@ -155,11 +194,37 @@ class ProviderOnboardingQuestionnaire
                         'type' => 'checkbox',
                         'other_key' => 'expectations_other',
                         'options' => [
-                            ['value' => 'complaint_support', 'label' => 'Support in handling customer complaints/issues'],
-                            ['value' => 'regular_work', 'label' => 'Regular work opportunities'],
-                            ['value' => 'timely_payment', 'label' => 'Timely payment'],
-                            ['value' => 'more_customers', 'label' => 'More customers'],
-                            ['value' => 'other', 'label' => 'Other', 'other' => true],
+                            [
+                                'value' => 'complaint_support',
+                                'label' => 'Complaint support',
+                                'description' => 'Help handling customer complaints, disputes, and issues',
+                            ],
+                            [
+                                'value' => 'regular_work',
+                                'label' => 'Regular work',
+                                'description' => 'Steady job flow so I can plan my week with confidence',
+                            ],
+                            [
+                                'value' => 'timely_payment',
+                                'label' => 'Timely payment',
+                                'description' => 'Get paid on time after completing jobs',
+                            ],
+                            [
+                                'value' => 'more_customers',
+                                'label' => 'More customers',
+                                'description' => 'Reach more people who need my services',
+                            ],
+                            [
+                                'value' => 'fair_rates',
+                                'label' => 'Fair rates',
+                                'description' => 'Transparent pricing that values my skill and time',
+                            ],
+                            [
+                                'value' => 'other',
+                                'label' => 'Other',
+                                'description' => 'An expectation not listed above',
+                                'other' => true,
+                            ],
                         ],
                     ],
                 ],
@@ -210,12 +275,12 @@ class ProviderOnboardingQuestionnaire
                 continue;
             }
 
-            if ($type === 'radio') {
+            if ($type === 'radio' || $type === 'select') {
                 self::sanitizeChoice($out, $input, $question, false);
                 continue;
             }
 
-            if ($type === 'checkbox') {
+            if ($type === 'checkbox' || $type === 'multi_select') {
                 self::sanitizeChoice($out, $input, $question, true);
                 continue;
             }
@@ -278,8 +343,8 @@ class ProviderOnboardingQuestionnaire
             return $parts !== [] ? implode(' · ', $parts) : null;
         }
 
-        if ($type === 'radio' || $type === 'checkbox') {
-            $selected = $type === 'checkbox'
+        if ($type === 'radio' || $type === 'checkbox' || $type === 'select' || $type === 'multi_select') {
+            $selected = ($type === 'checkbox' || $type === 'multi_select')
                 ? (is_array($answers[$question['id']] ?? null) ? $answers[$question['id']] : [])
                 : array_filter([(string) ($answers[$question['id']] ?? '')], fn ($v) => $v !== '');
 
@@ -304,7 +369,18 @@ class ProviderOnboardingQuestionnaire
                 }
             }
 
-            return $labels !== [] ? implode(', ', $labels) : null;
+            if ($labels !== []) {
+                return implode(', ', $labels);
+            }
+
+            // Legacy free-text working_area → show under main working area if unset.
+            if (($question['id'] ?? '') === 'main_working_area') {
+                $legacy = trim((string) ($answers['working_area'] ?? ''));
+
+                return $legacy !== '' ? $legacy : null;
+            }
+
+            return null;
         }
 
         if ($type === 'time_range') {
@@ -387,6 +463,34 @@ class ProviderOnboardingQuestionnaire
                 ? self::cleanString($input[$followup['id']] ?? '', (int) ($followup['max'] ?? 1000))
                 : '';
         }
+    }
+
+    /**
+     * Active customer lead areas as selectable questionnaire options (+ Other).
+     *
+     * @return list<array{value: string, label: string, other?: bool}>
+     */
+    public static function areaOptions(): array
+    {
+        $options = [];
+
+        try {
+            if (class_exists(\Modules\LeadManagement\Entities\CustomerLeadArea::class)) {
+                $areas = \Modules\LeadManagement\Entities\CustomerLeadArea::activeOrdered();
+                foreach ($areas as $area) {
+                    $options[] = [
+                        'value' => (string) $area->id,
+                        'label' => (string) $area->name,
+                    ];
+                }
+            }
+        } catch (\Throwable) {
+            // Tests / missing table — still expose Other.
+        }
+
+        $options[] = ['value' => 'other', 'label' => 'Other', 'other' => true];
+
+        return $options;
     }
 
     private static function cleanString(mixed $value, int $max): string

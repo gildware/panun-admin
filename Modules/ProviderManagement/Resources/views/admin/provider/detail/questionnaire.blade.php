@@ -62,8 +62,8 @@
         }
         .pk-q-options {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: .7rem 1.25rem;
+            grid-template-columns: 1fr;
+            gap: .55rem;
         }
         .pk-q-options .custom-radio,
         .pk-q-options .form-check {
@@ -197,7 +197,17 @@
                 function syncQuestionnaireFields() {
                     $('.pk-q-other').each(function () {
                         var $wrap = $(this);
-                        var checked = $wrap.closest('.pk-q-block').find('input[value="other"]:checked').length > 0;
+                        var $block = $wrap.closest('.pk-q-block');
+                        var checked = $block.find('input[value="other"]:checked').length > 0;
+                        var $select = $block.find('select.pk-q-select');
+                        if ($select.length) {
+                            var vals = $select.val();
+                            if (Array.isArray(vals)) {
+                                checked = vals.indexOf('other') !== -1;
+                            } else {
+                                checked = String(vals || '') === 'other';
+                            }
+                        }
                         $wrap.toggleClass('d-none', !checked);
                         $wrap.find('input, textarea').prop('disabled', !checked);
                     });
@@ -209,8 +219,27 @@
                         $wrap.find('input, textarea').prop('disabled', !checked);
                     });
                 }
-                $(document).on('change', '.pk-q-block input[type="radio"], .pk-q-block input[type="checkbox"]', syncQuestionnaireFields);
+                $(document).on('change', '.pk-q-block input[type="radio"], .pk-q-block input[type="checkbox"], .pk-q-block select.pk-q-select', syncQuestionnaireFields);
                 syncQuestionnaireFields();
+
+                function initQuestionnaireSelect2() {
+                    if (typeof jQuery === 'undefined' || !jQuery.fn || !jQuery.fn.select2) {
+                        return;
+                    }
+                    jQuery('.js-pk-q-select2').each(function () {
+                        var $el = jQuery(this);
+                        if ($el.data('select2')) {
+                            try { $el.select2('destroy'); } catch (e) {}
+                        }
+                        $el.select2({
+                            width: '100%',
+                            placeholder: $el.data('placeholder') || 'Search…',
+                            allowClear: ! $el.prop('multiple'),
+                            closeOnSelect: ! $el.prop('multiple'),
+                        });
+                    });
+                }
+                initQuestionnaireSelect2();
             })();
         </script>
     @endpush

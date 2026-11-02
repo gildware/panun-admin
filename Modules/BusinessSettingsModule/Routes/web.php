@@ -43,6 +43,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('set-promotion-setup', [BusinessInformationController::class, 'promotionSetupSet'])->name('set-promotion-setup');
         Route::put('set-customer-setup', [BusinessInformationController::class, 'customerSetup'])->name('set-customer-setup');
         Route::put('set-provider-setup', [BusinessInformationController::class, 'providerSetup'])->name('set-provider-setup');
+        Route::put('set-provider-agreement', [BusinessInformationController::class, 'providerAgreementSetup'])->name('set-provider-agreement');
         Route::put('set-business-model-setup', [BusinessInformationController::class, 'businessModelSetup'])->name('set-business-model-setup');
         Route::put('set-service-setup', [BusinessInformationController::class, 'serviceSetup'])->name('set-service-setup');
         Route::put('set-servicemen', [BusinessInformationController::class, 'servicemen'])->name('set-servicemen');

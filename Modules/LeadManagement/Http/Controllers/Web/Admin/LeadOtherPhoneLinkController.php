@@ -6,10 +6,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\PartyAlternatePhone;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\LeadManagement\Services\LeadOtherPhoneLinkService;
 use Modules\LeadManagement\Services\PartyPhoneDirectory;
 use Modules\ProviderManagement\Entities\Provider;
@@ -26,13 +28,17 @@ class LeadOtherPhoneLinkController extends Controller
     {
         $type = (string) $request->query('owner_type', PartyAlternatePhone::OWNER_CUSTOMER);
         $term = trim((string) $request->query('q', ''));
-        if (mb_strlen($term) < 2) {
+        $excludeLeadId = (int) $request->query('exclude_lead_id', 0);
+
+        // Allow single-digit lead IDs; require 2+ chars for name/phone search.
+        if ($term === '' || (mb_strlen($term) < 2 && ! ctype_digit($term))) {
             return response()->json(['people' => []]);
         }
 
+        $digits = PartyPhoneDirectory::normalizeDigits($term) ?? '';
+        $leadIdTerm = ctype_digit($term) ? (int) $term : 0;
+
         if ($type === PartyAlternatePhone::OWNER_PROVIDER) {
-            $digits = PartyPhoneDirectory::normalizeDigits($term) ?? '';
-            $excludeLeadId = (int) $request->query('exclude_lead_id', 0);
             $providers = Provider::query()
                 ->where(function ($query) use ($term, $digits) {
                     $query->where('company_name', 'like', '%'.$term.'%')
@@ -63,52 +69,21 @@ class LeadOtherPhoneLinkController extends Controller
                 ];
             });
 
-            // Also open provider leads (not yet registered as providers).
-            $leadQuery = Lead::query()
-                ->where('lead_type', Lead::TYPE_PROVIDER)
-                ->where(function ($query) use ($term, $digits) {
-                    $query->where('name', 'like', '%'.$term.'%')
-                        ->orWhere('phone_number', 'like', '%'.$term.'%');
-                    if ($digits !== '') {
-                        $query->orWhere('phone_number', 'like', '%'.$digits);
-                    }
-                })
-                ->orderByDesc('updated_at')
-                ->limit(20);
-
-            if ($excludeLeadId > 0) {
-                $leadQuery->where('id', '!=', $excludeLeadId);
-            }
-
-            $openStatus = app(\Modules\LeadManagement\Services\LeadOpenStatusService::class);
-            $leadPeople = $leadQuery->get(['id', 'name', 'phone_number', 'lead_type'])
-                ->filter(fn (Lead $lead) => $openStatus->isLeadOpen($lead))
-                ->take(8)
-                ->map(function (Lead $lead) {
-                    $name = trim((string) ($lead->name ?? '')) ?: ('Lead #'.$lead->id);
-                    $typeKey = strtolower((string) ($lead->lead_type ?: Lead::TYPE_UNKNOWN));
-                    $typeLabel = Lead::leadTypes()[$typeKey] ?? ucfirst($typeKey);
-
-                    return [
-                        'id' => (string) $lead->id,
-                        'owner_type' => PartyAlternatePhone::OWNER_PROVIDER_LEAD,
-                        'label' => $name,
-                        'phone' => $lead->phone_number,
-                        'tag' => 'lead',
-                        'tag_label' => translate('Lead'),
-                        'lead_type' => $typeKey,
-                        'lead_type_label' => translate($typeLabel) ?: $typeLabel,
-                        'meta' => '#'.$lead->id,
-                    ];
-                })
-                ->values();
+            $leadPeople = $this->searchOpenLeads(
+                term: $term,
+                digits: $digits,
+                leadIdTerm: $leadIdTerm,
+                excludeLeadId: $excludeLeadId,
+                leadTypes: [Lead::TYPE_PROVIDER],
+                ownerType: PartyAlternatePhone::OWNER_PROVIDER_LEAD,
+                limit: 8,
+            );
 
             return response()->json([
                 'people' => $people->concat($leadPeople)->values(),
             ]);
         }
 
-        $digits = PartyPhoneDirectory::normalizeDigits($term) ?? '';
         $customers = User::query()
             ->whereIn('user_type', CUSTOMER_USER_TYPES)
             ->where(function ($query) use ($term, $digits) {
@@ -124,21 +99,97 @@ class LeadOtherPhoneLinkController extends Controller
             ->limit(12)
             ->get(['id', 'first_name', 'last_name', 'phone']);
 
+        $customerPeople = $customers->map(function (User $user) {
+            $name = trim((string) (($user->first_name ?? '').' '.($user->last_name ?? '')));
+
+            return [
+                'id' => (string) $user->id,
+                'owner_type' => PartyAlternatePhone::OWNER_CUSTOMER,
+                'label' => $name !== '' ? $name : (string) $user->phone,
+                'phone' => $user->phone,
+                'tag' => 'customer',
+                'tag_label' => translate('Customer'),
+                'meta' => '',
+            ];
+        });
+
+        $leadPeople = $this->searchOpenLeads(
+            term: $term,
+            digits: $digits,
+            leadIdTerm: $leadIdTerm,
+            excludeLeadId: $excludeLeadId,
+            leadTypes: [Lead::TYPE_CUSTOMER, Lead::TYPE_UNKNOWN, Lead::TYPE_FUTURE_CUSTOMER],
+            ownerType: PartyAlternatePhone::OWNER_CUSTOMER_LEAD,
+            limit: 8,
+        );
+
         return response()->json([
-            'people' => $customers->map(function (User $user) {
-                $name = trim((string) (($user->first_name ?? '').' '.($user->last_name ?? '')));
+            'people' => $customerPeople->concat($leadPeople)->values(),
+        ]);
+    }
+
+    /**
+     * @param  list<string>  $leadTypes
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function searchOpenLeads(
+        string $term,
+        string $digits,
+        int $leadIdTerm,
+        int $excludeLeadId,
+        array $leadTypes,
+        string $ownerType,
+        int $limit = 8,
+    ): Collection {
+        $leadQuery = Lead::query()
+            ->whereIn('lead_type', $leadTypes)
+            ->where(function ($query) use ($term, $digits, $leadIdTerm) {
+                $query->where('name', 'like', '%'.$term.'%')
+                    ->orWhere('phone_number', 'like', '%'.$term.'%');
+                if ($digits !== '') {
+                    $query->orWhere('phone_number', 'like', '%'.$digits);
+                }
+                if ($leadIdTerm > 0) {
+                    $query->orWhere('id', $leadIdTerm);
+                }
+            })
+            ->orderByDesc('updated_at')
+            ->limit(40);
+
+        if ($excludeLeadId > 0) {
+            $leadQuery->where('id', '!=', $excludeLeadId);
+        }
+
+        $openStatus = app(LeadOpenStatusService::class);
+
+        return $leadQuery->get(['id', 'name', 'phone_number', 'lead_type'])
+            ->filter(function (Lead $lead) use ($openStatus, $leadIdTerm) {
+                // Exact lead ID always selectable so staff can connect by #id.
+                if ($leadIdTerm > 0 && (int) $lead->id === $leadIdTerm) {
+                    return true;
+                }
+
+                return $openStatus->isLeadOpen($lead);
+            })
+            ->take($limit)
+            ->map(function (Lead $lead) use ($ownerType) {
+                $name = trim((string) ($lead->name ?? '')) ?: ('Lead #'.$lead->id);
+                $typeKey = strtolower((string) ($lead->lead_type ?: Lead::TYPE_UNKNOWN));
+                $typeLabel = Lead::leadTypes()[$typeKey] ?? ucfirst($typeKey);
 
                 return [
-                    'id' => (string) $user->id,
-                    'owner_type' => PartyAlternatePhone::OWNER_CUSTOMER,
-                    'label' => $name !== '' ? $name : (string) $user->phone,
-                    'phone' => $user->phone,
-                    'tag' => 'customer',
-                    'tag_label' => translate('Customer'),
-                    'meta' => '',
+                    'id' => (string) $lead->id,
+                    'owner_type' => $ownerType,
+                    'label' => $name,
+                    'phone' => $lead->phone_number,
+                    'tag' => 'lead',
+                    'tag_label' => translate('Lead'),
+                    'lead_type' => $typeKey,
+                    'lead_type_label' => translate($typeLabel) ?: $typeLabel,
+                    'meta' => '#'.$lead->id,
                 ];
-            })->values(),
-        ]);
+            })
+            ->values();
     }
 
     public function options(Request $request, int $id): JsonResponse
@@ -149,6 +200,7 @@ class LeadOtherPhoneLinkController extends Controller
             PartyAlternatePhone::OWNER_CUSTOMER,
             PartyAlternatePhone::OWNER_PROVIDER,
             PartyAlternatePhone::OWNER_PROVIDER_LEAD,
+            PartyAlternatePhone::OWNER_CUSTOMER_LEAD,
         ], true)
             || $ownerId === ''
         ) {
@@ -189,7 +241,7 @@ class LeadOtherPhoneLinkController extends Controller
         }
 
         $validated = $request->validate([
-            'owner_type' => ['required', 'in:customer,provider,provider_lead'],
+            'owner_type' => ['required', 'in:customer,provider,provider_lead,customer_lead'],
             'owner_id' => ['required', 'string'],
             'action' => ['required', 'in:keep_lead,merge_lead,attach_booking'],
             'target_lead_id' => ['nullable', 'integer'],
@@ -226,7 +278,7 @@ class LeadOtherPhoneLinkController extends Controller
 
     /**
      * Move remaining history from a lead whose phone is already linked into the
-     * linked provider lead, then archive the source (fixes incomplete merges).
+     * linked lead, then archive the source (fixes incomplete merges).
      */
     public function finishMerge(Request $request, int $id): RedirectResponse|\Illuminate\Http\Response
     {
@@ -234,7 +286,7 @@ class LeadOtherPhoneLinkController extends Controller
         $lead = Lead::withTrashed()->findOrFail($id);
 
         try {
-            $result = $this->linker->finishMergeIntoLinkedProviderLead($lead);
+            $result = $this->linker->finishMergeIntoLinkedLead($lead);
         } catch (\InvalidArgumentException $e) {
             toastr()->error($e->getMessage());
 

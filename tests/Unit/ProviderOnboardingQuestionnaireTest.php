@@ -16,10 +16,11 @@ class ProviderOnboardingQuestionnaireTest extends TestCase
     {
         $ids = array_column(ProviderOnboardingQuestionnaire::allQuestions(), 'id');
 
-        $this->assertSame(13, ProviderOnboardingQuestionnaire::questionCount());
+        $this->assertSame(14, ProviderOnboardingQuestionnaire::questionCount());
         $this->assertSame([
             'expertise',
-            'working_area',
+            'main_working_area',
+            'other_working_areas',
             'days_available',
             'max_travel',
             'working_hours',

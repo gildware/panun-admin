@@ -71,12 +71,12 @@
                     <div class="small text-muted mt-1 mb-0">
                         {{ translate('Belongs_to') ?: 'Belongs to' }}:
                         <strong>{{ $linkedPhoneInfo['linked_as']['owner_label'] ?? '—' }}</strong>
-                        @if(($linkedPhoneInfo['linked_as']['owner_type'] ?? '') === 'provider_lead' && !empty($linkedPhoneInfo['linked_as']['owner_id']))
+                        @if(in_array(($linkedPhoneInfo['linked_as']['owner_type'] ?? ''), ['provider_lead', 'customer_lead'], true) && !empty($linkedPhoneInfo['linked_as']['owner_id']))
                             · <a href="{{ route('admin.lead.show', $linkedPhoneInfo['linked_as']['owner_id']) }}" @if(!empty($inModal)) target="_top" @endif>#{{ $linkedPhoneInfo['linked_as']['owner_id'] }}</a>
                         @endif
                     </div>
                     @can('lead_update')
-                        @if(($linkedPhoneInfo['linked_as']['owner_type'] ?? '') === 'provider_lead' && !empty($linkedPhoneInfo['linked_as']['owner_id']))
+                        @if(in_array(($linkedPhoneInfo['linked_as']['owner_type'] ?? ''), ['provider_lead', 'customer_lead'], true) && !empty($linkedPhoneInfo['linked_as']['owner_id']))
                             @php
                                 $finishMergeTargetId = (int) $linkedPhoneInfo['linked_as']['owner_id'];
                                 $finishMergeConfirm = translate('Confirm_finish_other_phone_merge')

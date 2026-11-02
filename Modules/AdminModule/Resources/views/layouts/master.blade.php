@@ -13,7 +13,7 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
         (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
-        2026101512,
+        2026110216,
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -52,14 +52,7 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev.css?v={{$adminAssetVersion}}"/>
     @if($adminUsesTopNav)
         <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/top-nav.css?v={{$adminAssetVersion}}"/>
-        <style>
-            /* Inline: pin/unpin must show one label only (avoids stale CDN CSS cache on live). */
-            #top-chrome-mode-toggle .top-chrome-mode-option--unpin { display: none !important; }
-            body:not(.top-chrome-auto-hide) #top-chrome-mode-toggle .top-chrome-mode-option--pin { display: none !important; }
-            body:not(.top-chrome-auto-hide) #top-chrome-mode-toggle .top-chrome-mode-option--unpin { display: inline-flex !important; }
-            body.top-chrome-auto-hide #top-chrome-mode-toggle .top-chrome-mode-option--pin { display: inline-flex !important; }
-            body.top-chrome-auto-hide #top-chrome-mode-toggle .top-chrome-mode-option--unpin { display: none !important; }
-        </style>
+        @include('adminmodule::layouts.partials._top-chrome-critical')
     @endif
     @if($adminUsesPartialNav)
         <style>

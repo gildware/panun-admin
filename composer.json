@@ -7,8 +7,8 @@
     "require": {
         "php": "^8.2",
         "ext-curl": "*",
-        "ext-json": "*",
         "ext-gd": "*",
+        "ext-json": "*",
         "ext-mysqli": "*",
         "ext-openssl": "*",
         "barryvdh/laravel-dompdf": "^3.0",
@@ -32,6 +32,8 @@
         "pusher/pusher-php-server": "^7.2",
         "rap2hpoutre/fast-excel": "*",
         "razorpay/razorpay": "^2.8",
+        "setasign/fpdf": "^1.9",
+        "setasign/fpdi": "^2.6",
         "spatie/db-dumper": "^3.4",
         "spatie/laravel-backup": "^9.3.5",
         "stevebauman/location": "^7.1",
