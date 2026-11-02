@@ -241,6 +241,7 @@ class ConfigController extends Controller
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
             'mobile_app_icons' => $this->providerMobileAppIconsForApi(),
+            'provider_agreement_pdf_full_path' => app(\Modules\Auth\Services\AgreementPdfStampService::class)->templatePublicUrl(),
         ]), 200);
     }
 

@@ -207,7 +207,9 @@ class RegisterController extends Controller
                 ->first();
         }
 
-        if (! $draft && $request->input('step') === 'contact_info' && $request->filled('contact_person_phone')) {
+        $canBootstrapDraft = in_array($request->input('step'), ['contact_info', 'agreement'], true)
+            && $request->filled('contact_person_phone');
+        if (! $draft && $canBootstrapDraft) {
             $draft = app(ProviderRegistrationDraftService::class)->findOrCreateForPhone(
                 (string) $request->input('contact_person_phone')
             );
@@ -219,6 +221,21 @@ class RegisterController extends Controller
 
         $step = (string) $request->input('step');
         $this->normalizeCompanyIdentityImageUploads($request);
+
+        if ($step === 'agreement') {
+            $formData = is_array($draft->form_data) ? $draft->form_data : [];
+            $filePaths = is_array($formData['file_paths'] ?? null) ? $formData['file_paths'] : [];
+            $existingSignature = $filePaths['agreement_signature'] ?? null;
+            if (! $request->hasFile('agreement_signature') && empty($existingSignature)) {
+                return response()->json(
+                    response_formatter(DEFAULT_400, null, [[
+                        'error_code' => 'agreement_signature',
+                        'message' => translate('Agreement signature is required'),
+                    ]]),
+                    400
+                );
+            }
+        }
 
         if ($step === 'company_documents') {
             $formData = is_array($draft->form_data) ? $draft->form_data : [];
@@ -338,6 +355,8 @@ class RegisterController extends Controller
     private function draftUploadFieldsForStep(string $step): array
     {
         return match ($step) {
+            // Only the small signature PNG is uploaded; signed PDF is generated server-side.
+            'agreement' => ['agreement_signature'],
             'contact_info' => ['contact_person_photo'],
             'identity_verification' => ['identity_image_front', 'identity_image_back', 'identity_images'],
             'company_information' => ['logo'],
@@ -678,6 +697,10 @@ class RegisterController extends Controller
                 });
             }
         );
+
+        if ($draft) {
+            $draftService->persistAgreementAsAdditionalDocument($provider, $draft);
+        }
 
         if (function_exists('admin_inbox_notify_provider_request')) {
             admin_inbox_notify_provider_request($provider);

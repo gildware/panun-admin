@@ -3943,6 +3943,7 @@ const BUSINESS_SETTINGS_TYPE = [
     'suspend_on_exceed_cash_limit_provider' => 'provider_config',
     'max_cash_in_hand_limit_provider' => 'provider_config',
     'min_payable_amount' => 'provider_config',
+    'provider_agreement_pdf' => 'provider_config',
     'serviceman_can_edit_booking' => 'serviceman_config',
     'serviceman_can_cancel_booking' => 'serviceman_config',
     'discount_cost_bearer' => 'promotional_setup',

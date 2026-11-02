@@ -572,9 +572,21 @@
                                                                 }
                                                                 $fileUrl = null;
                                                                 if ($normalizedPath) {
-                                                                    $fileUrl = \Illuminate\Support\Str::startsWith($normalizedPath, ['http://', 'https://'])
-                                                                        ? $normalizedPath
-                                                                        : \Illuminate\Support\Facades\Storage::disk($fileDisk)->url($normalizedPath);
+                                                                    if (\Illuminate\Support\Str::startsWith($normalizedPath, ['http://', 'https://'])) {
+                                                                        $fileUrl = $normalizedPath;
+                                                                    } elseif ($fileDisk === 's3') {
+                                                                        try {
+                                                                            $storageKey = \App\Support\StoragePathPrefix::apply(
+                                                                                \App\Support\StoragePathPrefix::strip($normalizedPath)
+                                                                            );
+                                                                            $fileUrl = \Illuminate\Support\Facades\Storage::disk('s3')
+                                                                                ->temporaryUrl($storageKey, now()->addMinutes(60));
+                                                                        } catch (\Throwable $e) {
+                                                                            $fileUrl = resolve_media_storage_url($normalizedPath, '', $fileDisk, null, false);
+                                                                        }
+                                                                    } else {
+                                                                        $fileUrl = resolve_media_storage_url($normalizedPath, '', $fileDisk, null, false);
+                                                                    }
                                                                 }
                                                                 $ext = strtolower(pathinfo((string) $filePath, PATHINFO_EXTENSION));
                                                             @endphp

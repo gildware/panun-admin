@@ -669,6 +669,7 @@ class BusinessInformationController extends Controller
             'min_payable_amount' => 'required',
             'minimum_withdraw_amount' => 'required|numeric|gte:0',
             'maximum_withdraw_amount' => 'required|numeric|gt:minimum_withdraw_amount',
+            'provider_agreement_pdf' => 'nullable|file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
         ]);
 
         $maxCash = $request->input('max_cash_in_hand_limit_provider');
@@ -682,6 +683,9 @@ class BusinessInformationController extends Controller
         $oldServiceLocation = $this->businessSetting->where('key_name', 'service_at_provider_place')->where('settings_type', 'provider_config')?->first()?->live_values;
 
         foreach ($validated as $key => $value) {
+            if ($key === 'provider_agreement_pdf') {
+                continue;
+            }
             $this->businessSetting->updateOrCreate(['key_name' => $key], [
                 'key_name' => $key,
                 'live_values' => $value,
@@ -690,6 +694,10 @@ class BusinessInformationController extends Controller
                 'mode' => 'live',
                 'is_active' => 1,
             ]);
+        }
+
+        if ($request->hasFile('provider_agreement_pdf')) {
+            $this->storeProviderAgreementPdf($request->file('provider_agreement_pdf'));
         }
 
         $currentMaxLimitAmount = $this->businessSetting->where('key_name', 'max_cash_in_hand_limit_provider')->where('settings_type', 'provider_config')->first()->live_values;
@@ -728,6 +736,66 @@ class BusinessInformationController extends Controller
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();
+    }
+
+    public function providerAgreementSetup(Request $request): RedirectResponse
+    {
+        $this->authorize('business_update');
+
+        $request->validate([
+            'provider_agreement_pdf' => 'required|file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
+        ]);
+
+        if (! $this->storeProviderAgreementPdf($request->file('provider_agreement_pdf'))) {
+            Toastr::error(translate('Provider agreement upload failed'));
+            return back();
+        }
+
+        Toastr::success(translate('Provider agreement uploaded successfully'));
+        return back();
+    }
+
+    private function storeProviderAgreementPdf($uploadedFile): bool
+    {
+        $existing = $this->businessSetting
+            ->where('key_name', 'provider_agreement_pdf')
+            ->where('settings_type', 'provider_config')
+            ->first();
+
+        $oldFilename = is_string($existing?->live_values) ? $existing->live_values : '';
+        $filename = file_uploader(
+            'business/provider-agreement/',
+            'pdf',
+            $uploadedFile,
+            $oldFilename !== '' && $oldFilename !== 'def.png' ? $oldFilename : null
+        );
+
+        if (! $filename || $filename === 'def.png') {
+            return false;
+        }
+
+        $setting = $this->businessSetting->updateOrCreate(
+            ['key_name' => 'provider_agreement_pdf'],
+            [
+                'key_name' => 'provider_agreement_pdf',
+                'live_values' => $filename,
+                'test_values' => $filename,
+                'settings_type' => BUSINESS_SETTINGS_TYPE['provider_agreement_pdf'],
+                'mode' => 'live',
+                'is_active' => 1,
+            ]
+        );
+
+        $storageType = getDisk();
+        if ($storageType !== 'public') {
+            saveBusinessImageDataToStorage(
+                model: $setting,
+                modelColumn: 'provider_agreement_pdf',
+                storageType: $storageType
+            );
+        }
+
+        return true;
     }
 
     public function businessModelSetup(Request $request): JsonResponse|RedirectResponse

@@ -1335,7 +1335,8 @@
                         <div class="tab-content">
                             <div class="tab-pane fade {{$webPage=='providers'?'active show':''}}" id="business-info">
                                 <form action="{{route('admin.business-settings.set-provider-setup')}}"
-                                      method="POST">
+                                      method="POST"
+                                      enctype="multipart/form-data">
                                     @csrf
                                     @method('PUT')
                                     <!-- Provider General Setup--->
@@ -1648,6 +1649,76 @@
                                                     </defs>
                                                 </svg>
                                                 <p class="fz-12">{{ translate('All the provider') }} <a @can('withdraw_view') href="{{ route('admin.withdraw.request.list', ['status'=>'all']) }}" @endcan target="_blank" class="text-primary text-decoration-underline fw-medium">{{ translate('Withdraw Request') }}</a> {{ translate('you wil find from Withdraw Request page. For further setup for withdraw request go to') }} <a @can('withdraw_add') href="{{ route('admin.withdraw.method.list') }}" @endcan target="_blank" class="text-primary text-decoration-underline fw-medium">{{ translate('Withdraw Method Setup') }}</a></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @php
+                                        $providerAgreementSetting = $dataValues->where('key_name', 'provider_agreement_pdf')->first();
+                                        $providerAgreementFilename = is_string($providerAgreementSetting?->live_values)
+                                            ? $providerAgreementSetting->live_values
+                                            : '';
+                                        $providerAgreementUrl = ($providerAgreementFilename !== '' && $providerAgreementFilename !== 'def.png')
+                                            ? getBusinessSettingsImageFullPath(
+                                                key: 'provider_agreement_pdf',
+                                                settingType: 'provider_config',
+                                                path: 'business/provider-agreement/',
+                                                defaultPath: null
+                                            )
+                                            : null;
+                                    @endphp
+                                    <div class="card p-20 mb-20">
+                                        <h3 class="mb-1">{{ translate('Provider Agreement') }}</h3>
+                                        <p class="fz-12 mb-20">{{ translate('Upload the Service Provider Agreement PDF. This file is shown during provider registration in the app and stamped after they sign.') }}</p>
+                                        <div class="card2 p-20">
+                                            <div class="row g-3 align-items-start">
+                                                <div class="col-lg-4 col-md-5">
+                                                    <div class="custom-upload-wrapper upload-group">
+                                                        <input type="file"
+                                                               id="provider_agreement_pdf"
+                                                               name="provider_agreement_pdf"
+                                                               accept="application/pdf,.pdf"
+                                                               data-maxFileSize="{{ readableUploadMaxFileSize('file') }}">
+                                                        <label for="provider_agreement_pdf"
+                                                               class="upload-box rounded position-relative d-flex align-items-center justify-content-center text-center overflow-hidden bg-white"
+                                                               style="min-height: 160px;">
+                                                            <div class="upload-content">
+                                                                <span class="material-symbols-outlined text-primary mb-2" style="font-size: 36px;">picture_as_pdf</span>
+                                                                <h6 class="fz-10 text-primary">
+                                                                    {{ translate('Click to upload') }}<br>
+                                                                    <span class="text-dark d-block mt-1">{{ translate('Or drag and drop') }}</span>
+                                                                </h6>
+                                                            </div>
+                                                            <div class="upload-overlay">
+                                                                <span class="material-symbols-outlined">upload_file</span>
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                    <p class="fz-12 mt-2 text-center mb-0">
+                                                        {{ translate('PDF format') }} -
+                                                        {{ translate('maximum size') }} {{ readableUploadMaxFileSize('file') }}
+                                                    </p>
+                                                </div>
+                                                <div class="col-lg-8 col-md-7">
+                                                    @if($providerAgreementUrl)
+                                                        <div class="border rounded p-20 bg-white h-100">
+                                                            <span class="fz-12 text-muted d-block mb-2">{{ translate('Current agreement') }}</span>
+                                                            <div class="d-flex align-items-center gap-2 mb-3">
+                                                                <span class="material-symbols-outlined text-primary">picture_as_pdf</span>
+                                                                <span class="fw-medium text-break">{{ $providerAgreementFilename }}</span>
+                                                            </div>
+                                                            <a href="{{ $providerAgreementUrl }}"
+                                                               target="_blank"
+                                                               rel="noopener noreferrer"
+                                                               class="btn btn--secondary btn-sm rounded">
+                                                                {{ translate('View PDF') }}
+                                                            </a>
+                                                        </div>
+                                                    @else
+                                                        <div class="border rounded p-20 bg-white h-100 d-flex align-items-center">
+                                                            <span class="fz-12 text-muted">{{ translate('No agreement uploaded yet.') }}</span>
+                                                        </div>
+                                                    @endif
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

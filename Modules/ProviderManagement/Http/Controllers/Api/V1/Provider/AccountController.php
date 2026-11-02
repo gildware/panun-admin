@@ -138,6 +138,9 @@ class AccountController extends Controller
                 ->pendingBrandingPreviewUrls($provider->id)
             : ['logo_url' => null, 'cover_url' => null];
 
+        $questionnaireStatus = app(\Modules\ProviderManagement\Services\ProviderQuestionnaireService::class)
+            ->statusFor($provider);
+
         return response()->json(response_formatter(DEFAULT_200, [
             'provider_info' => $provider,
             'booking_overview' => $bookingOverview,
@@ -147,6 +150,7 @@ class AccountController extends Controller
             'has_pending_branding_changes' => $hasPendingBrandingChanges,
             'pending_branding_preview' => $pendingBrandingPreview,
             'can_use_advertisement' => providerCanUseAdvertisement($provider->id),
+            'questionnaire' => $questionnaireStatus,
         ]), 200);
     }
 

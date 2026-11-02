@@ -430,6 +430,137 @@
                             </div>
                         </div>
 
+                        @php
+                            $agreementDocs = ($additionalDocuments ?? collect())->filter(function ($doc) {
+                                $name = strtolower((string) data_get($doc, 'document_name', ''));
+                                return str_contains($name, 'agreement');
+                            })->values();
+                            $otherAdditionalDocs = ($additionalDocuments ?? collect())->reject(function ($doc) {
+                                $name = strtolower((string) data_get($doc, 'document_name', ''));
+                                return str_contains($name, 'agreement');
+                            })->values();
+
+                            $resolveAdditionalDocFileUrl = function ($doc, $docFile) {
+                                $filePath = data_get($docFile, 'file_path');
+                                $fileDisk = data_get($docFile, 'storage', 'public');
+                                if (! is_string($filePath) || $filePath === '') {
+                                    return [null, ''];
+                                }
+                                if (\Illuminate\Support\Str::startsWith($filePath, ['http://', 'https://'])) {
+                                    return [$filePath, strtolower(pathinfo(parse_url($filePath, PHP_URL_PATH) ?: $filePath, PATHINFO_EXTENSION))];
+                                }
+                                $normalizedPath = str_contains($filePath, '/')
+                                    ? $filePath
+                                    : 'provider/additional-documents/' . $doc->id . '/' . $filePath;
+                                $ext = strtolower(pathinfo($normalizedPath, PATHINFO_EXTENSION));
+
+                                // Prefer a short-lived signed URL for private R2/S3 objects so admin can open them.
+                                if ($fileDisk === 's3') {
+                                    try {
+                                        $storageKey = \App\Support\StoragePathPrefix::apply(
+                                            \App\Support\StoragePathPrefix::strip($normalizedPath)
+                                        );
+                                        $fileUrl = \Illuminate\Support\Facades\Storage::disk('s3')
+                                            ->temporaryUrl($storageKey, now()->addMinutes(60));
+
+                                        return [$fileUrl, $ext];
+                                    } catch (\Throwable $e) {
+                                        // fall through to public URL resolver
+                                    }
+                                }
+
+                                $fileUrl = resolve_media_storage_url($normalizedPath, '', $fileDisk, null, false);
+
+                                return [$fileUrl, $ext];
+                            };
+                        @endphp
+
+                        <div class="col-12">
+                            <div class="ob-card">
+                                <h3 class="ob-card__title">
+                                    <span class="material-symbols-outlined">contract</span>
+                                    {{ translate('Service Provider Agreement') }}
+                                </h3>
+                                @if($agreementDocs->isEmpty())
+                                    <p class="text-muted mb-0 small">{{ translate('No_data_found') }}</p>
+                                @else
+                                    <div class="row g-3">
+                                        @foreach($agreementDocs as $doc)
+                                            <div class="col-xl-6 col-lg-6">
+                                                <div class="overview-doc-card h-100">
+                                                    <h6 class="mb-1">{{ data_get($doc, 'document_name', translate('Document')) }}</h6>
+                                                    @if(!empty(data_get($doc, 'document_description')))
+                                                        <p class="text-muted fs-12 mb-2">{{ data_get($doc, 'document_description') }}</p>
+                                                    @endif
+                                                    <div class="ob-doc-grid overview-doc-grid align-items-center">
+                                                        @forelse(($additionalDocumentFiles[$doc->id] ?? collect()) as $docFile)
+                                                            @php [$fileUrl, $ext] = $resolveAdditionalDocFileUrl($doc, $docFile); @endphp
+                                                            @if(!$fileUrl)
+                                                                <span class="text-muted small">{{ translate('No_data_found') }}</span>
+                                                            @elseif($ext === 'pdf')
+                                                                <a class="btn btn-outline-primary btn-sm d-flex align-items-center justify-content-center gap-1" target="_blank" rel="noopener" href="{{ $fileUrl }}">
+                                                                    <span class="material-icons" style="font-size:1rem">picture_as_pdf</span>
+                                                                    {{ translate('View signed PDF') }}
+                                                                </a>
+                                                            @else
+                                                                <a href="{{ $fileUrl }}" target="_blank" rel="noopener" title="{{ translate('Signature') }}">
+                                                                    <img class="ob-doc-thumb overview-doc-thumb" src="{{ $fileUrl }}" alt="{{ translate('Signature') }}"
+                                                                         style="object-fit:contain;background:#fff">
+                                                                </a>
+                                                            @endif
+                                                        @empty
+                                                            <span class="text-muted small">{{ translate('No_data_found') }}</span>
+                                                        @endforelse
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="ob-card">
+                                <h3 class="ob-card__title">
+                                    <span class="material-symbols-outlined">folder_open</span>
+                                    {{ translate('Additional_Documents') }}
+                                </h3>
+                                @if($otherAdditionalDocs->isEmpty())
+                                    <p class="text-muted mb-0 small">{{ translate('No_data_found') }}</p>
+                                @else
+                                    <div class="row g-3">
+                                        @foreach($otherAdditionalDocs as $doc)
+                                            <div class="col-xl-4 col-lg-6">
+                                                <div class="overview-doc-card h-100">
+                                                    <h6 class="mb-1">{{ data_get($doc, 'document_name', translate('Document')) }}</h6>
+                                                    @if(!empty(data_get($doc, 'document_description')))
+                                                        <p class="text-muted fs-12 mb-2">{{ data_get($doc, 'document_description') }}</p>
+                                                    @endif
+                                                    <div class="ob-doc-grid overview-doc-grid">
+                                                        @forelse(($additionalDocumentFiles[$doc->id] ?? collect()) as $docFile)
+                                                            @php [$fileUrl, $ext] = $resolveAdditionalDocFileUrl($doc, $docFile); @endphp
+                                                            @if(!$fileUrl)
+                                                                <span class="text-muted small">{{ translate('No_data_found') }}</span>
+                                                            @elseif($ext === 'pdf')
+                                                                <a class="btn btn-outline-primary btn-sm d-flex align-items-center justify-content-center" target="_blank" rel="noopener" href="{{ $fileUrl }}">PDF</a>
+                                                            @else
+                                                                <a href="{{ $fileUrl }}" target="_blank" rel="noopener">
+                                                                    <img class="ob-doc-thumb overview-doc-thumb" src="{{ $fileUrl }}" alt="{{ translate('image') }}">
+                                                                </a>
+                                                            @endif
+                                                        @empty
+                                                            <span class="text-muted small">{{ translate('No_data_found') }}</span>
+                                                        @endforelse
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
                         @include('providermanagement::admin.provider.detail._pending-showcase')
 
                     </div>

@@ -906,7 +906,22 @@
                                                     if ($storedPath && ! str_contains($storedPath, '/')) {
                                                         $storedPath = 'provider/additional-documents/' . $existingDocId . '/' . $storedPath;
                                                     }
-                                                    $fileUrl = $storedPath ? \Illuminate\Support\Facades\Storage::disk($storageDisk)->url($storedPath) : '';
+                                                    $fileUrl = '';
+                                                    if ($storedPath) {
+                                                        if ($storageDisk === 's3') {
+                                                            try {
+                                                                $storageKey = \App\Support\StoragePathPrefix::apply(
+                                                                    \App\Support\StoragePathPrefix::strip($storedPath)
+                                                                );
+                                                                $fileUrl = \Illuminate\Support\Facades\Storage::disk('s3')
+                                                                    ->temporaryUrl($storageKey, now()->addMinutes(60));
+                                                            } catch (\Throwable $e) {
+                                                                $fileUrl = resolve_media_storage_url($storedPath, '', $storageDisk, null, false) ?: '';
+                                                            }
+                                                        } else {
+                                                            $fileUrl = resolve_media_storage_url($storedPath, '', $storageDisk, null, false) ?: '';
+                                                        }
+                                                    }
                                                     $ext = strtolower(pathinfo((string) $storedPath, PATHINFO_EXTENSION));
                                                 @endphp
                                                 @if($fileUrl)
