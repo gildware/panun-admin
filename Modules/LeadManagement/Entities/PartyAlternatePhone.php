@@ -16,6 +16,20 @@ class PartyAlternatePhone extends Model
     /** Unregistered provider: owner_id is the open provider lead id. */
     public const OWNER_PROVIDER_LEAD = 'provider_lead';
 
+    /** Unregistered customer (or unknown) lead: owner_id is the open lead id. */
+    public const OWNER_CUSTOMER_LEAD = 'customer_lead';
+
+    /** @return list<string> */
+    public static function leadOwnerTypes(): array
+    {
+        return [self::OWNER_PROVIDER_LEAD, self::OWNER_CUSTOMER_LEAD];
+    }
+
+    public static function isLeadOwnerType(string $ownerType): bool
+    {
+        return in_array($ownerType, self::leadOwnerTypes(), true);
+    }
+
     protected $fillable = [
         'owner_type',
         'owner_id',
@@ -58,7 +72,7 @@ class PartyAlternatePhone extends Model
             return $name !== '' ? $name : (string) ($user->phone ?? $this->owner_id);
         }
 
-        if ($this->owner_type === self::OWNER_PROVIDER_LEAD) {
+        if (self::isLeadOwnerType((string) $this->owner_type)) {
             $lead = $this->providerLead;
             $name = trim((string) ($lead->name ?? ''));
 

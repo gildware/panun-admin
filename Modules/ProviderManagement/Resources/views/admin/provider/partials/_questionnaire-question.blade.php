@@ -19,6 +19,42 @@
                 </div>
             @endforeach
         </div>
+    @elseif($type === 'select' || $type === 'multi_select')
+        @php
+            $selectedMulti = $vals($qid);
+            $selectedSingle = (string) $val($qid);
+            $otherSelected = $type === 'multi_select'
+                ? in_array('other', $selectedMulti, true)
+                : $selectedSingle === 'other';
+        @endphp
+        <select
+            class="form-control pk-q-select js-pk-q-select2"
+            id="q-{{ $qid }}"
+            name="answers[{{ $qid }}]{{ $type === 'multi_select' ? '[]' : '' }}"
+            @if($type === 'multi_select') multiple @endif
+            data-q-select="1"
+            data-placeholder="{{ $type === 'multi_select' ? translate('Search_and_select_areas') : translate('Search_and_select_area') }}"
+            data-has-other="{{ !empty($question['other_key']) ? '1' : '0' }}"
+            style="width: 100%;"
+        >
+            @if($type === 'select')
+                <option value="">{{ translate('Select') }}</option>
+            @endif
+            @foreach($question['options'] as $option)
+                @php
+                    $isSelected = $type === 'multi_select'
+                        ? in_array($option['value'], $selectedMulti, true)
+                        : $selectedSingle === (string) $option['value'];
+                @endphp
+                <option value="{{ $option['value'] }}" {{ $isSelected ? 'selected' : '' }}>{{ $option['label'] }}</option>
+            @endforeach
+        </select>
+        <div class="form-text">{{ translate('Type_to_search_areas') }}</div>
+        @if(!empty($question['other_key']))
+            <div class="pk-q-other mt-2 {{ $otherSelected ? '' : 'd-none' }}">
+                <input type="text" class="form-control" name="answers[{{ $question['other_key'] }}]" value="{{ $val($question['other_key']) }}" placeholder="{{ translate('Other') }}" maxlength="255" {{ $otherSelected ? '' : 'disabled' }}>
+            </div>
+        @endif
     @elseif($type === 'radio' || $type === 'checkbox')
         <div class="pk-q-options">
             @foreach($question['options'] as $option)
@@ -31,12 +67,22 @@
                 @if($type === 'checkbox')
                     <div class="form-check mb-0">
                         <input class="form-check-input" type="checkbox" id="{{ $optionId }}" name="answers[{{ $qid }}][]" value="{{ $option['value'] }}" {{ $isChecked ? 'checked' : '' }}>
-                        <label class="form-check-label" for="{{ $optionId }}">{{ $option['label'] }}</label>
+                        <label class="form-check-label" for="{{ $optionId }}">
+                            <span class="d-block">{{ $option['label'] }}</span>
+                            @if(!empty($option['description']))
+                                <span class="d-block text-muted small fw-normal">{{ $option['description'] }}</span>
+                            @endif
+                        </label>
                     </div>
                 @else
                     <div class="custom-radio">
                         <input type="radio" id="{{ $optionId }}" name="answers[{{ $qid }}]" value="{{ $option['value'] }}" {{ $isChecked ? 'checked' : '' }}>
-                        <label for="{{ $optionId }}">{{ $option['label'] }}</label>
+                        <label for="{{ $optionId }}">
+                            <span class="d-block">{{ $option['label'] }}</span>
+                            @if(!empty($option['description']))
+                                <span class="d-block text-muted small">{{ $option['description'] }}</span>
+                            @endif
+                        </label>
                     </div>
                 @endif
             @endforeach

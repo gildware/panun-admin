@@ -38,6 +38,11 @@ class ServiceProviderAgreementCourseBuilder
 
     public static function pdfUrl(): string
     {
+        $uploaded = app(\Modules\Auth\Services\AgreementPdfStampService::class)->templatePublicUrl();
+        if (is_string($uploaded) && $uploaded !== '') {
+            return $uploaded;
+        }
+
         return self::PDF_CDN_URL;
     }
 

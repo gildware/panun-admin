@@ -6,8 +6,10 @@ use App\Support\StoragePathPrefix;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderRegistrationDraft;
 use Symfony\Component\HttpFoundation\File\UploadedFile as SymfonyUploadedFile;
 
@@ -23,6 +25,7 @@ class ProviderRegistrationDraftService
         'current_address',
         'service_categories',
         'service_subcategories',
+        'agreement',
         'review',
     ];
 
@@ -36,6 +39,7 @@ class ProviderRegistrationDraftService
         'current_address',
         'service_categories',
         'service_subcategories',
+        'agreement',
         'review',
     ];
 
@@ -86,6 +90,8 @@ class ProviderRegistrationDraftService
             'pincode',
             'latitude',
             'longitude',
+            'agreement_signed',
+            'agreement_signed_at',
         ];
 
         foreach ($scalarFields as $field) {
@@ -172,6 +178,19 @@ class ProviderRegistrationDraftService
         }
         if ($identityFront || $identityBack) {
             $filePaths['identity_images'] = array_values(array_filter([$identityFront, $identityBack]));
+        }
+
+        if ($request->hasFile('agreement_signature')) {
+            $filePaths['agreement_signature'] = $this->storeDraftFile(
+                $disk,
+                $baseDir,
+                $request->file('agreement_signature'),
+                'agreement_signature'
+            );
+            $formData['agreement_signed'] = '1';
+            if (empty($formData['agreement_signed_at'])) {
+                $formData['agreement_signed_at'] = Carbon::now()->toIso8601String();
+            }
         }
 
         if ($request->hasFile('company_identity_image')) {
@@ -442,6 +461,109 @@ class ProviderRegistrationDraftService
         }
 
         return $paths;
+    }
+
+    /**
+     * Stamp the provider signature onto the official agreement PDF on the server,
+     * then save it (plus the signature image) as Additional Documents.
+     */
+    public function persistAgreementAsAdditionalDocument(Provider $provider, ProviderRegistrationDraft $draft): void
+    {
+        $signaturePath = $this->getDraftFilePath($draft, 'agreement_signature');
+        if (! $signaturePath) {
+            return;
+        }
+
+        $alreadyExists = DB::table('providers_additional_documents')
+            ->where('provider_id', $provider->id)
+            ->where('document_name', 'Service Provider Agreement')
+            ->exists();
+        if ($alreadyExists) {
+            return;
+        }
+
+        $absoluteSignature = Storage::disk('public')->path(ltrim($signaturePath, '/'));
+        if (! is_readable($absoluteSignature)) {
+            return;
+        }
+
+        $documentId = (string) Str::uuid();
+        $destinationDir = 'provider/additional-documents/' . $documentId;
+        $fileRows = [];
+
+        try {
+            $stampService = app(AgreementPdfStampService::class);
+            $tmpSignedPdf = $stampService->stamp($absoluteSignature);
+            $pdfFileName = $this->copyLocalFileToProviderStorage($tmpSignedPdf, $destinationDir, 'pdf');
+            if ($pdfFileName) {
+                $fileRows[] = $pdfFileName;
+            }
+            @unlink($tmpSignedPdf);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $sigExt = pathinfo($signaturePath, PATHINFO_EXTENSION) ?: 'png';
+        $sigFileName = $this->copyDraftFileToProviderStorage($signaturePath, $destinationDir, $sigExt);
+        if ($sigFileName) {
+            $fileRows[] = $sigFileName;
+        }
+
+        if ($fileRows === []) {
+            return;
+        }
+
+        $signedAt = is_array($draft->form_data)
+            ? ($draft->form_data['agreement_signed_at'] ?? null)
+            : null;
+        $description = 'Signed during provider app registration';
+        if (is_string($signedAt) && $signedAt !== '') {
+            $description .= ' on ' . $signedAt;
+        }
+
+        DB::table('providers_additional_documents')->insert([
+            'id' => $documentId,
+            'provider_id' => $provider->id,
+            'document_name' => 'Service Provider Agreement',
+            'document_description' => $description,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        foreach ($fileRows as $fileName) {
+            DB::table('providers_additional_document_files')->insert([
+                'id' => (string) Str::uuid(),
+                'document_id' => $documentId,
+                'file_path' => $fileName,
+                'storage' => getDisk(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    public function copyLocalFileToProviderStorage(string $absolutePath, string $destinationDir, string $format): ?string
+    {
+        if (! is_readable($absolutePath)) {
+            return null;
+        }
+
+        $disk = getDisk();
+        $dir = StoragePathPrefix::apply(rtrim($destinationDir, '/') . '/');
+        $fileName = now()->toDateString() . '-' . uniqid() . '.' . $format;
+
+        try {
+            if (! Storage::disk($disk)->exists($dir)) {
+                Storage::disk($disk)->makeDirectory($dir);
+            }
+            Storage::disk($disk)->put($dir . $fileName, file_get_contents($absolutePath));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        return $fileName;
     }
 
     public function copyDraftFileToProviderStorage(string $relativePath, string $destinationDir, string $format): ?string

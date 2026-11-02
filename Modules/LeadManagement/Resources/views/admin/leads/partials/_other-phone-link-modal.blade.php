@@ -157,7 +157,7 @@
                                 <label class="form-check-label" for="other-phone-type-provider">{{ translate('Provider') }}</label>
                             </div>
                         </div>
-                        <p class="small text-muted mt-1 mb-0">{{ translate('Provider_search_includes_open_leads_hint') ?: 'Provider search includes registered providers and open provider leads (not registered yet).' }}</p>
+                        <p class="small text-muted mt-1 mb-0">{{ translate('Other_phone_search_includes_leads_hint') ?: 'Search includes registered people and leads (by name, phone, or lead ID).' }}</p>
                     </div>
 
                     <div class="mb-3">
@@ -165,7 +165,7 @@
                         <input type="text"
                                class="form-control"
                                id="other-phone-person-search"
-                               placeholder="{{ translate('Search_by_name_or_phone') }}"
+                               placeholder="{{ translate('Search_by_name_phone_or_lead_id') ?: 'Search by name, phone or Lead ID' }}"
                                autocomplete="off">
                         <input type="hidden" name="owner_id" id="other-phone-owner-id" value="">
                         <div id="other-phone-search-hint" class="small text-muted mt-1">{{ translate('Type_at_least_2_characters_to_search') }}</div>
@@ -337,7 +337,7 @@
             if (ownerIdInput.value) {
                 clearPerson();
             }
-            if (q.length < 2) {
+            if (q.length < 2 && !/^\d+$/.test(q)) {
                 searchHint.textContent = '{{ translate('Type_at_least_2_characters_to_search') }}';
                 return;
             }
@@ -361,7 +361,7 @@
                     }
                     searchHint.textContent = '{{ translate('Click_a_result_to_select') }}';
                     people.forEach(function (p) {
-                        var tagKind = p.tag || (p.owner_type === 'provider_lead' ? 'lead' : (p.owner_type || searchType()));
+                        var tagKind = p.tag || (p.owner_type === 'provider_lead' || p.owner_type === 'customer_lead' ? 'lead' : (p.owner_type || searchType()));
                         var tagLabel = p.tag_label || (
                             tagKind === 'lead' ? '{{ translate('Lead') }}' :
                             tagKind === 'provider' ? '{{ translate('Provider') }}' :

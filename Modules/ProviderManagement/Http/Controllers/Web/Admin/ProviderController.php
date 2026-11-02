@@ -3323,11 +3323,26 @@ class ProviderController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        $additionalDocuments = DB::table('providers_additional_documents')
+            ->where('provider_id', $id)
+            ->orderByDesc('created_at')
+            ->get();
+        $additionalDocumentFiles = collect();
+        if ($additionalDocuments->isNotEmpty()) {
+            $additionalDocumentFiles = DB::table('providers_additional_document_files')
+                ->whereIn('document_id', $additionalDocuments->pluck('id'))
+                ->orderBy('id')
+                ->get()
+                ->groupBy('document_id');
+        }
+
         return view('providermanagement::admin.provider.detail.onboarding-details', compact(
             'provider',
             'serviceZoneLines',
             'subscribedServicesByCategory',
-            'pendingShowcaseItems'
+            'pendingShowcaseItems',
+            'additionalDocuments',
+            'additionalDocumentFiles'
         ));
     }
 
