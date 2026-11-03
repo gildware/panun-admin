@@ -32,7 +32,7 @@
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.calls.index'),
                     'label' => translate('Calls'),
-                    'active' => request()->routeIs('admin.calls.index')
+                    'active' => request()->routeIs('admin.calls.index', 'admin.calls.export')
                         || (request()->routeIs('admin.calls.show') && ! request()->is('admin/calls/deleted*')),
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [

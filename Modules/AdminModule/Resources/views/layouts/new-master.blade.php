@@ -146,7 +146,7 @@
         @yield('content')
     @endif
 
-    @unless(request()->routeIs('admin.lead.reports.inbound.export', 'admin.calls.index'))
+    @unless(request()->routeIs('admin.lead.reports.inbound.export', 'admin.calls.index', 'admin.calls.export'))
         @include('adminmodule::layouts.partials._footer')
     @endunless
 
