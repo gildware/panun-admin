@@ -29,13 +29,24 @@
     var activeController = null;
     var progressShownAt = 0;
     var progressHideTimer = null;
+    var progressWatchdogTimer = null;
     var MIN_PROGRESS_MS = 320;
+    var MAX_PROGRESS_MS = 15000;
+    var FETCH_TIMEOUT_MS = 45000;
+    var SCRIPT_LOAD_TIMEOUT_MS = 8000;
 
     function getProgressEl() {
         if (!progressEl) {
             progressEl = document.getElementById('admin-partial-progress');
         }
         return progressEl;
+    }
+
+    function clearProgressWatchdog() {
+        if (progressWatchdogTimer) {
+            clearTimeout(progressWatchdogTimer);
+            progressWatchdogTimer = null;
+        }
     }
 
     function showProgress() {
@@ -54,9 +65,16 @@
         if (window.jQuery) {
             window.jQuery('.preloader').hide();
         }
+
+        clearProgressWatchdog();
+        progressWatchdogTimer = setTimeout(function () {
+            progressWatchdogTimer = null;
+            hideProgress();
+        }, MAX_PROGRESS_MS);
     }
 
     function hideProgress() {
+        clearProgressWatchdog();
         var el = getProgressEl();
         if (el) {
             el.classList.remove('is-active');
@@ -419,6 +437,20 @@
 
     function activateOneScript(oldScript) {
         return new Promise(function (resolve) {
+            var settled = false;
+            var timeoutId = null;
+            var done = function () {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                resolve();
+            };
+
             var script = document.createElement('script');
             Array.prototype.forEach.call(oldScript.attributes, function (attr) {
                 script.setAttribute(attr.name, attr.value);
@@ -429,7 +461,7 @@
                 if (googleMapsApiIsReady()) {
                     window.__zoneGoogleMapsReady = true;
                     oldScript.remove();
-                    resolve();
+                    done();
                     return;
                 }
 
@@ -438,19 +470,18 @@
                     oldScript.remove();
                     waitForExistingGoogleMapsScript(existingMaps).then(function () {
                         window.__zoneGoogleMapsReady = googleMapsApiIsReady();
-                        resolve();
+                        done();
                     });
                     return;
                 }
 
+                timeoutId = window.setTimeout(done, SCRIPT_LOAD_TIMEOUT_MS);
                 script.addEventListener('load', function () {
                     script.setAttribute('data-admin-maps-loaded', '1');
                     window.__zoneGoogleMapsReady = true;
-                    resolve();
+                    done();
                 }, { once: true });
-                script.addEventListener('error', function () {
-                    resolve();
-                }, { once: true });
+                script.addEventListener('error', done, { once: true });
                 oldScript.remove();
                 document.head.appendChild(script);
                 return;
@@ -459,23 +490,20 @@
             if (src) {
                 if (!externalScriptShouldExecute(src, oldScript)) {
                     oldScript.remove();
-                    resolve();
+                    done();
                     return;
                 }
 
-                script.addEventListener('load', function () {
-                    resolve();
-                }, { once: true });
-                script.addEventListener('error', function () {
-                    resolve();
-                }, { once: true });
+                timeoutId = window.setTimeout(done, SCRIPT_LOAD_TIMEOUT_MS);
+                script.addEventListener('load', done, { once: true });
+                script.addEventListener('error', done, { once: true });
                 oldScript.replaceWith(script);
                 return;
             }
 
             script.textContent = oldScript.textContent;
             oldScript.replaceWith(script);
-            resolve();
+            done();
         });
     }
 
@@ -834,6 +862,13 @@
         }
 
         activeController = new AbortController();
+        var fetchTimedOut = false;
+        var fetchTimeoutId = window.setTimeout(function () {
+            fetchTimedOut = true;
+            if (activeController) {
+                activeController.abort();
+            }
+        }, FETCH_TIMEOUT_MS);
         showProgress();
         cleanupModalBackdrops();
         if (typeof window.__waDestroyChatsInbox === 'function') {
@@ -862,6 +897,7 @@
             var parsed = extractFrameDocument(html);
 
             if (!parsed.frame) {
+                hideProgress();
                 showFullPageLoader();
                 window.location.href = url;
                 return;
@@ -876,6 +912,11 @@
             setFrameLoading(frame, false);
             revealAdminShell();
 
+            // Content is visible — clear the green bar before page scripts run.
+            // Script activation can hang on a slow CDN asset; that must not leave
+            // the progress bar stuck forever while the page already looks loaded.
+            hideProgressSoon();
+
             // Update the address before page scripts run. Those scripts read
             // window.location on startup; if it still points at the previous
             // screen they switch the new page back, and a refresh follows.
@@ -889,7 +930,6 @@
             markPartialNavLinks(frame);
             scheduleEnsureZoneMap();
 
-            hideProgressSoon();
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
             try {
@@ -897,6 +937,14 @@
             } catch (e) {}
         } catch (error) {
             if (error && error.name === 'AbortError') {
+                if (fetchTimedOut) {
+                    hideProgress();
+                    cleanupModalBackdrops();
+                    showFullPageLoader();
+                    window.location.href = url;
+                    return;
+                }
+
                 hideProgressSoon();
                 return;
             }
@@ -906,7 +954,9 @@
             showFullPageLoader();
             window.location.href = url;
         } finally {
+            window.clearTimeout(fetchTimeoutId);
             activeController = null;
+            hideProgressSoon();
         }
     }
 
