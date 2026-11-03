@@ -140,7 +140,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         <ul class="nav sub-menu">
                             <li>
                                 <a href="{{ route('admin.calls.index') }}"
-                                   class="{{ request()->routeIs('admin.calls.index', 'admin.calls.show') ? 'active-menu' : '' }}">
+                                   class="{{ request()->routeIs('admin.calls.index', 'admin.calls.show', 'admin.calls.export') ? 'active-menu' : '' }}">
                                     <span class="link-title">{{ translate('Calls') }}
                                         @if(($menuCounts['missed_calls'] ?? 0) > 0)
                                             <span class="count">{{ $menuCounts['missed_calls'] }}</span>

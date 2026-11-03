@@ -5,6 +5,7 @@ namespace Modules\LeadManagement\Http\Controllers\Web\Admin;
 use App\Support\AdminMenuCounts;
 use App\Support\SeekableRecordingResponse;
 use App\Support\StoragePathPrefix;
+use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,10 +20,13 @@ use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\SuperfoneCall;
 use Modules\LeadManagement\Entities\SuperfoneCallContact;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
+use Modules\LeadManagement\Services\SuperfoneCallExcelExport;
 use Modules\LeadManagement\Services\SuperfoneCallReport;
 use Modules\LeadManagement\Services\SuperfoneCallService;
 use Modules\LeadManagement\Services\SuperfoneLeadCharts;
+use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SuperfoneCallController extends Controller
 {
@@ -30,108 +34,10 @@ class SuperfoneCallController extends Controller
     {
     }
 
-    public function index(Request $request): View|JsonResponse
+    public function index(Request $request, SuperfoneCallExcelExport $export): View|JsonResponse
     {
-        $sortable = [
-            'started_at' => 'superfone_calls.started_at',
-            'direction' => 'superfone_calls.direction',
-            'phone' => 'superfone_calls.customer_phone',
-            'employee' => 'superfone_calls.staff_name',
-            'outcome' => 'superfone_calls.outcome',
-            'duration' => 'superfone_calls.duration_seconds',
-            'recording' => 'superfone_calls.recording_path',
-            'lead' => 'superfone_calls.lead_id',
-        ];
-        $requestedSort = (string) $request->query('sort');
-        $sort = (array_key_exists($requestedSort, $sortable) || in_array($requestedSort, ['party', 'booking'], true))
-            ? $requestedSort
-            : 'started_at';
-        $direction = $request->query('dir') === 'asc' ? 'asc' : 'desc';
-
-        $query = SuperfoneCall::query()->with([
-            'lead:id,name,phone_number,lead_type',
-            'employee:id,first_name,last_name',
-            'provider:id,company_name,contact_person_name',
-            'booking:id,readable_id,booking_status',
-            'customer:id,first_name,last_name,phone',
-        ]);
-
-        if ($request->filled('q')) {
-            $term = trim((string) $request->query('q'));
-            $digits = SuperfoneCallService::lastTenDigits($term);
-            $query->where(function ($inner) use ($term, $digits) {
-                $inner->where('customer_phone', 'like', '%'.$term.'%')
-                    ->orWhere('staff_name', 'like', '%'.$term.'%')
-                    ->orWhere('cdr_uuid', 'like', '%'.$term.'%');
-                if ($digits !== '') {
-                    $inner->orWhere('customer_phone_digits', 'like', '%'.$digits.'%');
-                }
-                $inner->orWhereHas('lead', function ($lead) use ($term) {
-                    $lead->where('name', 'like', '%'.$term.'%')
-                        ->orWhere('phone_number', 'like', '%'.$term.'%');
-                });
-            });
-        }
-
-        if (in_array($request->query('direction'), ['INBOUND', 'OUTBOUND'], true)) {
-            $query->where('direction', $request->query('direction'));
-        }
-
-        if (in_array($request->query('outcome'), ['answered', 'missed', 'unanswered', 'needs_callback', 'contacted', 'other', 'unknown'], true)) {
-            if ($request->query('outcome') === 'unknown') {
-                $query->whereNull('outcome');
-            } elseif ($request->query('outcome') === 'needs_callback') {
-                $query->awaitingCallback();
-            } elseif ($request->query('outcome') === 'contacted') {
-                $query->contacted();
-            } elseif ($request->query('outcome') === 'unanswered') {
-                $query->where(function ($inner) {
-                    $inner->where('outcome', 'unanswered')
-                        ->orWhere(function ($legacy) {
-                            $legacy->where('outcome', 'missed')->where('direction', 'OUTBOUND');
-                        });
-                });
-            } elseif ($request->query('outcome') === 'missed') {
-                $query->missed();
-            } else {
-                $query->where('outcome', $request->query('outcome'));
-            }
-        }
-
-        if ($request->query('matched') === 'yes') {
-            $query->where(function ($inner) {
-                $inner->whereNotNull('lead_id')->orWhereNotNull('booking_id');
-            });
-        } elseif ($request->query('matched') === 'no') {
-            $query->whereNull('lead_id')->whereNull('booking_id');
-        }
-
-        if ($request->filled('agent')) {
-            $query->where('staff_name', $request->query('agent'));
-        }
-
-        if ($request->filled('from')) {
-            $query->whereDate('started_at', '>=', $request->query('from'));
-        }
-        if ($request->filled('to')) {
-            $query->whereDate('started_at', '<=', $request->query('to'));
-        }
-
-        if ($sort === 'party') {
-            $query->leftJoin('providers as call_providers', 'call_providers.id', '=', 'superfone_calls.provider_id')
-                ->leftJoin('users as call_customers', 'call_customers.id', '=', 'superfone_calls.customer_user_id')
-                ->select('superfone_calls.*')
-                ->orderByRaw("COALESCE(NULLIF(call_providers.company_name, ''), NULLIF(call_providers.contact_person_name, ''), NULLIF(TRIM(CONCAT(COALESCE(call_customers.first_name, ''), ' ', COALESCE(call_customers.last_name, ''))), '')) {$direction}");
-        } elseif ($sort === 'booking') {
-            $query->leftJoin('bookings as call_bookings', 'call_bookings.id', '=', 'superfone_calls.booking_id')
-                ->select('superfone_calls.*')
-                ->orderByRaw('call_bookings.readable_id IS NULL')
-                ->orderBy('call_bookings.readable_id', $direction);
-        } else {
-            $column = $sortable[$sort] ?? 'superfone_calls.started_at';
-            $query->orderByRaw($column.' IS NULL')->orderBy($column, $direction);
-        }
-        $query->orderByDesc('superfone_calls.id');
+        [$sort, $direction] = $export->resolveSort($request);
+        $query = $export->query($request);
 
         $rowsOnly = $request->boolean('rows');
         $page = $rowsOnly ? max(1, (int) $request->query('page', 1)) : 1;
@@ -143,14 +49,7 @@ class SuperfoneCallController extends Controller
             ->flip()
             ->all();
         $contactMarks = SuperfoneCallContact::marksForCalls($calls->getCollection());
-        $agents = $rowsOnly
-            ? collect()
-            : SuperfoneCall::query()
-                ->whereNotNull('staff_name')
-                ->where('staff_name', '!=', '')
-                ->distinct()
-                ->orderBy('staff_name')
-                ->pluck('staff_name');
+        $agents = $rowsOnly ? collect() : $export->agents();
 
         $bookingChoices = [];
         foreach ($calls as $call) {
@@ -200,6 +99,77 @@ class SuperfoneCallController extends Controller
             'sort' => $sort,
             'dir' => $direction,
         ]);
+    }
+
+    public function export(Request $request, SuperfoneCallExcelExport $export): Renderable
+    {
+        $step = (int) $request->input('step', 1);
+        if (! in_array($step, [1, 2, 3], true)) {
+            $step = 1;
+        }
+
+        $keys = $export->resolveKeys($request);
+        if ($step === 3 && $keys === []) {
+            $step = 2;
+            toastr()->error(translate('Select_at_least_one_column'));
+        }
+
+        $sharedQuery = $export->sharedQuery($request);
+        [$sort, $direction] = $export->resolveSort($request);
+        $columns = $export->flatColumns();
+        $total = 0;
+        $previewRows = [];
+        if ($step === 3) {
+            $query = $export->query($request);
+            $total = (clone $query)->count();
+            $previewCalls = (clone $query)->limit(SuperfoneCallExcelExport::PREVIEW_LIMIT)->get();
+            $previewRows = $export->valueRows($previewCalls, $keys);
+        }
+
+        return view('leadmanagement::admin.calls.export', [
+            'step' => $step,
+            'groups' => $export->groups(),
+            'columns' => $columns,
+            'selectedKeys' => $keys,
+            'previewRows' => $previewRows,
+            'total' => $total,
+            'sharedQuery' => $sharedQuery,
+            'agents' => $export->agents(),
+            'outcomeOptions' => $export->outcomeOptions(),
+            'sortOptions' => $export->sortOptions(),
+            'sort' => $sort,
+            'dir' => $direction,
+            'q' => trim((string) $request->input('q', '')),
+            'outcome' => (string) $request->input('outcome', ''),
+            'agent' => (string) $request->input('agent', ''),
+            'matched' => (string) $request->input('matched', ''),
+            'callDirection' => (string) $request->input('direction', ''),
+            'from' => (string) $request->input('from', ''),
+            'to' => (string) $request->input('to', ''),
+            'backUrl' => route('admin.calls.index', $sharedQuery),
+        ]);
+    }
+
+    public function exportDownload(Request $request, SuperfoneCallExcelExport $export): StreamedResponse|RedirectResponse
+    {
+        $keys = $export->resolveKeys($request);
+        if ($keys === []) {
+            toastr()->error(translate('Select_at_least_one_column'));
+
+            return back();
+        }
+
+        $calls = $export->query($request)->get();
+        if ($calls->isEmpty()) {
+            toastr()->error(translate('No_results_found'));
+
+            return back();
+        }
+
+        $rows = $export->labeledRows($calls, $keys);
+        $fileName = 'calls-'.now('Asia/Kolkata')->format('Y-m-d-His').'.xlsx';
+
+        return (new FastExcel(collect($rows)))->download($fileName);
     }
 
     public function report(Request $request, SuperfoneCallReport $report, SuperfoneLeadCharts $leadCharts)

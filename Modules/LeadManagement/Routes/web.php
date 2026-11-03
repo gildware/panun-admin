@@ -175,6 +175,8 @@ Route::group([
 
     Route::group(['prefix' => 'calls', 'as' => 'calls.', 'middleware' => ['can:lead_view']], function () {
         Route::get('/', [SuperfoneCallController::class, 'index'])->name('index');
+        Route::get('export', [SuperfoneCallController::class, 'export'])->name('export');
+        Route::post('export', [SuperfoneCallController::class, 'exportDownload'])->name('export.download');
         Route::get('report', [SuperfoneCallController::class, 'report'])->name('report');
         Route::get('deleted', [DeletedCallController::class, 'index'])->name('deleted');
         Route::post('deleted/{id}/restore', [DeletedCallController::class, 'restore'])->name('deleted.restore');

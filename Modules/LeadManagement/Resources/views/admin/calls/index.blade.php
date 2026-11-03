@@ -330,6 +330,9 @@
                 </div>
                 <input type="hidden" name="sort" value="{{ $sort }}">
                 <input type="hidden" name="dir" value="{{ $dir }}">
+                <a href="{{ route('admin.calls.export', array_merge(request()->except(['page', 'rows']), ['step' => 1])) }}"
+                   class="btn btn--primary"
+                   data-turbo="false">{{ translate('Export') }}</a>
                 <a href="{{ route('admin.calls.index') }}" class="btn btn--secondary">{{ translate('Clear_filter') }}</a>
                 @php
                     $sortOptions = [
