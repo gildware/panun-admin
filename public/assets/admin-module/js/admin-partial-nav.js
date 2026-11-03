@@ -16,6 +16,7 @@
     var FULL_PAGE_PATH_PREFIXES = [
         '/admin/booking/download',
         '/admin/booking/export',
+        '/admin/calls/export',
         '/admin/booking/details',
         '/admin/booking/repeat-details',
         '/admin/booking/repeat-single-details',

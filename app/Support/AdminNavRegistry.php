@@ -436,7 +436,7 @@ class AdminNavRegistry
             self::entry('calls', $group, null, translate('Calls'), route('admin.calls.index'), [
                 'admin/calls',
                 'admin/calls/*',
-            ], ['admin.calls.index', 'admin.calls.show']),
+            ], ['admin.calls.index', 'admin.calls.show', 'admin.calls.export']),
             self::entry('calls', $group, null, translate('Call_report'), route('admin.calls.report'), [
                 'admin/calls/report',
             ], ['admin.calls.report']),
