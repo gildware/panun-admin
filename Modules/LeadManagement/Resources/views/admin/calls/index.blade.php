@@ -26,7 +26,21 @@
         .calls-list-card { overflow: hidden; }
         .calls-list-scroll { max-height: calc(100dvh - 16.5rem); overflow-x: auto; overflow-y: auto; }
         .calls-list-table thead th { position: sticky; top: 0; z-index: 2; background: #fff; box-shadow: inset 0 -1px 0 #e5e7eb; }
-        .calls-list-table { width: 100%; min-width: 1520px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
+        .calls-list-table { width: 100%; min-width: 1560px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
+        .calls-select-cell { width: 36px; text-align: center; overflow: visible !important; text-overflow: clip !important; }
+        .calls-select-cell .form-check-input { margin: 0; cursor: pointer; }
+        .calls-bulk-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.55rem 0.85rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f8fafc;
+        }
+        .calls-bulk-bar[hidden] { display: none !important; }
+        .calls-bulk-bar__meta { font-size: 0.8125rem; font-weight: 600; color: #111827; }
+        .calls-bulk-bar__actions { display: inline-flex; align-items: center; gap: 0.4rem; }
         .calls-list-table td.calls-call-id-cell { overflow: visible; text-overflow: clip; text-align: center; }
         .calls-copy-id { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
         .calls-copy-id .material-icons { font-size: 16px; line-height: 1; }
@@ -372,9 +386,34 @@
 
             <div class="card calls-list-card">
                 <div class="card-body">
+                @if(is_super_admin())
+                    <div class="calls-bulk-bar" id="calls-bulk-bar" hidden>
+                        <div class="calls-bulk-bar__meta">
+                            <span id="calls-bulk-count">0</span> {{ translate('selected') }}
+                        </div>
+                        <div class="calls-bulk-bar__actions">
+                            <button type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    id="calls-bulk-clear">
+                                {{ translate('Clear_selection') }}
+                            </button>
+                            <button type="button"
+                                    class="btn btn-danger btn-sm"
+                                    id="calls-bulk-delete"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#call-bulk-delete-modal">
+                                <span class="material-icons" aria-hidden="true" style="font-size:16px;vertical-align:middle;">delete</span>
+                                {{ translate('Delete_selected') }}
+                            </button>
+                        </div>
+                    </div>
+                @endif
                 <div class="calls-list-scroll" id="calls-list-scroll" data-has-more="{{ $calls->hasMorePages() ? '1' : '0' }}" data-next-page="2">
                     <table class="table table-striped table-hover table-sm align-middle mb-0 calls-list-table">
                         <colgroup>
+                            @if(is_super_admin())
+                                <col style="width: 36px">
+                            @endif
                             <col style="width: 11%">
                             <col style="width: 8%">
                             <col style="width: 7%">
@@ -396,8 +435,17 @@
                                     'dir' => $order,
                                 ]));
                             };
+                            $callsColspan = is_super_admin() ? 13 : 12;
                         @endphp
                         <tr>
+                            @if(is_super_admin())
+                                <th class="calls-select-cell">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           id="calls-select-all"
+                                           aria-label="{{ translate('Select_all') }}">
+                                </th>
+                            @endif
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Time') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'started_at'])</span></th>
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Call_id') }}</span></span></th>
                             <th><span class="calls-th"><span class="calls-th-label">{{ translate('Direction') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'direction'])</span></th>
@@ -415,7 +463,7 @@
                         <tbody id="calls-list-body">
                         @if($calls->isEmpty())
                             <tr>
-                                <td colspan="12" class="text-center text-muted py-3">{{ translate('No_calls_yet') }}</td>
+                                <td colspan="{{ $callsColspan }}" class="text-center text-muted py-3">{{ translate('No_calls_yet') }}</td>
                             </tr>
                         @else
                             @include('leadmanagement::admin.calls._rows')
@@ -573,6 +621,38 @@
                 </div>
             </div>
         </div>
+
+        <div class="modal fade" id="call-bulk-delete-modal" tabindex="-1" aria-labelledby="call-bulk-delete-modal-title" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-body pt-5 p-md-5">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                        <div class="d-flex justify-content-center mb-4">
+                            <img width="75" height="75"
+                                 src="{{ asset('assets/admin-module/img/media/delete.png') }}"
+                                 class="rounded-circle" alt="">
+                        </div>
+                        <h3 class="text-center mb-2 fw-medium" id="call-bulk-delete-modal-title">
+                            {{ translate('Are_you_sure_you_want_to_delete_these_calls') }}
+                        </h3>
+                        <p class="text-center fs-12 fw-medium text-muted mb-1" id="call-bulk-delete-modal-item"></p>
+                        <p class="text-center fs-12 text-muted mb-0">{{ translate('Calls_will_move_to_deleted_calls') }}</p>
+                        <form method="post" id="call-bulk-delete-form" action="{{ route('admin.calls.bulk-destroy') }}">
+                            @csrf
+                            <div id="call-bulk-delete-ids"></div>
+                            <div class="d-flex justify-content-center gap-3 mt-3">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
+                                    {{ translate('Cancel') }}
+                                </button>
+                                <button type="submit" class="btn btn-danger">
+                                    {{ translate('Delete') }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
     @endif
 @endsection
 
@@ -593,6 +673,7 @@
             var failed = false;
             var listRequestId = 0;
             var noCallsLabel = @json(translate('No_calls_yet'));
+            var callsColspan = {{ is_super_admin() ? 13 : 12 }};
 
             var bindTips = function (root) {
                 if (!window.bootstrap || !bootstrap.Tooltip) return;
@@ -628,7 +709,7 @@
             var setListHtml = function (html, hasMore, next) {
                 var trimmed = (html || '').trim();
                 if (trimmed === '') {
-                    body.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">' + noCallsLabel + '</td></tr>';
+                    body.innerHTML = '<tr><td colspan="' + callsColspan + '" class="text-center text-muted py-3">' + noCallsLabel + '</td></tr>';
                 } else {
                     var template = document.createElement('template');
                     template.innerHTML = '<table><tbody>' + trimmed + '</tbody></table>';
@@ -647,6 +728,9 @@
                     scroller.scrollTop = 0;
                 }
                 if (sentinel) sentinel.hidden = true;
+                if (typeof window.callsSelectionSync === 'function') {
+                    window.callsSelectionSync({ clearMissing: true });
+                }
             };
 
             var refreshList = function (options) {
@@ -726,6 +810,9 @@
                             body.appendChild(row);
                         });
                         bindTips(body);
+                        if (typeof window.callsSelectionSync === 'function') {
+                            window.callsSelectionSync();
+                        }
                     }
                     if (!data || !data.has_more || html === '') {
                         done = true;
@@ -855,6 +942,116 @@
                     labelEl.textContent = button.getAttribute('data-delete-label') || '';
                 }
             });
+        })();
+
+        (function () {
+            var body = document.getElementById('calls-list-body');
+            var selectAll = document.getElementById('calls-select-all');
+            var bulkBar = document.getElementById('calls-bulk-bar');
+            var bulkCount = document.getElementById('calls-bulk-count');
+            var bulkClear = document.getElementById('calls-bulk-clear');
+            var bulkModal = document.getElementById('call-bulk-delete-modal');
+            var bulkIds = document.getElementById('call-bulk-delete-ids');
+            var bulkItemLabel = document.getElementById('call-bulk-delete-modal-item');
+            if (!body || !selectAll || !bulkBar) return;
+
+            var selected = new Set();
+            var selectedLabel = @json(translate(':count_calls_selected'));
+
+            var rowChecks = function () {
+                return body.querySelectorAll('.calls-row-select');
+            };
+
+            var sync = function (options) {
+                options = options || {};
+                if (options.clearMissing) {
+                    var visible = {};
+                    rowChecks().forEach(function (input) {
+                        visible[String(input.value)] = true;
+                    });
+                    Array.from(selected).forEach(function (id) {
+                        if (!visible[id]) selected.delete(id);
+                    });
+                }
+
+                rowChecks().forEach(function (input) {
+                    var id = String(input.value);
+                    var isOn = selected.has(id);
+                    input.checked = isOn;
+                    var row = input.closest('tr');
+                    if (row) row.classList.toggle('table-active', isOn);
+                });
+
+                var checks = rowChecks();
+                var checkedVisible = 0;
+                checks.forEach(function (input) {
+                    if (input.checked) checkedVisible++;
+                });
+                selectAll.checked = checks.length > 0 && checkedVisible === checks.length;
+                selectAll.indeterminate = checkedVisible > 0 && checkedVisible < checks.length;
+
+                var count = selected.size;
+                if (bulkCount) bulkCount.textContent = String(count);
+                bulkBar.hidden = count <= 1;
+            };
+
+            window.callsSelectionSync = sync;
+
+            body.addEventListener('change', function (event) {
+                var input = event.target.closest('.calls-row-select');
+                if (!input) return;
+                var id = String(input.value);
+                if (input.checked) selected.add(id);
+                else selected.delete(id);
+                sync();
+            });
+
+            selectAll.addEventListener('change', function () {
+                rowChecks().forEach(function (input) {
+                    var id = String(input.value);
+                    if (selectAll.checked) selected.add(id);
+                    else selected.delete(id);
+                });
+                sync();
+            });
+
+            if (bulkClear) {
+                bulkClear.addEventListener('click', function () {
+                    selected.clear();
+                    sync();
+                });
+            }
+
+            if (bulkModal && bulkIds) {
+                bulkModal.addEventListener('show.bs.modal', function (event) {
+                    if (selected.size < 2) {
+                        event.preventDefault();
+                        return;
+                    }
+                    bulkIds.innerHTML = '';
+                    Array.from(selected).forEach(function (id) {
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'ids[]';
+                        input.value = id;
+                        bulkIds.appendChild(input);
+                    });
+                    if (bulkItemLabel) {
+                        bulkItemLabel.textContent = selectedLabel.replace(':count', String(selected.size));
+                    }
+                });
+
+                var bulkForm = document.getElementById('call-bulk-delete-form');
+                if (bulkForm) {
+                    bulkForm.addEventListener('submit', function (event) {
+                        if (selected.size < 2) {
+                            event.preventDefault();
+                        }
+                    });
+                }
+            }
+
+            sync();
         })();
 
         (function () {

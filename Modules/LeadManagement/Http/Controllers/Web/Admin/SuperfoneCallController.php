@@ -526,6 +526,31 @@ class SuperfoneCallController extends Controller
         return redirect()->route('admin.calls.deleted');
     }
 
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        abort_unless(is_super_admin(), 403);
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:2'],
+            'ids.*' => ['integer', 'distinct', 'min:1'],
+        ]);
+
+        $deleted = $this->calls->deleteMany(
+            $validated['ids'],
+            Auth::id() !== null ? (string) Auth::id() : null
+        );
+
+        if ($deleted === 0) {
+            toastr()->error(translate('No_calls_selected'));
+
+            return back();
+        }
+
+        toastr()->success(translate('Calls_moved_to_deleted_calls'));
+
+        return redirect()->route('admin.calls.deleted');
+    }
+
     public function markContacted(Request $request, SuperfoneCall $call): RedirectResponse
     {
         $stillOpen = SuperfoneCall::query()->awaitingCallback()->whereKey($call->id)->exists();

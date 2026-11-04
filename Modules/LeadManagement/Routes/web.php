@@ -185,6 +185,7 @@ Route::group([
         Route::get('booking-search', [SuperfoneCallController::class, 'searchBookings'])->name('booking-search');
         Route::get('api-logs', [SuperfoneApiLogController::class, 'index'])->name('api-logs');
         Route::get('api-logs/{log}', [SuperfoneApiLogController::class, 'show'])->name('api-logs.show');
+        Route::post('bulk-destroy', [SuperfoneCallController::class, 'bulkDestroy'])->name('bulk-destroy');
         Route::get('{call}/link-options', [SuperfoneCallController::class, 'linkOptions'])->name('link-options');
         Route::post('{call}/link', [SuperfoneCallController::class, 'linkLead'])->name('link');
         Route::post('{call}/booking', [SuperfoneCallController::class, 'linkBooking'])->name('booking');
