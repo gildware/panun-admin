@@ -99,7 +99,10 @@ class OTPVerificationController extends Controller
             ]), 401);
         }
 
-        $otp = generate_login_otp($identityType === 'phone' ? $identity : null);
+        $otp = resolve_session_login_otp(
+            $userVerification,
+            $identityType === 'phone' ? $identity : null
+        );
         $this->userVerification->updateOrCreate([
                 'identity' => $identity,
                 'identity_type'=> $identityType
