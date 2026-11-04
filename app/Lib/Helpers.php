@@ -281,6 +281,31 @@ if (!function_exists('generate_login_otp')) {
     }
 }
 
+if (!function_exists('resolve_session_login_otp')) {
+    /**
+     * Keep the same login/verification OTP for the active session.
+     * Resend reuses the existing code while it is still unexpired; otherwise a new OTP is generated.
+     *
+     * @param  object|null  $existing  user_verifications row (or null)
+     */
+    function resolve_session_login_otp(?object $existing, ?string $identity = null): string
+    {
+        $existingOtp = trim((string) ($existing->otp ?? ''));
+        $expiresAt = $existing->expires_at ?? null;
+
+        if (
+            $existingOtp !== ''
+            && preg_match('/^\d{4,6}$/', $existingOtp)
+            && $expiresAt
+            && Carbon::parse($expiresAt)->isFuture()
+        ) {
+            return $existingOtp;
+        }
+
+        return generate_login_otp($identity);
+    }
+}
+
 if (!function_exists('api_user')) {
     /**
      * Resolve the authenticated API user without throwing when the client sends

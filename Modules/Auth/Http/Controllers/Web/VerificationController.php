@@ -72,7 +72,7 @@ class VerificationController extends Controller
         }
 
         $otpIdentity = $request['identity_type'] === 'phone' ? (string) $request['identity'] : null;
-        $otp = generate_login_otp($otpIdentity);
+        $otp = resolve_session_login_otp($user_verification, $otpIdentity);
 
         $response = 'error';
         if (use_dummy_login_otp($otpIdentity)) {
