@@ -8,6 +8,15 @@
         'calls-row--contacted' => $contactMark && $contactMark->channel !== 'not_picked',
         'calls-row--not-picked' => $contactMark && $contactMark->channel === 'not_picked',
     ]) @if($needsCallback) title="{{ translate('Needs_callback') }}" @elseif($contactMark) title="{{ $contactMark->channelLabel() }}" @endif>
+        @if(is_super_admin())
+            <td class="calls-select-cell" onclick="event.stopPropagation()">
+                <input type="checkbox"
+                       class="form-check-input calls-row-select"
+                       value="{{ $call->id }}"
+                       data-delete-label="{{ $call->customer_phone ?: ($call->cdr_uuid ?: ('#'.$call->id)) }} · {{ $call->formatIst('started_at') }}"
+                       aria-label="{{ translate('Select_call') }}">
+            </td>
+        @endif
         <td>
             <a href="{{ route('admin.calls.show', $call) }}">
                 {{ $call->formatIst('started_at') }}
