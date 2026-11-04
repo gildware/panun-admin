@@ -11699,4 +11699,11 @@ _Message' => 'Customer notification for provider bid offer
   'Party_type' => 'Party type',
   'Lead_name' => 'Lead name',
   'Disposition' => 'Disposition',
+  'Clear_selection' => 'Clear selection',
+  'Delete_selected' => 'Delete selected',
+  'Select_call' => 'Select call',
+  'Are_you_sure_you_want_to_delete_these_calls' => 'Are you sure you want to delete these calls',
+  'Calls_will_move_to_deleted_calls' => 'Calls will move to deleted calls',
+  ':count_calls_selected' => ':count calls selected',
+  'Calls_moved_to_deleted_calls' => 'Calls moved to deleted calls',
 );

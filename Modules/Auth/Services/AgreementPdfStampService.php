@@ -14,13 +14,12 @@ class AgreementPdfStampService
      * Values: [left, top, right, bottom] as fractions of page width/height.
      */
     private const BOXES = [
-        [0.680, 0.867, 0.918, 0.934], // page 1
+        [0.683, 0.924, 0.921, 0.955], // page 1
         [0.683, 0.924, 0.921, 0.955], // page 2
-        [0.683, 0.924, 0.921, 0.955], // page 3
-        [0.684, 0.905, 0.922, 0.936], // page 4
-        [0.684, 0.905, 0.922, 0.936], // page 5
-        [0.684, 0.905, 0.922, 0.936], // page 6
-        [0.684, 0.905, 0.922, 0.936], // page 7
+        [0.685, 0.905, 0.922, 0.936], // page 3
+        [0.685, 0.905, 0.922, 0.936], // page 4
+        [0.685, 0.905, 0.922, 0.936], // page 5
+        [0.685, 0.905, 0.922, 0.936], // page 6
     ];
 
     public const STORAGE_DIR = 'business/provider-agreement/';

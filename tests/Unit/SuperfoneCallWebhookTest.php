@@ -39,6 +39,65 @@ class SuperfoneCallWebhookTest extends TestCase
         $this->assertTrue(SuperfoneCallService::isProvisionalDisposition('RINGING'));
     }
 
+    public function test_recording_or_answer_time_resolves_provisional_active_as_answered(): void
+    {
+        $this->assertSame(
+            'answered',
+            SuperfoneCallService::resolveOutcomeValue(
+                null,
+                'ACTIVE',
+                SuperfoneCallService::EVENT_RECORDING,
+                true,
+                true,
+            ),
+        );
+
+        $this->assertSame(
+            'answered',
+            SuperfoneCallService::resolveOutcomeValue(
+                null,
+                'ACTIVE',
+                SuperfoneCallService::EVENT_RECORDING,
+            ),
+        );
+
+        $this->assertSame(
+            'answered',
+            SuperfoneCallService::resolveOutcomeValue(
+                null,
+                'RINGING',
+                SuperfoneCallService::EVENT_ALL_CALLS,
+                true,
+            ),
+        );
+
+        $this->assertNull(
+            SuperfoneCallService::resolveOutcomeValue(
+                null,
+                'ACTIVE',
+                SuperfoneCallService::EVENT_ALL_CALLS,
+            ),
+        );
+
+        $this->assertSame(
+            'answered',
+            SuperfoneCallService::resolveOutcomeValue(
+                null,
+                'ANSWER',
+                SuperfoneCallService::EVENT_ALL_CALLS,
+            ),
+        );
+
+        $this->assertSame(
+            'missed',
+            SuperfoneCallService::resolveOutcomeValue(
+                null,
+                'NOANSWER',
+                SuperfoneCallService::EVENT_ALL_CALLS,
+            ),
+        );
+    }
+
     public function test_a_missed_call_notifies_only_when_it_newly_becomes_missed(): void
     {
         $this->assertTrue(SuperfoneCallService::shouldNotifyMissed(null, 'missed'));

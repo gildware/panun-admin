@@ -587,18 +587,32 @@ class SuperfoneCallService
 
     private function resolveOutcome(SuperfoneCall $call, string $event): ?string
     {
-        if ($event === self::EVENT_MISSED_CALL && $call->outcome !== 'answered') {
+        return self::resolveOutcomeValue(
+            $call->outcome,
+            $call->disposition,
+            $event,
+            $call->answered_at !== null,
+            filled($call->recording_url) || filled($call->recording_path),
+        );
+    }
+
+    /**
+     * Map Superfone disposition / call evidence to our outcome.
+     * Recording-available or an answer timestamp means answered even when
+     * Superfone still reports a provisional disposition like ACTIVE.
+     */
+    public static function resolveOutcomeValue(
+        ?string $currentOutcome,
+        ?string $disposition,
+        string $event,
+        bool $hasAnsweredAt = false,
+        bool $hasRecording = false,
+    ): ?string {
+        if ($event === self::EVENT_MISSED_CALL && $currentOutcome !== 'answered') {
             return 'missed';
         }
 
-        if (self::isProvisionalDisposition($call->disposition) && $event === self::EVENT_RECORDING) {
-            return $call->outcome;
-        }
-
-        $disposition = strtoupper((string) $call->disposition);
-        if ($disposition === '') {
-            return $call->outcome;
-        }
+        $disposition = strtoupper(trim((string) $disposition));
 
         if (in_array($disposition, self::ANSWERED_DISPOSITIONS, true)) {
             return 'answered';
@@ -608,11 +622,25 @@ class SuperfoneCallService
             return 'missed';
         }
 
-        if (self::isProvisionalDisposition($disposition)) {
-            return $call->outcome;
+        if ($disposition === '' || self::isProvisionalDisposition($disposition)) {
+            if (self::evidenceShowsAnswered($event, $hasAnsweredAt, $hasRecording)) {
+                return 'answered';
+            }
+
+            return $currentOutcome;
         }
 
         return 'other';
+    }
+
+    public static function evidenceShowsAnswered(
+        string $event,
+        bool $hasAnsweredAt = false,
+        bool $hasRecording = false,
+    ): bool {
+        return $hasAnsweredAt
+            || $hasRecording
+            || $event === self::EVENT_RECORDING;
     }
 
     public function unmatch(SuperfoneCall $call): SuperfoneCall
@@ -654,6 +682,31 @@ class SuperfoneCallService
         $call->delete();
 
         AdminMenuCounts::forget();
+    }
+
+    /**
+     * Soft-delete many calls. Returns how many were moved to deleted.
+     *
+     * @param  list<int|string>  $ids
+     */
+    public function deleteMany(array $ids, ?string $deletedBy = null): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id) => $id > 0)));
+        if ($ids === []) {
+            return 0;
+        }
+
+        $deleted = 0;
+        $calls = SuperfoneCall::query()->whereIn('id', $ids)->orderBy('id')->get();
+        foreach ($calls as $call) {
+            if ($call->trashed()) {
+                continue;
+            }
+            $this->delete($call, $deletedBy);
+            $deleted++;
+        }
+
+        return $deleted;
     }
 
     public function restore(SuperfoneCall $call): SuperfoneCall
