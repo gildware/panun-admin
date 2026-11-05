@@ -128,7 +128,8 @@ class SuperfoneCall extends Model
 
     /**
      * Inbound calls that still raise the Calls badge: misses, and calls Superfone
-     * never assigned to an agent. One later outbound call, or a manual
+     * never assigned to an agent. One later outbound call, one later answered call
+     * (e.g. the customer rang again and an agent picked up), or a manual
      * "mark contacted", clears every earlier one from that number.
      * The call rows keep their own result.
      */
@@ -162,7 +163,10 @@ class SuperfoneCall extends Model
                             ->from('superfone_calls as callbacks')
                             ->whereColumn('callbacks.customer_phone_digits', 'superfone_calls.customer_phone_digits')
                             ->where('callbacks.customer_phone_digits', '!=', '')
-                            ->where('callbacks.direction', 'OUTBOUND')
+                            ->where(function ($reached) {
+                                $reached->where('callbacks.direction', 'OUTBOUND')
+                                    ->orWhere('callbacks.outcome', 'answered');
+                            })
                             ->whereNull('callbacks.deleted_at')
                             ->whereRaw('COALESCE(callbacks.started_at, callbacks.created_at) >= COALESCE(superfone_calls.started_at, superfone_calls.created_at)');
                     })
