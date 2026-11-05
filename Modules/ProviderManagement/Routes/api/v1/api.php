@@ -12,6 +12,7 @@ use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderControll
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\DashboardBundleController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderShowcaseController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderQuestionnaireController;
+use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderAgreementController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ServiceController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\AccountController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\WithdrawController;
@@ -56,6 +57,9 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
 
     Route::get('questionnaire', [ProviderQuestionnaireController::class, 'show']);
     Route::put('questionnaire', [ProviderQuestionnaireController::class, 'update']);
+
+    Route::get('agreement', [ProviderAgreementController::class, 'show']);
+    Route::post('agreement/sign', [ProviderAgreementController::class, 'sign']);
 
     Route::group(['prefix' => 'payment', 'as' => 'payment.'], function () {
         Route::get('overview', [ProviderPaymentController::class, 'overview']);

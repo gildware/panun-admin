@@ -140,6 +140,8 @@ class AccountController extends Controller
 
         $questionnaireStatus = app(\Modules\ProviderManagement\Services\ProviderQuestionnaireService::class)
             ->statusFor($provider);
+        $agreementStatus = app(\Modules\ProviderManagement\Services\ProviderAgreementService::class)
+            ->statusFor($provider);
 
         return response()->json(response_formatter(DEFAULT_200, [
             'provider_info' => $provider,
@@ -151,6 +153,7 @@ class AccountController extends Controller
             'pending_branding_preview' => $pendingBrandingPreview,
             'can_use_advertisement' => providerCanUseAdvertisement($provider->id),
             'questionnaire' => $questionnaireStatus,
+            'agreement' => $agreementStatus,
         ]), 200);
     }
 
