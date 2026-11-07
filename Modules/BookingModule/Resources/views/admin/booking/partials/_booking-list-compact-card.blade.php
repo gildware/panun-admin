@@ -28,6 +28,10 @@
             . ' ' . date('h:ia', strtotime($booking->service_schedule));
     }
 
+    $bookedOnText = ! empty($booking->created_at)
+        ? date('d-M-Y', strtotime($booking->created_at)) . ' ' . date('h:ia', strtotime($booking->created_at))
+        : null;
+
     $scheduledFollowups = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
     $nextFuCustomer = $scheduledFollowups->where('for', 'customer')->first();
     $nextFuProvider = $scheduledFollowups->where('for', 'provider')->first();
@@ -117,9 +121,17 @@
             </span>
         </span>
         <span class="bc-grow"></span>
-        <span class="bc-header-schedule">
-            <span class="bc-lbl">{{ translate('Schedule') }}</span>
-            <span class="bc-val">{{ $scheduleText }}</span>
+        <span class="bc-header-times">
+            @if($bookedOnText)
+                <span class="bc-header-schedule">
+                    <span class="bc-lbl">{{ translate('Booked_on') }}</span>
+                    <span class="bc-val">{{ $bookedOnText }}</span>
+                </span>
+            @endif
+            <span class="bc-header-schedule">
+                <span class="bc-lbl">{{ translate('Schedule') }}</span>
+                <span class="bc-val">{{ $scheduleText }}</span>
+            </span>
         </span>
         <span class="bc-amount">{{ with_currency_symbol(get_booking_total_amount($booking)) }}</span>
         <div class="bc-actions">

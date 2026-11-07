@@ -162,7 +162,12 @@
         $('.showcase_deny').on('click', function () {
             let id = $(this).data('id');
             let route = '{{ route('admin.provider.showcase_approval_update', ['id' => ':id', 'status' => 'deny']) }}'.replace(':id', id);
-            route_alert_reload(route, '{{ translate('want_to_deny') }}', true);
+            route_alert_reload_with_reason(
+                route,
+                @json(translate('Why_are_you_denying')),
+                @json(translate('Why_are_you_denying')),
+                @json(translate('Please_tell_us_why_you_are_denying'))
+            );
         });
         $('.showcase_approve').on('click', function () {
             let id = $(this).data('id');

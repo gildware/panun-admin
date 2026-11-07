@@ -50,7 +50,8 @@ class AdminBookingListQueryService
             ->filterByCategoryIds($request->input('category_ids'))
             ->filterByDateRange($request->input('start_date'), $request->input('end_date'))
             ->filterByScheduleDateRange($request->input('schedule_start_date'), $request->input('schedule_end_date'))
-            ->filterByAssigneeIds($assigneeIds);
+            ->filterByAssigneeIds($assigneeIds)
+            ->filterByBookingSources((array) $request->input('booking_sources', []));
 
         return $query;
     }
@@ -82,6 +83,7 @@ class AdminBookingListQueryService
             'schedule_start_date' => (string) $request->input('schedule_start_date', ''),
             'schedule_end_date' => (string) $request->input('schedule_end_date', ''),
             'assignee_ids' => array_values($assigneeIds),
+            'booking_sources' => array_values((array) $request->input('booking_sources', [])),
             'repeat_only' => $repeatOnly,
             'max_booking_amount' => $maxBookingAmount,
         ]));

@@ -549,6 +549,12 @@
                                 <span>{{ translate('Zone') }}: {{ $booking->zone->name }}@if($booking->zone?->parentZone?->name) — {{ $booking->zone->parentZone->name }}@endif</span>
                             @endif
                         </div>
+                        <div class="booking-meta">
+                            @if(!empty($booking->service_schedule))
+                                <span>{{ translate('Schedule_on') }} {{ date('d-M-Y h:ia', strtotime($booking->service_schedule)) }}</span>
+                            @endif
+                            <span>{{ translate('Source') }}: {{ booking_source_display_label($booking->booking_source) }}</span>
+                        </div>
                     </div>
                     <div class="booking-header__badges">
                         @if($__showHeaderBookingCancelledWithRefunded && empty($__headerHasDisputedSnapshot))

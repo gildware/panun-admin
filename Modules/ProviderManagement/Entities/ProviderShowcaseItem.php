@@ -6,6 +6,7 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\BusinessSettingsModule\Entities\Storage;
+use Modules\UserManagement\Entities\User;
 
 class ProviderShowcaseItem extends Model
 {
@@ -21,6 +22,7 @@ class ProviderShowcaseItem extends Model
         'is_active' => 'integer',
         'is_approved' => 'integer',
         'sort_order' => 'integer',
+        'approved_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -32,6 +34,10 @@ class ProviderShowcaseItem extends Model
         'sort_order',
         'is_active',
         'is_approved',
+        'denied_by',
+        'denial_reason',
+        'approved_by',
+        'approved_at',
     ];
 
     public function scopeApproved($query)
@@ -49,6 +55,16 @@ class ProviderShowcaseItem extends Model
     public function provider(): BelongsTo
     {
         return $this->belongsTo(Provider::class, 'provider_id');
+    }
+
+    public function deniedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'denied_by');
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function storage()

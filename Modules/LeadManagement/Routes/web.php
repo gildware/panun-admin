@@ -32,6 +32,8 @@ Route::group([
 ], function () {
     Route::group(['prefix' => 'lead', 'as' => 'lead.'], function () {
         Route::get('/', [LeadController::class, 'index'])->middleware(['can:lead_view'])->name('index');
+        Route::get('export', [LeadController::class, 'export'])->middleware(['can:lead_export'])->name('export');
+        Route::post('export', [LeadController::class, 'exportDownload'])->middleware(['can:lead_export'])->name('export.download');
         Route::get('deleted', [DeletedLeadController::class, 'index'])->middleware(['can:lead_view'])->name('deleted');
         Route::post('deleted/{id}/restore', [DeletedLeadController::class, 'restore'])->middleware(['can:lead_delete'])->name('deleted.restore');
         Route::delete('deleted/{id}', [DeletedLeadController::class, 'forceDestroy'])->middleware(['can:lead_delete'])->name('deleted.force');

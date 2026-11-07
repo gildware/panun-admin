@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Modules\LeadManagement\Services\LeadListExcelExport;
+use Rap2hpoutre\FastExcel\FastExcel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -3958,5 +3961,124 @@ class LeadController extends Controller
         }
 
         return $path.$query;
+    }
+
+    public function export(Request $request, LeadListExcelExport $export): View
+    {
+        $scope = $export->resolveScope($request->input('scope'));
+        $request->merge(['scope' => $scope]);
+
+        $step = (int) $request->input('step', 1);
+        if (! in_array($step, [1, 2, 3], true)) {
+            $step = 1;
+        }
+
+        $keys = $export->resolveKeys($scope, $request);
+        if ($step === 3 && $keys === []) {
+            $step = 2;
+            toastr()->error(translate('Select_at_least_one_column'));
+        }
+
+        $sharedQuery = $export->sharedQuery($request);
+        $total = 0;
+        $previewRows = [];
+        if ($step === 3) {
+            $query = $export->present($export->query($request), $keys);
+            $matched = (clone $query)->count();
+            $limit = (int) $request->input('limit');
+            $total = $limit > 0 ? min($matched, $limit) : $matched;
+            $previewTake = min(LeadListExcelExport::PREVIEW_LIMIT, $total);
+            if ($previewTake > 0) {
+                $previewRows = $export->valueRows(
+                    (clone $query)->limit($previewTake)->get(),
+                    $keys,
+                    $scope
+                );
+            }
+        }
+
+        return view('leadmanagement::admin.leads.export', [
+            'step' => $step,
+            'scope' => $scope,
+            'scopes' => $export->scopes(),
+            'groups' => $export->groups($scope),
+            'columns' => $export->flatColumns($scope),
+            'selectedKeys' => $keys,
+            'customLabels' => $export->customLabels($scope, $request),
+            'previewRows' => $previewRows,
+            'total' => $total,
+            'sharedQuery' => $sharedQuery,
+            'showsFollowup' => $export->showsFollowup($scope),
+            'showsTemperature' => $export->showsTemperature($scope),
+            'filterOptions' => $step === 3 ? $export->filterOptions($scope) : [],
+            'search' => (string) $request->input('search', ''),
+            'leadStatus' => (string) $request->input('lead_status', 'all'),
+            'dateFrom' => (string) $request->input('date_from', ''),
+            'dateTo' => (string) $request->input('date_to', ''),
+            'followupFrom' => (string) $request->input('followup_from', ''),
+            'followupTo' => (string) $request->input('followup_to', ''),
+            'sort' => (string) $request->input('sort', 'latest'),
+            'limit' => $request->input('limit') ?: '',
+            'selectedSourceIds' => array_map('strval', (array) $request->input('source_id', [])),
+            'selectedAdSourceIds' => array_map('strval', (array) $request->input('ad_source_id', [])),
+            'selectedHandledBy' => array_map('strval', (array) $request->input('handled_by', [])),
+            'selectedTemperatures' => array_map('strval', (array) $request->input('lead_temperature', [])),
+            'selectedCustomerStatusIds' => array_map('strval', (array) $request->input('customer_status_id', [])),
+            'selectedCustomerZoneIds' => array_map('strval', (array) $request->input('customer_zone_id', [])),
+            'selectedCustomerCategoryIds' => array_map('strval', (array) $request->input('customer_category_id', [])),
+            'selectedCustomerSubCategoryIds' => array_map('strval', (array) $request->input('customer_sub_category_id', [])),
+            'estimatedDateFrom' => (string) $request->input('estimated_date_from', ''),
+            'estimatedDateTo' => (string) $request->input('estimated_date_to', ''),
+            'customerHasBooking' => (string) $request->input('customer_has_booking', 'all'),
+            'selectedProviderStatusIds' => array_map('strval', (array) $request->input('status_id', [])),
+            'selectedDistrictIds' => array_map('strval', (array) $request->input('district_id', [])),
+            'selectedZoneIds' => array_map('strval', (array) $request->input('zone_id', [])),
+            'selectedCategoryIds' => array_map('strval', (array) $request->input('category_id', [])),
+            'selectedFutureCustomerReasonIds' => array_map('strval', (array) $request->input('future_customer_reason_id', [])),
+            'selectedFutureProviderReasonIds' => array_map('strval', (array) $request->input('future_provider_reason_id', [])),
+            'selectedInvalidReasonIds' => array_map('strval', (array) $request->input('invalid_reason_id', [])),
+            'outboundEnquiryFilter' => (string) $request->input('outbound_enquiry_filter', 'all'),
+            'outboundEnquiryCount' => $request->input('outbound_enquiry_count'),
+            'backUrl' => route('admin.lead.index', ['tab' => $scope]),
+        ]);
+    }
+
+    public function exportDownload(Request $request, LeadListExcelExport $export): StreamedResponse|RedirectResponse
+    {
+        if (env('APP_ENV') === 'demo') {
+            toastr()->info('This function is disable for demo mode');
+
+            return back();
+        }
+
+        $scope = $export->resolveScope($request->input('scope'));
+        $request->merge(['scope' => $scope]);
+        $keys = $export->resolveKeys($scope, $request);
+        if ($keys === []) {
+            toastr()->error(translate('Select_at_least_one_column'));
+
+            return back();
+        }
+
+        $query = $export->present($export->query($request), $keys);
+        $limit = (int) $request->input('limit');
+        $matched = (clone $query)->count();
+        $total = $limit > 0 ? min($matched, $limit) : $matched;
+        if ($total === 0) {
+            toastr()->error(translate('No_results_found'));
+
+            return back();
+        }
+
+        $format = $request->input('format') === 'csv' ? 'csv' : 'xlsx';
+        $fileName = 'leads-'.$scope.'-'.now()->format('Y-m-d-His').'.'.$format;
+
+        return (new FastExcel($export->streamLabeledRows(
+            $query,
+            $keys,
+            $scope,
+            $limit,
+            $export->labelsFor($scope, $request, $keys)
+        )))->download($fileName);
     }
 }

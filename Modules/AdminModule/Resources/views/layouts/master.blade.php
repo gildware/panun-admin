@@ -346,6 +346,59 @@
         route_alert_reload(route, message, true);
     });
 
+    function route_alert_reload_with_reason(route, message, inputLabel, requiredMessage) {
+        Swal.fire({
+            title: "{{translate('are_you_sure')}}?",
+            text: message,
+            type: 'warning',
+            input: 'textarea',
+            inputPlaceholder: inputLabel,
+            inputAttributes: {
+                'aria-label': inputLabel,
+                maxlength: 1000
+            },
+            inputValidator: function (value) {
+                if (!value || !String(value).trim()) {
+                    return requiredMessage;
+                }
+                if (String(value).trim().length > 1000) {
+                    return requiredMessage;
+                }
+            },
+            showCancelButton: true,
+            cancelButtonColor: 'var(--bs-secondary)',
+            confirmButtonColor: 'var(--bs-primary)',
+            cancelButtonText: 'Cancel',
+            confirmButtonText: 'Yes',
+            reverseButtons: true
+        }).then(function (result) {
+            if (!result.value) {
+                return;
+            }
+            $.get({
+                url: route,
+                dataType: 'json',
+                data: {
+                    denial_reason: String(result.value).trim()
+                },
+                success: function (data) {
+                    setTimeout(location.reload.bind(location), 1000);
+                    toastr.success(data.message, {
+                        CloseButton: true,
+                        ProgressBar: true
+                    });
+                },
+                error: function (xhr) {
+                    var message = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : requiredMessage;
+                    toastr.error(message, {
+                        CloseButton: true,
+                        ProgressBar: true
+                    });
+                }
+            });
+        });
+    }
+
     function route_alert_reload(route, message, reload, status = null, id = null) {
         Swal.fire({
             title: "{{translate('are_you_sure')}}?",
