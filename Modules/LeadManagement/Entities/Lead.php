@@ -49,7 +49,16 @@ class Lead extends Model
 
     public static function assigneeIsHuman(?string $handledBy): bool
     {
-        return $handledBy !== null && $handledBy !== '' && $handledBy !== self::HANDLED_BY_AI;
+        if ($handledBy === null) {
+            return false;
+        }
+
+        $handledBy = trim($handledBy);
+
+        // "0" is int-cast garbage from UUID admin ids ( (int) "uuid…" === 0 ), not a user.
+        return $handledBy !== ''
+            && $handledBy !== '0'
+            && $handledBy !== self::HANDLED_BY_AI;
     }
 
     public static function leadTypes(): array

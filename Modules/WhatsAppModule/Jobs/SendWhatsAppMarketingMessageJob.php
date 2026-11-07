@@ -94,7 +94,7 @@ class SendWhatsAppMarketingMessageJob implements ShouldQueue
             } elseif ($bodyStrings !== []) {
                 $preview .= "\n" . implode(' | ', $bodyStrings);
             }
-            $actingAdminUserId = $campaign->created_by ? (int) $campaign->created_by : null;
+            $actingAdminUserId = $campaign->created_by ? (string) $campaign->created_by : null;
             try {
                 $messagePersistence->persistOutboundAutomation(
                     $message->phone_e164,

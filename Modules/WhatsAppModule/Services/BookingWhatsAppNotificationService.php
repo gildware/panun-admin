@@ -3176,11 +3176,16 @@ class BookingWhatsAppNotificationService
         return !array_key_exists($ek, $config) || filter_var($config[$ek], FILTER_VALIDATE_BOOLEAN);
     }
 
-    protected function triggerAdminId(): ?int
+    protected function triggerAdminId(): ?string
     {
         $u = Auth::user();
+        if (! $u) {
+            return null;
+        }
 
-        return $u ? (int) $u->getAuthIdentifier() : null;
+        $id = trim((string) $u->getAuthIdentifier());
+
+        return $id !== '' && $id !== '0' ? $id : null;
     }
 
     /**
@@ -3261,7 +3266,7 @@ class BookingWhatsAppNotificationService
         ?array $headerTextPlan = null,
         ?string $headerMediaUrl = null,
         ?string $headerMediaFormat = null,
-        ?int $actingAdminUserId = null,
+        ?string $actingAdminUserId = null,
     ): bool {
         $err = null;
         $graphContext = null;
@@ -3447,7 +3452,7 @@ class BookingWhatsAppNotificationService
         array $logCtx,
         ?string $headerMediaUrl = null,
         ?string $headerMediaFormat = null,
-        ?int $actingAdminUserId = null,
+        ?string $actingAdminUserId = null,
     ): bool {
         $ctx = array_merge($logCtx, ['message_key' => $waStorageKey]);
 
@@ -3772,7 +3777,7 @@ class BookingWhatsAppNotificationService
     /**
      * @param  array<string, string>  $vars
      */
-    public function sendConfiguredLedgerMeta(string $messageKey, array $vars, ?string $phoneRaw, ?int $actingAdminUserId = null): bool
+    public function sendConfiguredLedgerMeta(string $messageKey, array $vars, ?string $phoneRaw, ?string $actingAdminUserId = null): bool
     {
         $this->ledgerSendFailureDetail = null;
         $config = $this->getConfig();
@@ -3808,7 +3813,7 @@ class BookingWhatsAppNotificationService
     /**
      * @param  array<string, string>  $vars
      */
-    public function sendConfiguredLedgerMetaToProvider(Provider $provider, string $messageKey, array $vars, ?int $actingAdminUserId = null): bool
+    public function sendConfiguredLedgerMetaToProvider(Provider $provider, string $messageKey, array $vars, ?string $actingAdminUserId = null): bool
     {
         $provider->loadMissing(['owner']);
         $config = $this->getConfig();
@@ -3986,7 +3991,7 @@ class BookingWhatsAppNotificationService
         string $waId,
         string $messageType = 'TEXT',
         ?string $mediaPath = null,
-        ?int $actingAdminUserId = null,
+        ?string $actingAdminUserId = null,
     ): ?WhatsAppMessage {
         try {
             $actor = $actingAdminUserId ?? $this->triggerAdminId();

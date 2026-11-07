@@ -100,7 +100,7 @@ class BookingWhatsAppAdminPromptService
         if (! is_array($bag)) {
             return ['ok' => false, 'message' => translate('Request expired or invalid. Please try the action again.')];
         }
-        if ((int) ($bag['admin_user_id'] ?? 0) !== (int) auth()->id()) {
+        if ((string) ($bag['admin_user_id'] ?? '') !== (string) (auth()->id() ?? '')) {
             return ['ok' => false, 'message' => translate('Access_denied')];
         }
 
@@ -130,7 +130,7 @@ class BookingWhatsAppAdminPromptService
         if (! is_array($bag)) {
             return ['ok' => false, 'message' => translate('Request expired or invalid. Please try the action again.')];
         }
-        if ((int) ($bag['admin_user_id'] ?? 0) !== (int) auth()->id()) {
+        if ((string) ($bag['admin_user_id'] ?? '') !== (string) (auth()->id() ?? '')) {
             return ['ok' => false, 'message' => translate('Access_denied')];
         }
         $rows = $bag['rows'] ?? [];

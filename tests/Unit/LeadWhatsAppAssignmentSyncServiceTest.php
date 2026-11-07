@@ -22,4 +22,13 @@ class LeadWhatsAppAssignmentSyncServiceTest extends TestCase
         $this->assertSame(Lead::HANDLED_BY_AI, LeadWhatsAppAssignmentSyncService::chatHandlerForLead(''));
         $this->assertSame(Lead::HANDLED_BY_AI, LeadWhatsAppAssignmentSyncService::chatHandlerForLead(Lead::HANDLED_BY_AI));
     }
+
+    public function test_assignee_is_human_rejects_int_cast_zero(): void
+    {
+        $this->assertFalse(Lead::assigneeIsHuman(null));
+        $this->assertFalse(Lead::assigneeIsHuman(''));
+        $this->assertFalse(Lead::assigneeIsHuman('0'));
+        $this->assertFalse(Lead::assigneeIsHuman(Lead::HANDLED_BY_AI));
+        $this->assertTrue(Lead::assigneeIsHuman('emp-uuid-1'));
+    }
 }

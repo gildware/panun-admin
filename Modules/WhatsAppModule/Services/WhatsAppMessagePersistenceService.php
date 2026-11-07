@@ -296,10 +296,16 @@ class WhatsAppMessagePersistenceService
         string $body,
         ?string $waMessageId,
         string $sentByLabel,
-        ?int $actingAdminUserId = null,
+        ?string $actingAdminUserId = null,
         string $messageType = 'TEXT',
         ?string $mediaPath = null
     ): WhatsAppMessage {
+        $actorId = $actingAdminUserId !== null ? trim($actingAdminUserId) : '';
+        // User ids are UUIDs; never treat int-cast "0" as a real admin.
+        if ($actorId === '' || ! \Modules\LeadManagement\Entities\Lead::assigneeIsHuman($actorId)) {
+            $actorId = null;
+        }
+
         $msg = new WhatsAppMessage();
         $msg->fill([
             'phone' => $normalizedPhone,
@@ -307,8 +313,8 @@ class WhatsAppMessagePersistenceService
             'direction' => 'OUT',
             'message_type' => $messageType,
             'wa_message_id' => $waMessageId,
-            'sent_by_id' => $actingAdminUserId,
-            'sent_by' => $actingAdminUserId === null ? $sentByLabel : null,
+            'sent_by_id' => $actorId,
+            'sent_by' => $actorId === null ? $sentByLabel : null,
         ]);
         if ($mediaPath !== null && $mediaPath !== '') {
             $msg->media_path = $mediaPath;
@@ -318,10 +324,10 @@ class WhatsAppMessagePersistenceService
         );
         $msg->save();
 
-        if ($actingAdminUserId !== null) {
+        if ($actorId !== null) {
             $waUser = WhatsAppUser::firstOrNew(['phone' => $normalizedPhone]);
             $previousHandler = $waUser->exists ? ($waUser->handled_by ?? null) : null;
-            $newHandler = (string) $actingAdminUserId;
+            $newHandler = $actorId;
             $waUser->handled_by = $newHandler;
             $waUser->save();
 
