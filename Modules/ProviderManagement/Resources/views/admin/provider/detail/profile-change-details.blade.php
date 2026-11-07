@@ -6,7 +6,10 @@
     @php
         $isPending = $changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING;
         $isApproved = $changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_APPROVED;
-        $backUrl = route('admin.provider.profile_change_request', ['status' => 'pending']);
+        $backStatus = $isApproved ? 'accepted' : ($isPending ? 'pending' : 'denied');
+        $backUrl = route('admin.provider.profile_change_request', ['status' => $backStatus]);
+        $reviewerName = trim(($changeRequest->reviewer->first_name ?? '').' '.($changeRequest->reviewer->last_name ?? ''));
+        $denialReason = $changeRequest->denial_reason ?: $changeRequest->admin_note;
     @endphp
 
     <div class="main-content">
@@ -37,6 +40,17 @@
                             <p class="mb-0 text-muted small">
                                 {{ translate('Profile_change_review_completed_message') }}
                             </p>
+                            @if($isApproved)
+                                <p class="mb-0 mt-2 small">
+                                    <span class="me-3">{{ translate('Accepted_by') }}: {{ $reviewerName !== '' ? $reviewerName : '—' }}</span>
+                                    <span>{{ translate('Accepted_on') }}: {{ $changeRequest->reviewed_at ? $changeRequest->reviewed_at->format('d M Y, h:i A') : '—' }}</span>
+                                </p>
+                            @else
+                                <p class="mb-0 mt-2 small">
+                                    <span class="me-3">{{ translate('Denied_by') }}: {{ $reviewerName !== '' ? $reviewerName : '—' }}</span>
+                                    <span>{{ translate('Denial_reason') }}: {{ $denialReason ?: '—' }}</span>
+                                </p>
+                            @endif
                         </div>
                         <a href="{{ $backUrl }}" class="btn btn--primary">
                             {{ translate('Go_back_to_requests') }}
@@ -256,61 +270,113 @@
             return decisions;
         }
 
+        function promptDenialReason() {
+            return Swal.fire({
+                title: "{{ translate('are_you_sure') }}?",
+                text: @json(translate('Why_are_you_denying')),
+                type: 'warning',
+                input: 'textarea',
+                inputPlaceholder: @json(translate('Why_are_you_denying')),
+                inputAttributes: {
+                    'aria-label': @json(translate('Why_are_you_denying')),
+                    maxlength: 1000
+                },
+                inputValidator: function (value) {
+                    if (!value || !String(value).trim()) {
+                        return @json(translate('Please_tell_us_why_you_are_denying'));
+                    }
+                    if (String(value).trim().length > 1000) {
+                        return @json(translate('Please_tell_us_why_you_are_denying'));
+                    }
+                },
+                showCancelButton: true,
+                cancelButtonColor: 'var(--bs-secondary)',
+                confirmButtonColor: 'var(--bs-danger)',
+                cancelButtonText: '{{ translate('cancel') }}',
+                confirmButtonText: '{{ translate('Deny') }}',
+                reverseButtons: true
+            });
+        }
+
+        function denyingLastOpenField() {
+            return $('.change-review-row[data-review-status="pending"]').length === 1
+                && $('.change-review-row[data-review-status="approved"]').length === 0;
+        }
+
+        function postBulkReview(approved, $button, denialReason) {
+            const decisions = collectPendingFieldDecisions(approved);
+            if (!decisions.length || $button.prop('disabled')) {
+                return;
+            }
+
+            $button.prop('disabled', true);
+
+            const payload = {
+                _token: '{{ csrf_token() }}'
+            };
+            if (denialReason) {
+                payload.denial_reason = denialReason;
+            }
+            decisions.forEach(function (item, index) {
+                payload['decisions[' + index + '][field_key]'] = item.field_key;
+                payload['decisions[' + index + '][approved]'] = item.approved;
+            });
+
+            $.ajax({
+                url: reviewAllUrl,
+                method: 'POST',
+                dataType: 'json',
+                data: payload,
+                success: function (data) {
+                    decisions.forEach(function (item) {
+                        markRowReviewed(item.field_key, !!item.approved);
+                    });
+                    handleReviewSuccess(data);
+                },
+                error: function (xhr) {
+                    $button.prop('disabled', false);
+                    const message = xhr.responseJSON?.message || '{{ translate('failed_to_update') }}';
+                    toastr.error(message, {
+                        CloseButton: true,
+                        ProgressBar: true
+                    });
+                }
+            });
+        }
+
         function submitBulkReview(approved, $button) {
             const decisions = collectPendingFieldDecisions(approved);
             if (!decisions.length || $button.prop('disabled')) {
                 return;
             }
 
-            const confirmText = approved
-                ? '{{ translate('Accept_all_changes_confirm') }}'
-                : '{{ translate('Deny_all_changes_confirm') }}';
+            if (!approved) {
+                promptDenialReason().then(function (result) {
+                    if (!result.value) {
+                        return;
+                    }
+
+                    postBulkReview(false, $button, String(result.value).trim());
+                });
+                return;
+            }
 
             Swal.fire({
                 title: "{{ translate('are_you_sure') }}?",
-                text: confirmText,
+                text: '{{ translate('Accept_all_changes_confirm') }}',
                 type: 'warning',
                 showCancelButton: true,
                 cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: approved ? 'var(--bs-success)' : 'var(--bs-danger)',
+                confirmButtonColor: 'var(--bs-success)',
                 cancelButtonText: '{{ translate('cancel') }}',
-                confirmButtonText: approved ? '{{ translate('Accept_All') }}' : '{{ translate('Deny_All') }}',
+                confirmButtonText: '{{ translate('Accept_All') }}',
                 reverseButtons: true
             }).then((result) => {
                 if (!result.value) {
                     return;
                 }
 
-                $button.prop('disabled', true);
-
-                const payload = {
-                    _token: '{{ csrf_token() }}'
-                };
-                decisions.forEach(function (item, index) {
-                    payload['decisions[' + index + '][field_key]'] = item.field_key;
-                    payload['decisions[' + index + '][approved]'] = item.approved;
-                });
-
-                $.ajax({
-                    url: reviewAllUrl,
-                    method: 'POST',
-                    dataType: 'json',
-                    data: payload,
-                    success: function (data) {
-                        decisions.forEach(function (item) {
-                            markRowReviewed(item.field_key, !!item.approved);
-                        });
-                        handleReviewSuccess(data);
-                    },
-                    error: function (xhr) {
-                        $button.prop('disabled', false);
-                        const message = xhr.responseJSON?.message || '{{ translate('failed_to_update') }}';
-                        toastr.error(message, {
-                            CloseButton: true,
-                            ProgressBar: true
-                        });
-                    }
-                });
+                postBulkReview(true, $button);
             });
         }
 
@@ -322,22 +388,27 @@
             submitBulkReview(false, $(this));
         });
 
-        function submitFieldReview(fieldKey, approved, $button) {
+        function submitFieldReview(fieldKey, approved, $button, denialReason) {
             if (!fieldKey || $button.prop('disabled')) {
                 return;
             }
 
             $button.closest('.table-actions').find('button').prop('disabled', true);
 
+            const payload = {
+                _token: '{{ csrf_token() }}',
+                field_key: fieldKey,
+                approved: approved ? 1 : 0
+            };
+            if (denialReason) {
+                payload.denial_reason = denialReason;
+            }
+
             $.ajax({
                 url: reviewFieldUrl,
                 method: 'POST',
                 dataType: 'json',
-                data: {
-                    _token: '{{ csrf_token() }}',
-                    field_key: fieldKey,
-                    approved: approved ? 1 : 0
-                },
+                data: payload,
                 success: function (data) {
                     toastr.success(data.message, {
                         CloseButton: true,
@@ -359,6 +430,18 @@
         function confirmFieldReview($button, approved) {
             const fieldKey = String($button.data('field-key') || '');
             const fieldLabel = String($button.data('field-label') || fieldKey);
+
+            if (!approved && denyingLastOpenField()) {
+                promptDenialReason().then(function (result) {
+                    if (!result.value) {
+                        return;
+                    }
+
+                    submitFieldReview(fieldKey, false, $button, String(result.value).trim());
+                });
+                return;
+            }
+
             const confirmText = approved
                 ? '{{ translate('Approve_field_change_confirm') }}'.replace(':field', fieldLabel)
                 : '{{ translate('Deny_field_change_confirm') }}'.replace(':field', fieldLabel);

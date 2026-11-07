@@ -696,7 +696,7 @@ class AdminNavRegistry
             self::entry('providers', $group, null, translate('Add_New_Provider'), route('admin.provider.create'), ['admin/provider/create']),
             self::entry('providers', $group, null, translate('Provider_Live_View'), route('admin.provider.live-view'), ['admin/provider/live-view*']),
             self::entry('providers', $group, null, translate('Provider_List'), route('admin.provider.list', ['status' => 'all']), [
-                'admin/provider/list', 'admin/provider/details*', 'admin/provider/edit*', 'admin/provider/collect-cash*',
+                'admin/provider/list', 'admin/provider/export*', 'admin/provider/details*', 'admin/provider/edit*', 'admin/provider/collect-cash*',
             ]),
             self::entry('providers', $group, null, translate('Work_Showcase_Approvals'), route('admin.provider.showcase_approval', ['status' => 'pending']), ['admin/provider/showcase-approval*']),
             self::entry('providers', $group, null, translate('Profile_Update_Requests'), route('admin.provider.profile_change_request', ['status' => 'pending']), ['admin/provider/profile-change*']),

@@ -201,6 +201,15 @@
                             <span class="ob-badge ob-badge--ok">{{ translate('Phone_Verified') }}</span>
                         @endif
                     </div>
+                    @if((int) $provider->is_approved === 0)
+                        @php
+                            $deniedByName = trim(($provider->deniedBy->first_name ?? '').' '.($provider->deniedBy->last_name ?? ''));
+                        @endphp
+                        <div class="ob-preview-meta mt-2">
+                            <span>{{ translate('Denied_by') }}: {{ $deniedByName !== '' ? $deniedByName : '—' }}</span>
+                            <span>{{ translate('Denial_reason') }}: {{ $provider->denial_reason ?: '—' }}</span>
+                        </div>
+                    @endif
                 </div>
                 <div class="d-flex align-items-center flex-wrap gap-2">
                     @can('onboarding_request_update')
@@ -213,6 +222,10 @@
                         @if($provider->is_approved == 2)
                             <button type="button" class="btn btn-danger btn-sm text-capitalize provider_approval"
                                     data-approve="{{ $provider->id }}">{{ translate('Reject') }}</button>
+                        @endif
+                        @if(in_array((int) $provider->is_approved, [0, 1], true))
+                            <button type="button" class="btn btn--secondary btn-sm text-capitalize provider_move_pending"
+                                    data-approve="{{ $provider->id }}">{{ translate('Move_to_pending') }}</button>
                         @endif
                         @if($provider->is_approved == 0 || $provider->is_approved == 2)
                             <button type="button" class="btn btn--success btn-sm text-capitalize approval_provider"
@@ -577,7 +590,12 @@
         $('.showcase_deny').on('click', function () {
             let id = $(this).data('id');
             let route = '{{ route('admin.provider.showcase_approval_update', ['id' => ':id', 'status' => 'deny']) }}'.replace(':id', id);
-            route_alert_reload(route, '{{ translate('want_to_deny') }}', true);
+            route_alert_reload_with_reason(
+                route,
+                @json(translate('Why_are_you_denying')),
+                @json(translate('Why_are_you_denying')),
+                @json(translate('Please_tell_us_why_you_are_denying'))
+            );
         });
         $('.showcase_approve').on('click', function () {
             let id = $(this).data('id');
@@ -589,7 +607,12 @@
             let itemId = $(this).data('approve');
             let route = '{{ route('admin.provider.update-approval', ['id' => ':itemId', 'status' => 'deny']) }}';
             route = route.replace(':itemId', itemId);
-            route_alert_reload(route, '{{ translate('want_to_deny_the_provider') }}', true);
+            route_alert_reload_with_reason(
+                route,
+                @json(translate('Why_are_you_denying')),
+                @json(translate('Why_are_you_denying')),
+                @json(translate('Please_tell_us_why_you_are_denying'))
+            );
         });
 
         $('.approval_provider').on('click', function () {
@@ -597,6 +620,13 @@
             let route = '{{ route('admin.provider.update-approval', ['id' => ':itemId', 'status' => 'approve']) }}';
             route = route.replace(':itemId', itemId);
             route_alert_reload(route, '{{ translate('want_to_approve_the_provider') }}', true);
+        });
+
+        $('.provider_move_pending').on('click', function () {
+            let itemId = $(this).data('approve');
+            let route = '{{ route('admin.provider.update-approval', ['id' => ':itemId', 'status' => 'pending']) }}';
+            route = route.replace(':itemId', itemId);
+            route_alert_reload(route, '{{ translate('want_to_move_the_provider_back_to_pending') }}', true);
         });
     </script>
 @endpush

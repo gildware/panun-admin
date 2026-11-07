@@ -72,6 +72,8 @@ use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\ProviderManagement\Services\ProviderBookingSettlementNetResolver;
 use Modules\ProviderManagement\Services\ProviderContactUniquenessGuard;
+use Modules\ProviderManagement\Services\ProviderDirectoryExcelExport;
+use Modules\ProviderManagement\Services\ProviderDirectoryXlsxWriter;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 use Modules\WhatsAppModule\Services\LedgerPaymentWhatsAppService;
@@ -2779,6 +2781,10 @@ class ProviderController extends Controller
         if ($provider->is_approved == '2' || $provider->is_approved == '0') {
             $provider->is_approved = 1;
             $provider->is_active = 1;
+            $provider->approved_by = auth()->id();
+            $provider->approved_at = now();
+            $provider->denied_by = null;
+            $provider->denial_reason = null;
             $owner->is_active = 1;
 
             $emailStatus = business_config('email_config_status', 'email_config')->live_values;
@@ -3234,11 +3240,27 @@ class ProviderController extends Controller
 
         $this->authorize('onboarding_request_view');
 
-        $status = $request->status == 'denied' ? 'denied' : 'onboarding';
+        $status = match ($request->status) {
+            'denied' => 'denied',
+            'accepted' => 'accepted',
+            default => 'onboarding',
+        };
         $search = $request['search'];
         $queryParam = ['status' => $status, 'search' => $request['search']];
+        $approvalStatus = match ($status) {
+            'denied' => 0,
+            'accepted' => 1,
+            default => 2,
+        };
 
-        $providers = $this->provider->with(['owner', 'zone'])
+        $providers = $this->provider->with([
+            'owner',
+            'zone',
+            'deniedBy',
+            'approvedBy',
+            'subscribed_services.category',
+            'subscribed_services.sub_category',
+        ])
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 foreach ($keys as $key) {
@@ -3248,14 +3270,16 @@ class ProviderController extends Controller
                         ->orWhere('contact_person_email', 'LIKE', '%' . $key . '%');
                 }
             })
-            ->ofApproval($status == 'onboarding' ? 2 : 0)
+            ->ofApproval($approvalStatus)
+            ->when($status === 'accepted', fn ($query) => $query->orderByDesc('approved_at'))
             ->latest()
             ->paginate(pagination_limit())
             ->appends($queryParam);
 
         $providersCount = [
-            'onboarding' => $this->provider->ofApproval(2)->get()->count(),
-            'denied' => $this->provider->ofApproval(0)->get()->count(),
+            'onboarding' => $this->provider->ofApproval(2)->count(),
+            'denied' => $this->provider->ofApproval(0)->count(),
+            'accepted' => $this->provider->ofApproval(1)->count(),
         ];
 
         return View('providermanagement::admin.provider.onboarding', compact('providers', 'search', 'status', 'providersCount'));
@@ -3271,7 +3295,7 @@ class ProviderController extends Controller
     {
         $this->authorize('onboarding_request_view');
         $provider = $this->provider
-            ->with(['owner', 'owner.account', 'zone', 'zones.parentZone', 'areas', 'storage'])
+            ->with(['owner', 'owner.account', 'zone', 'zones.parentZone', 'areas', 'storage', 'deniedBy'])
             ->withCount(['bookings'])
             ->findOrFail($id);
 
@@ -3354,11 +3378,21 @@ class ProviderController extends Controller
     {
         $this->authorize('onboarding_request_view');
 
-        $status = $request->status === 'denied' ? 'denied' : 'pending';
+        $status = match ($request->status) {
+            'denied' => 'denied',
+            'accepted' => 'accepted',
+            default => 'pending',
+        };
         $search = $request['search'];
         $queryParam = ['status' => $status, 'search' => $request['search']];
+        $approvalStatus = match ($status) {
+            'denied' => ProviderShowcaseItem::STATUS_DENIED,
+            'accepted' => ProviderShowcaseItem::STATUS_APPROVED,
+            default => ProviderShowcaseItem::STATUS_PENDING,
+        };
 
-        $query = ProviderShowcaseItem::with(['provider.owner', 'storage'])
+        $query = ProviderShowcaseItem::with(['provider.owner', 'storage', 'deniedBy', 'approvedBy'])
+            ->where('is_approved', $approvalStatus)
             ->when($request->has('search'), function ($q) use ($request) {
                 $keys = explode(' ', $request['search']);
                 $q->whereHas('provider', function ($pq) use ($keys) {
@@ -3369,31 +3403,44 @@ class ProviderController extends Controller
                 });
             });
 
-        if ($status === 'denied') {
-            $query->where('is_approved', ProviderShowcaseItem::STATUS_DENIED);
-        } else {
-            $query->where('is_approved', ProviderShowcaseItem::STATUS_PENDING);
-        }
-
-        $items = $query->latest()->paginate(pagination_limit())->appends($queryParam);
+        $items = $query
+            ->when($status === 'accepted', fn ($q) => $q->latest('approved_at'), fn ($q) => $q->latest())
+            ->paginate(pagination_limit())
+            ->appends($queryParam);
 
         $counts = [
             'pending' => ProviderShowcaseItem::where('is_approved', ProviderShowcaseItem::STATUS_PENDING)->count(),
             'denied' => ProviderShowcaseItem::where('is_approved', ProviderShowcaseItem::STATUS_DENIED)->count(),
+            'accepted' => ProviderShowcaseItem::where('is_approved', ProviderShowcaseItem::STATUS_APPROVED)->count(),
         ];
 
         return view('providermanagement::admin.provider.showcase-approval', compact('items', 'search', 'status', 'counts'));
     }
 
-    public function updateShowcaseApproval(string $id, string $status): JsonResponse
+    public function updateShowcaseApproval(Request $request, string $id, string $status): JsonResponse
     {
         $this->authorize('onboarding_request_manage_status');
 
         $item = ProviderShowcaseItem::findOrFail($id);
         if ($status === 'approve') {
             $item->is_approved = ProviderShowcaseItem::STATUS_APPROVED;
+            $item->approved_by = auth()->id();
+            $item->approved_at = now();
+            $item->denied_by = null;
+            $item->denial_reason = null;
         } elseif ($status === 'deny') {
+            $validator = Validator::make($request->all(), [
+                'denial_reason' => 'required|string|max:1000',
+            ]);
+            if ($validator->fails()) {
+                return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+            }
+
             $item->is_approved = ProviderShowcaseItem::STATUS_DENIED;
+            $item->denied_by = auth()->id();
+            $item->denial_reason = trim((string) $request->input('denial_reason'));
+            $item->approved_by = null;
+            $item->approved_at = null;
         } else {
             return response()->json(response_formatter(DEFAULT_400), 400);
         }
@@ -3409,11 +3456,21 @@ class ProviderController extends Controller
     {
         $this->authorize('onboarding_request_view');
 
-        $status = $request->status === 'denied' ? 'denied' : 'pending';
+        $status = match ($request->status) {
+            'denied' => 'denied',
+            'accepted' => 'accepted',
+            default => 'pending',
+        };
         $search = $request['search'];
         $queryParam = ['status' => $status, 'search' => $request['search']];
+        $requestStatus = match ($status) {
+            'denied' => ProviderChangeRequest::STATUS_DENIED,
+            'accepted' => ProviderChangeRequest::STATUS_APPROVED,
+            default => ProviderChangeRequest::STATUS_PENDING,
+        };
 
-        $query = ProviderChangeRequest::with('provider.owner')
+        $query = ProviderChangeRequest::with(['provider.owner', 'reviewer'])
+            ->where('status', $requestStatus)
             ->when($request->has('search'), function ($q) use ($request) {
                 $keys = explode(' ', $request['search']);
                 $q->whereHas('provider', function ($pq) use ($keys) {
@@ -3424,17 +3481,15 @@ class ProviderController extends Controller
                 });
             });
 
-        if ($status === 'denied') {
-            $query->where('status', ProviderChangeRequest::STATUS_DENIED);
-        } else {
-            $query->where('status', ProviderChangeRequest::STATUS_PENDING);
-        }
-
-        $requests = $query->latest()->paginate(pagination_limit())->appends($queryParam);
+        $requests = $query
+            ->when($status === 'accepted', fn ($q) => $q->latest('reviewed_at'), fn ($q) => $q->latest())
+            ->paginate(pagination_limit())
+            ->appends($queryParam);
 
         $counts = [
             'pending' => ProviderChangeRequest::where('status', ProviderChangeRequest::STATUS_PENDING)->count(),
             'denied' => ProviderChangeRequest::where('status', ProviderChangeRequest::STATUS_DENIED)->count(),
+            'accepted' => ProviderChangeRequest::where('status', ProviderChangeRequest::STATUS_APPROVED)->count(),
         ];
 
         return view('providermanagement::admin.provider.profile-change-request', compact('requests', 'search', 'status', 'counts'));
@@ -3444,7 +3499,7 @@ class ProviderController extends Controller
     {
         $this->authorize('onboarding_request_view');
 
-        $changeRequest = ProviderChangeRequest::with('provider.owner', 'provider.zones.parentZone')
+        $changeRequest = ProviderChangeRequest::with('provider.owner', 'provider.zones.parentZone', 'reviewer')
             ->findOrFail($id);
 
         $reviewService = app(ProviderProfileChangeRequestService::class);
@@ -3458,7 +3513,7 @@ class ProviderController extends Controller
         ));
     }
 
-    public function updateProfileChangeApproval(string $id, string $status): JsonResponse
+    public function updateProfileChangeApproval(Request $request, string $id, string $status): JsonResponse
     {
         $this->authorize('onboarding_request_approve_or_deny');
 
@@ -3470,8 +3525,17 @@ class ProviderController extends Controller
         if ($status === 'approve') {
             app(ProviderProfileChangeRequestService::class)->apply($changeRequest);
             $changeRequest->status = ProviderChangeRequest::STATUS_APPROVED;
+            $changeRequest->denial_reason = null;
         } elseif ($status === 'deny') {
+            $validator = Validator::make($request->all(), [
+                'denial_reason' => 'required|string|max:1000',
+            ]);
+            if ($validator->fails()) {
+                return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+            }
+
             $changeRequest->status = ProviderChangeRequest::STATUS_DENIED;
+            $changeRequest->denial_reason = trim((string) $request->input('denial_reason'));
         } else {
             return response()->json(response_formatter(DEFAULT_400), 400);
         }
@@ -3498,6 +3562,7 @@ class ProviderController extends Controller
         $validator = Validator::make($request->all(), [
             'decisions' => 'required|array|min:1',
             'decisions.*.approved' => 'required|in:0,1,true,false,on,yes',
+            'denial_reason' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -3505,6 +3570,7 @@ class ProviderController extends Controller
         }
 
         $service = app(ProviderProfileChangeRequestService::class);
+        $denialReason = trim((string) $request->input('denial_reason', ''));
         $expectedKeys = collect($service->pendingFieldChangesForRequest($changeRequest))
             ->sort()
             ->values();
@@ -3535,7 +3601,13 @@ class ProviderController extends Controller
             }
 
             try {
-                $service->reviewSingleField($changeRequest, $fieldKey, $approved, auth()->id());
+                $service->reviewSingleField(
+                    $changeRequest,
+                    $fieldKey,
+                    $approved,
+                    auth()->id(),
+                    $denialReason !== '' ? $denialReason : null
+                );
             } catch (\InvalidArgumentException) {
                 return response()->json(response_formatter(DEFAULT_400), 400);
             }
@@ -3568,6 +3640,7 @@ class ProviderController extends Controller
         $validator = Validator::make($request->all(), [
             'field_key' => 'required|string',
             'approved' => 'required|in:0,1,true,false,on,yes',
+            'denial_reason' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -3576,13 +3649,15 @@ class ProviderController extends Controller
 
         $approved = in_array($request->input('approved'), [true, 1, '1', 'true', 'on', 'yes'], true);
         $fieldKey = (string) $request->input('field_key');
+        $denialReason = trim((string) $request->input('denial_reason', ''));
 
         try {
             $result = app(ProviderProfileChangeRequestService::class)->reviewSingleField(
                 $changeRequest,
                 $fieldKey,
                 $approved,
-                auth()->id()
+                auth()->id(),
+                $denialReason !== '' ? $denialReason : null
             );
         } catch (\InvalidArgumentException) {
             return response()->json(response_formatter(DEFAULT_400), 400);
@@ -3612,7 +3687,14 @@ class ProviderController extends Controller
         $emailStatus = business_config('email_config_status', 'email_config')->live_values;
 
         if ($status == 'approve') {
-            $this->provider->where('id', $id)->update(['is_active' => 1, 'is_approved' => 1]);
+            $this->provider->where('id', $id)->update([
+                'is_active' => 1,
+                'is_approved' => 1,
+                'approved_by' => auth()->id(),
+                'approved_at' => now(),
+                'denied_by' => null,
+                'denial_reason' => null,
+            ]);
             $provider = $this->provider->with('owner')->where('id', $id)->first();
             $provider->owner->is_active = 1;
             $provider->owner->save();
@@ -3629,7 +3711,21 @@ class ProviderController extends Controller
             send_provider_onboarding_status_notification($provider, 'onboarding_approve');
 
         } elseif ($status == 'deny') {
-            $this->provider->where('id', $id)->update(['is_active' => 0, 'is_approved' => 0]);
+            $validator = Validator::make($request->all(), [
+                'denial_reason' => 'required|string|max:1000',
+            ]);
+            if ($validator->fails()) {
+                return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+            }
+
+            $this->provider->where('id', $id)->update([
+                'is_active' => 0,
+                'is_approved' => 0,
+                'approved_by' => null,
+                'approved_at' => null,
+                'denied_by' => auth()->id(),
+                'denial_reason' => trim((string) $request->input('denial_reason')),
+            ]);
             $provider = $this->provider->with('owner')->where('id', $id)->first();
             $provider->owner->is_active = 0;
             $provider->owner->save();
@@ -3644,11 +3740,317 @@ class ProviderController extends Controller
 
             send_provider_onboarding_status_notification($provider, 'onboarding_deny');
 
+        } elseif ($status == 'pending') {
+            $provider = $this->provider->with('owner')->where('id', $id)->first();
+            if (! $provider || ! in_array((int) $provider->is_approved, [0, 1], true)) {
+                return response()->json(response_formatter(DEFAULT_400), 400);
+            }
+
+            $provider->is_active = 0;
+            $provider->is_approved = 2;
+            $provider->approved_by = null;
+            $provider->approved_at = null;
+            $provider->denied_by = null;
+            $provider->denial_reason = null;
+            $provider->save();
+
+            if ($provider->owner) {
+                $provider->owner->is_active = 0;
+                $provider->owner->save();
+            }
         } else {
             return response()->json(response_formatter(DEFAULT_400), 200);
         }
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    public function export(Request $request, ProviderDirectoryExcelExport $export): Renderable
+    {
+        $this->authorize('provider_export');
+        $this->normalizeProviderDirectoryExportRequest($request);
+
+        $step = (int) $request->input('step', 1);
+        if ($step === 3) {
+            $step = 2;
+        }
+        if (! in_array($step, [1, 2], true)) {
+            $step = 1;
+        }
+
+        $keys = $export->resolveKeys($request);
+        if ($step === 2 && $keys === []) {
+            $step = 1;
+            Toastr::error(translate('Select_at_least_one_column'));
+        }
+
+        $sharedQuery = $export->sharedQuery($request);
+        $total = 0;
+        $previewRows = [];
+        if ($step === 2) {
+            $query = $this->providerDirectoryExportQuery($request, $export);
+            $matched = (clone $query)->count();
+            $limit = (int) $request->input('limit');
+            $total = $limit > 0 ? min($matched, $limit) : $matched;
+            $previewTake = min(ProviderDirectoryExcelExport::PREVIEW_LIMIT, $total);
+            if ($previewTake > 0) {
+                $previewRows = $export->valueRows((clone $query)->limit($previewTake)->get(), $keys);
+            }
+        }
+
+        $categories = $step === 2
+            ? $this->category->ofType('main')->ofStatus(1)->ordered()->get(['id', 'name'])
+            : collect();
+        $zones = $step === 2
+            ? $this->zone->ofStatus(1)->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        $backQuery = $sharedQuery;
+        $backQuery['status'] = $request->input('status', 'all') ?: 'all';
+
+        return view('providermanagement::admin.provider.export', [
+            'step' => $step,
+            'groups' => $export->groups(),
+            'columns' => $export->flatColumns(),
+            'selectedKeys' => $keys,
+            'defaultKeys' => $export->defaultKeys(),
+            'previewRows' => $previewRows,
+            'total' => $total,
+            'sharedQuery' => $sharedQuery,
+            'columnSelection' => $request->boolean('column_selection'),
+            'categories' => $categories,
+            'zones' => $zones,
+            'search' => (string) $request->input('search', ''),
+            'status' => (string) $request->input('status', 'all'),
+            'performanceFilter' => (string) $request->input('performance_filter', 'all'),
+            'categoryId' => (string) $request->input('category_id', ''),
+            'zoneId' => (string) $request->input('zone_id', ''),
+            'sort' => (string) $request->input('sort', 'latest'),
+            'from' => (string) $request->input('from', ''),
+            'to' => (string) $request->input('to', ''),
+            'limit' => $request->input('limit') ?: '',
+            'ratingFilter' => (string) $request->input('rating_filter', 'all'),
+            'appFilter' => (string) $request->input('app_filter', 'all'),
+            'providerType' => (string) $request->input('provider_type', 'all'),
+            'serviceAvailability' => (string) $request->input('service_availability', 'all'),
+            'appAvailability' => (string) $request->input('app_availability', 'all'),
+            'city' => (string) $request->input('city', ''),
+            'pincode' => (string) $request->input('pincode', ''),
+            'photo' => (string) $request->input('photo', 'all'),
+            'identityType' => (string) $request->input('identity_type', 'all'),
+            'commission' => (string) $request->input('commission', 'all'),
+            'suspended' => (string) $request->input('suspended', 'all'),
+            'hasExpertise' => (string) $request->input('has_expertise', 'all'),
+            'hasQuestionnaire' => (string) $request->input('has_questionnaire', 'all'),
+            'minBookings' => $request->input('min_bookings') ?: '',
+            'imageKeys' => $export->imageKeys(),
+            'customLabels' => $export->customLabels($request),
+            'backUrl' => route('admin.provider.list', $backQuery),
+        ]);
+    }
+
+    public function exportDownload(Request $request, ProviderDirectoryExcelExport $export): StreamedResponse|RedirectResponse
+    {
+        $this->authorize('provider_export');
+
+        if (env('APP_ENV') === 'demo') {
+            Toastr::info('This function is disable for demo mode');
+
+            return back();
+        }
+
+        $this->normalizeProviderDirectoryExportRequest($request);
+        $keys = $export->resolveKeys($request);
+        if ($keys === []) {
+            Toastr::error(translate('Select_at_least_one_column'));
+
+            return back();
+        }
+
+        $query = $this->providerDirectoryExportQuery($request, $export);
+        $limit = (int) $request->input('limit');
+        $matched = (clone $query)->count();
+        $total = $limit > 0 ? min($matched, $limit) : $matched;
+        if ($total === 0) {
+            Toastr::error(translate('No_results_found'));
+
+            return back();
+        }
+
+        $format = $request->input('format') === 'csv' ? 'csv' : 'xlsx';
+        $fileName = 'providers-'.now()->format('Y-m-d-His').'.'.$format;
+        $labels = $export->labelsFor($request, $keys);
+
+        if ($format === 'csv') {
+            return (new FastExcel($export->streamLabeledRows($query, $keys, $limit, $labels)))->download($fileName);
+        }
+
+        $path = storage_path('app/temp/'.$fileName);
+        (new ProviderDirectoryXlsxWriter($export))->write($path, $query, $keys, $limit, $labels);
+
+        return response()->streamDownload(function () use ($path) {
+            try {
+                if (is_file($path)) {
+                    readfile($path);
+                }
+            } finally {
+                @unlink($path);
+            }
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function onboardingExport(Request $request, ProviderDirectoryExcelExport $export): Renderable
+    {
+        $this->authorize('onboarding_request_export');
+        $export->forOnboarding();
+        $this->normalizeOnboardingExportRequest($request);
+
+        $step = (int) $request->input('step', 1);
+        if ($step === 3) {
+            $step = 2;
+        }
+        if (! in_array($step, [1, 2], true)) {
+            $step = 1;
+        }
+
+        $keys = $export->resolveKeys($request);
+        if ($step === 2 && $keys === []) {
+            $step = 1;
+            Toastr::error(translate('Select_at_least_one_column'));
+        }
+
+        $requestStatus = (string) $request->input('request_status', 'onboarding');
+        $sharedQuery = $export->sharedQuery($request);
+        $sharedQuery['request_status'] = $requestStatus;
+        $total = 0;
+        $previewRows = [];
+        if ($step === 2) {
+            $query = $this->onboardingExportQuery($request, $export);
+            $matched = (clone $query)->count();
+            $limit = (int) $request->input('limit');
+            $total = $limit > 0 ? min($matched, $limit) : $matched;
+            $previewTake = min(ProviderDirectoryExcelExport::PREVIEW_LIMIT, $total);
+            if ($previewTake > 0) {
+                $previewRows = $export->valueRows((clone $query)->limit($previewTake)->get(), $keys);
+            }
+        }
+
+        $categories = $step === 2
+            ? $this->category->ofType('main')->ofStatus(1)->ordered()->get(['id', 'name'])
+            : collect();
+        $zones = $step === 2
+            ? $this->zone->ofStatus(1)->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        $search = (string) $request->input('search', '');
+        $backQuery = ['status' => $requestStatus === 'all' ? 'onboarding' : $requestStatus];
+        if ($search !== '') {
+            $backQuery['search'] = $search;
+        }
+
+        return view('providermanagement::admin.provider.export', [
+            'step' => $step,
+            'groups' => $export->groups(),
+            'columns' => $export->flatColumns(),
+            'selectedKeys' => $keys,
+            'defaultKeys' => $export->defaultKeys(),
+            'previewRows' => $previewRows,
+            'total' => $total,
+            'sharedQuery' => $sharedQuery,
+            'columnSelection' => $request->boolean('column_selection'),
+            'categories' => $categories,
+            'zones' => $zones,
+            'search' => $search,
+            'status' => (string) $request->input('status', 'all'),
+            'performanceFilter' => (string) $request->input('performance_filter', 'all'),
+            'categoryId' => (string) $request->input('category_id', ''),
+            'zoneId' => (string) $request->input('zone_id', ''),
+            'sort' => (string) $request->input('sort', 'latest'),
+            'from' => (string) $request->input('from', ''),
+            'to' => (string) $request->input('to', ''),
+            'limit' => $request->input('limit') ?: '',
+            'ratingFilter' => (string) $request->input('rating_filter', 'all'),
+            'appFilter' => (string) $request->input('app_filter', 'all'),
+            'providerType' => (string) $request->input('provider_type', 'all'),
+            'serviceAvailability' => (string) $request->input('service_availability', 'all'),
+            'appAvailability' => (string) $request->input('app_availability', 'all'),
+            'city' => (string) $request->input('city', ''),
+            'pincode' => (string) $request->input('pincode', ''),
+            'photo' => (string) $request->input('photo', 'all'),
+            'identityType' => (string) $request->input('identity_type', 'all'),
+            'commission' => (string) $request->input('commission', 'all'),
+            'suspended' => (string) $request->input('suspended', 'all'),
+            'hasExpertise' => (string) $request->input('has_expertise', 'all'),
+            'hasQuestionnaire' => (string) $request->input('has_questionnaire', 'all'),
+            'minBookings' => $request->input('min_bookings') ?: '',
+            'imageKeys' => $export->imageKeys(),
+            'customLabels' => $export->customLabels($request),
+            'backUrl' => route('admin.provider.onboarding_request', $backQuery),
+            'exportRoute' => 'admin.provider.onboarding.export',
+            'downloadRoute' => 'admin.provider.onboarding.export.download',
+            'pageTitle' => translate('Export_onboarding_requests'),
+            'backTitle' => translate('Back_to_onboarding_requests'),
+            'columnsHelp' => translate('Export_onboarding_columns_help'),
+            'stepTwoTitle' => translate('Preview_the_requests_then_download'),
+            'downloadNote' => translate('Export_onboarding_download_note'),
+            'requestStatusFilter' => true,
+            'requestStatus' => $requestStatus,
+        ]);
+    }
+
+    public function onboardingExportDownload(Request $request, ProviderDirectoryExcelExport $export): StreamedResponse|RedirectResponse
+    {
+        $this->authorize('onboarding_request_export');
+
+        if (env('APP_ENV') === 'demo') {
+            Toastr::info('This function is disable for demo mode');
+
+            return back();
+        }
+
+        $export->forOnboarding();
+        $this->normalizeOnboardingExportRequest($request);
+        $keys = $export->resolveKeys($request);
+        if ($keys === []) {
+            Toastr::error(translate('Select_at_least_one_column'));
+
+            return back();
+        }
+
+        $query = $this->onboardingExportQuery($request, $export);
+        $limit = (int) $request->input('limit');
+        $matched = (clone $query)->count();
+        $total = $limit > 0 ? min($matched, $limit) : $matched;
+        if ($total === 0) {
+            Toastr::error(translate('No_results_found'));
+
+            return back();
+        }
+
+        $format = $request->input('format') === 'csv' ? 'csv' : 'xlsx';
+        $fileName = 'onboarding-requests-'.now()->format('Y-m-d-His').'.'.$format;
+        $labels = $export->labelsFor($request, $keys);
+
+        if ($format === 'csv') {
+            return (new FastExcel($export->streamLabeledRows($query, $keys, $limit, $labels)))->download($fileName);
+        }
+
+        $path = storage_path('app/temp/'.$fileName);
+        (new ProviderDirectoryXlsxWriter($export))->write($path, $query, $keys, $limit, $labels);
+
+        return response()->streamDownload(function () use ($path) {
+            try {
+                if (is_file($path)) {
+                    readfile($path);
+                }
+            } finally {
+                @unlink($path);
+            }
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     /**
@@ -3975,6 +4377,173 @@ class ProviderController extends Controller
         return trim((string) $settlementOutcome) !== '';
     }
 
+    private function normalizeProviderDirectoryExportRequest(Request $request): void
+    {
+        $status = (string) $request->input('status', 'all');
+        if (! in_array($status, ['active', 'inactive', 'all'], true)) {
+            $status = 'all';
+        }
+
+        $performance = (string) $request->input('performance_filter', 'all');
+        if (! in_array($performance, ['all', 'warning', 'blacklisted'], true)) {
+            $performance = 'all';
+        }
+
+        $sort = (string) $request->input('sort', 'latest');
+        if (! in_array($sort, ['latest', 'oldest', 'name_asc', 'name_desc', 'rating_desc', 'bookings_desc'], true)) {
+            $sort = 'latest';
+        }
+
+        $rating = (string) $request->input('rating_filter', 'all');
+        if (! in_array($rating, ['all', '4_plus', '3_plus', '2_plus', '1_plus', 'unrated'], true)) {
+            $rating = 'all';
+        }
+
+        $app = (string) $request->input('app_filter', 'all');
+        if (! in_array($app, ['all', 'active', 'registered', 'not_in_app'], true)) {
+            $app = 'all';
+        }
+
+        $providerType = (string) $request->input('provider_type', 'all');
+        if (! in_array($providerType, ['all', 'individual', 'company'], true)) {
+            $providerType = 'all';
+        }
+
+        $serviceAvailability = (string) $request->input('service_availability', 'all');
+        $appAvailability = (string) $request->input('app_availability', 'all');
+        if (! in_array($serviceAvailability, ['all', 'on', 'off'], true)) {
+            $serviceAvailability = 'all';
+        }
+        if (! in_array($appAvailability, ['all', 'on', 'off'], true)) {
+            $appAvailability = 'all';
+        }
+
+        $photo = (string) $request->input('photo', 'all');
+        if (! in_array($photo, ['all', 'logo', 'cover', 'contact', 'none'], true)) {
+            $photo = 'all';
+        }
+
+        $identityType = (string) $request->input('identity_type', 'all');
+        if (! in_array($identityType, ['all', 'nid', 'passport', 'driving_license'], true)) {
+            $identityType = 'all';
+        }
+
+        $commission = (string) $request->input('commission', 'all');
+        if (! in_array($commission, ['all', 'custom', 'default'], true)) {
+            $commission = 'all';
+        }
+
+        $suspended = (string) $request->input('suspended', 'all');
+        $hasExpertise = (string) $request->input('has_expertise', 'all');
+        $hasQuestionnaire = (string) $request->input('has_questionnaire', 'all');
+        foreach (['suspended' => &$suspended, 'has_expertise' => &$hasExpertise, 'has_questionnaire' => &$hasQuestionnaire] as $value) {
+            if (! in_array($value, ['all', 'yes', 'no'], true)) {
+                $value = 'all';
+            }
+        }
+        unset($value);
+
+        $minBookings = $request->input('min_bookings');
+        $minBookings = is_numeric($minBookings) && (int) $minBookings > 0 ? (int) $minBookings : '';
+
+        $from = trim((string) $request->input('from', ''));
+        $to = trim((string) $request->input('to', ''));
+        if ($from !== '' && strtotime($from) === false) {
+            $from = '';
+        }
+        if ($to !== '' && strtotime($to) === false) {
+            $to = '';
+        }
+
+        $limit = $request->input('limit');
+        $limit = is_numeric($limit) && (int) $limit > 0 ? (int) $limit : '';
+
+        $categoryId = trim((string) $request->input('category_id', ''));
+        if ($categoryId !== '' && $categoryId !== 'none' && ! Str::isUuid($categoryId)) {
+            $categoryId = '';
+        }
+
+        $zoneId = trim((string) $request->input('zone_id', ''));
+        if ($zoneId !== '' && ! Str::isUuid($zoneId)) {
+            $zoneId = '';
+        }
+
+        $request->merge([
+            'search' => trim((string) $request->input('search', '')),
+            'status' => $status,
+            'performance_filter' => $performance,
+            'sort' => $sort,
+            'rating_filter' => $rating,
+            'app_filter' => $app,
+            'from' => $from,
+            'to' => $to,
+            'limit' => $limit,
+            'category_id' => $categoryId,
+            'zone_id' => $zoneId,
+            'provider_type' => $providerType,
+            'service_availability' => $serviceAvailability,
+            'app_availability' => $appAvailability,
+            'city' => trim((string) $request->input('city', '')),
+            'pincode' => trim((string) $request->input('pincode', '')),
+            'photo' => $photo,
+            'identity_type' => $identityType,
+            'commission' => $commission,
+            'suspended' => $suspended,
+            'has_expertise' => $hasExpertise,
+            'has_questionnaire' => $hasQuestionnaire,
+            'min_bookings' => $minBookings,
+        ]);
+    }
+
+    private function normalizeOnboardingExportRequest(Request $request): void
+    {
+        $requestStatus = (string) $request->input('request_status', 'onboarding');
+        if (! in_array($requestStatus, ['onboarding', 'denied', 'accepted', 'all'], true)) {
+            $requestStatus = 'onboarding';
+        }
+
+        $request->merge(['request_status' => $requestStatus]);
+        $this->normalizeProviderDirectoryExportRequest($request);
+    }
+
+    private function onboardingExportQuery(Request $request, ProviderDirectoryExcelExport $export)
+    {
+        $requestStatus = (string) $request->input('request_status', 'onboarding');
+        $approvalStatus = match ($requestStatus) {
+            'denied' => 0,
+            'accepted' => 1,
+            'all' => null,
+            default => 2,
+        };
+
+        $query = $this->provider
+            ->with($export->eagerWith($export->resolveKeys($request)))
+            ->withCount(['bookings as bookings_count' => function ($bookingQuery) {
+                $bookingQuery->forRevenueReporting();
+            }]);
+
+        if ($approvalStatus === null) {
+            $query->whereIn('is_approved', [0, 1, 2]);
+        } else {
+            $query->ofApproval($approvalStatus);
+        }
+
+        return $this->applyProviderDirectoryListFilters($query, $request);
+    }
+
+    private function providerDirectoryExportQuery(Request $request, ProviderDirectoryExcelExport $export)
+    {
+        $query = $this->provider
+            ->with($export->eagerWith($export->resolveKeys($request)))
+            ->withCount(['bookings as bookings_count' => function ($bookingQuery) {
+                $bookingQuery->forRevenueReporting();
+            }])
+            ->where(['is_approved' => 1])
+            ->ofApproval(1);
+
+        return $this->applyProviderDirectoryListFilters($query, $request);
+    }
+
     private function applyProviderDirectoryListFilters($query, Request $request)
     {
         $search = $request->input('search', '');
@@ -4088,6 +4657,80 @@ class ProviderController extends Controller
                         })
                         ->whereDoesntHave('tokens');
                 });
+            })
+            ->when(in_array($request->input('provider_type'), ['individual', 'company'], true), function ($query) use ($request) {
+                if ($request->input('provider_type') === 'company') {
+                    return $query->where('provider_type', 'company');
+                }
+
+                return $query->where(function ($typeQuery) {
+                    $typeQuery->where('provider_type', 'individual')
+                        ->orWhereNull('provider_type')
+                        ->orWhere('provider_type', '');
+                });
+            })
+            ->when($request->input('service_availability') === 'on', fn ($query) => $query->where('service_availability', 1))
+            ->when($request->input('service_availability') === 'off', fn ($query) => $query->where('service_availability', 0))
+            ->when($request->input('app_availability') === 'on', fn ($query) => $query->where('app_availability', 1))
+            ->when($request->input('app_availability') === 'off', fn ($query) => $query->where('app_availability', 0))
+            ->when(trim((string) $request->input('city', '')) !== '', function ($query) use ($request) {
+                $city = '%'.addcslashes(trim((string) $request->input('city')), '%_\\').'%';
+
+                return $query->where('city', 'like', $city);
+            })
+            ->when(trim((string) $request->input('pincode', '')) !== '', function ($query) use ($request) {
+                $pincode = '%'.addcslashes(trim((string) $request->input('pincode')), '%_\\').'%';
+
+                return $query->where('pincode', 'like', $pincode);
+            })
+            ->when(in_array($request->input('photo'), ['logo', 'cover', 'contact', 'none'], true), function ($query) use ($request) {
+                $filled = function ($column) {
+                    return function ($photoQuery) use ($column) {
+                        $photoQuery->whereNotNull($column)
+                            ->where($column, '!=', '')
+                            ->where($column, '!=', 'def.png');
+                    };
+                };
+                $empty = function ($column) {
+                    return function ($photoQuery) use ($column) {
+                        $photoQuery->whereNull($column)
+                            ->orWhere($column, '')
+                            ->orWhere($column, 'def.png');
+                    };
+                };
+
+                return match ($request->input('photo')) {
+                    'logo' => $query->where($filled('logo')),
+                    'cover' => $query->where($filled('cover_image')),
+                    'contact' => $query->where($filled('contact_person_photo')),
+                    default => $query->where($empty('logo'))->where($empty('cover_image'))->where($empty('contact_person_photo')),
+                };
+            })
+            ->when(in_array($request->input('identity_type'), ['nid', 'passport', 'driving_license'], true), function ($query) use ($request) {
+                return $query->whereHas('owner', function ($ownerQuery) use ($request) {
+                    $ownerQuery->where('identification_type', $request->input('identity_type'));
+                });
+            })
+            ->when($request->input('commission') === 'custom', fn ($query) => $query->where('commission_status', 1))
+            ->when($request->input('commission') === 'default', function ($query) {
+                return $query->where(function ($commissionQuery) {
+                    $commissionQuery->where('commission_status', 0)->orWhereNull('commission_status');
+                });
+            })
+            ->when($request->input('suspended') === 'yes', fn ($query) => $query->where('is_suspended', 1))
+            ->when($request->input('suspended') === 'no', function ($query) {
+                return $query->where(function ($suspendedQuery) {
+                    $suspendedQuery->where('is_suspended', 0)->orWhereNull('is_suspended');
+                });
+            })
+            ->when($request->input('has_expertise') === 'yes', fn ($query) => $query->whereHas('expertise'))
+            ->when($request->input('has_expertise') === 'no', fn ($query) => $query->whereDoesntHave('expertise'))
+            ->when($request->input('has_questionnaire') === 'yes', fn ($query) => $query->whereHas('questionnaire'))
+            ->when($request->input('has_questionnaire') === 'no', fn ($query) => $query->whereDoesntHave('questionnaire'))
+            ->when((int) $request->input('min_bookings') > 0, function ($query) use ($request) {
+                return $query->whereHas('bookings', function ($bookingQuery) {
+                    $bookingQuery->forRevenueReporting();
+                }, '>=', (int) $request->input('min_bookings'));
             })
             ->when($sort === 'oldest', fn ($q) => $q->oldest())
             ->when($sort === 'name_asc', fn ($q) => $q->orderBy('company_name'))

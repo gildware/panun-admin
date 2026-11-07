@@ -5,6 +5,7 @@ namespace Modules\BookingModule\Http\Traits;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\BookingReopenEvent;
+use Modules\BookingModule\Entities\BookingSource;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
 use Modules\ProviderManagement\Entities\Provider;
 
@@ -537,6 +538,32 @@ trait BookingScopes
                 $sub->whereNull('assignee_id');
             } else {
                 $sub->whereIn('assignee_id', $userIds);
+            }
+        });
+    }
+
+    /**
+     * @param  array<int, string>|null  $sources  Lowercased booking source names
+     */
+    public function scopeFilterByBookingSources($query, ?array $sources): mixed
+    {
+        $sources = array_values(array_unique(array_filter(
+            array_map(fn ($value) => strtolower(trim((string) $value)), is_array($sources) ? $sources : []),
+            fn ($value) => $value !== '' && $value !== 'all'
+        )));
+
+        if ($sources === []) {
+            return $query;
+        }
+
+        $includeDirectAppAliases = in_array(strtolower(BookingSource::NAME_DIRECT_APP_BOOKING), $sources, true);
+        $placeholders = implode(',', array_fill(0, count($sources), '?'));
+
+        return $query->where(function ($sub) use ($sources, $includeDirectAppAliases, $placeholders) {
+            $sub->whereRaw("LOWER(TRIM(COALESCE(booking_source, ''))) IN ({$placeholders})", $sources);
+            if ($includeDirectAppAliases) {
+                $sub->orWhereRaw("TRIM(COALESCE(booking_source, '')) = ''")
+                    ->orWhereRaw("LOWER(TRIM(COALESCE(booking_source, ''))) = 'app'");
             }
         });
     }

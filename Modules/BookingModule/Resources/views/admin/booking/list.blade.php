@@ -176,6 +176,21 @@
                         </select>
                     </div>
                 </div>
+                <div class="filter-aside__section">
+                    <label class="filter-aside__section-label">{{ translate('Select_Source') }}</label>
+                    <div class="filter-aside__field">
+                        <select class="booking-source-select theme-input-style w-100" name="booking_sources[]" multiple="multiple"
+                            id="booking_source_selector__select">
+                            <option value="all">{{ translate('Select All') }}</option>
+                            @foreach ($bookingSourceOptions ?? [] as $bookingSourceValue => $bookingSourceLabel)
+                                <option value="{{ $bookingSourceValue }}"
+                                    {{ in_array($bookingSourceValue, $queryParams['booking_sources'] ?? [], true) ? 'selected' : '' }}>
+                                    {{ $bookingSourceLabel }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="filter-aside__bottom_btns">
                 <button class="btn btn--secondary text-capitalize" id="reset-btn"
@@ -189,39 +204,79 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div
-                        class="page-title-wrap d-flex flex-wrap justify-content-between align-items-center border-bottom pb-2">
+                    <div class="booking-list-header">
                         @if($isRepeatBookingList)
-                            <h2 class="page-title">{{ translate('Repeat_bookings') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Repeat_bookings') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'reopened')
-                            <h2 class="page-title">{{ translate('Reopened_bookings') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Reopened_bookings') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'on_hold')
-                            <h2 class="page-title">{{ translate('On_hold_bookings') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('On_hold_bookings') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'disputed_cancelled')
-                            <h2 class="page-title">{{ translate('Disputed_and_Cancelled') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Disputed_and_Cancelled') }}</h2>
                         @elseif($isCancelledByProviderList)
-                            <h2 class="page-title">{{ translate('Cancelled_by_provider') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Cancelled_by_provider') }}</h2>
                         @elseif($isCancelledByCustomerList)
-                            <h2 class="page-title">{{ translate('Cancelled_by_customer') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Cancelled_by_customer') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'disputed_completed')
-                            <h2 class="page-title">{{ translate('Disputed_and_Completed') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Disputed_and_Completed') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'loss_making_pending')
-                            <h2 class="page-title">{{ translate('Bfs_list_badge_loss_making') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Bfs_list_badge_loss_making') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'loss_recovered')
-                            <h2 class="page-title">{{ translate('Bfs_list_badge_loss_recovered') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Bfs_list_badge_loss_recovered') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'loss_settled')
-                            <h2 class="page-title">{{ translate('Settled') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Settled') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'all')
-                            <h2 class="page-title">{{ translate('Booking_Requests') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Booking_Requests') }}</h2>
                         @elseif($queryParams['booking_status'] ?? null)
-                            <h2 class="page-title">{{ ucwords(str_replace('_', ' ', $queryParams['booking_status'])) }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ ucwords(str_replace('_', ' ', $queryParams['booking_status'])) }}</h2>
                         @else
-                            <h2 class="page-title">{{ translate('Booking_Requests') }}</h2>
+                            <h2 class="page-title booking-list-header__title">{{ translate('Booking_Requests') }}</h2>
                         @endif
 
-                        <div class="d-flex flex-wrap align-items-center gap-3 fw-medium">
+                        <form
+                            action="{{ $bookingListFilterAction }}"
+                            id="booking-list-search-form"
+                            class="search-form search-form_style-two booking-list-search-form" method="GET">
+                            @if(!empty($queryParams['booking_status']))
+                                <input type="hidden" name="booking_status" value="{{ $queryParams['booking_status'] }}">
+                            @endif
+                            <input type="hidden" name="service_type" value="{{ $queryParams['service_type'] ?? 'all' }}">
+                            @if(!empty($queryParams['booking_type']))
+                                <input type="hidden" name="booking_type" value="{{ $queryParams['booking_type'] }}">
+                            @endif
+                            @if(!empty($queryParams['provider_assigned']))
+                                <input type="hidden" name="provider_assigned" value="{{ $queryParams['provider_assigned'] }}">
+                            @endif
+                            @foreach (['start_date', 'end_date', 'schedule_start_date', 'schedule_end_date'] as $dateParam)
+                                @if(!empty($queryParams[$dateParam]))
+                                    <input type="hidden" name="{{ $dateParam }}" value="{{ $queryParams[$dateParam] }}">
+                                @endif
+                            @endforeach
+                            @foreach (['category_ids', 'sub_category_ids', 'zone_ids', 'assignee_ids', 'booking_sources'] as $arrayParam)
+                                @foreach ($queryParams[$arrayParam] ?? [] as $selectedId)
+                                    <input type="hidden" name="{{ $arrayParam }}[]" value="{{ $selectedId }}">
+                                @endforeach
+                            @endforeach
+                            <div class="input-group search-form__input_group">
+                                <span class="search-form__icon">
+                                    <span class="material-icons">search</span>
+                                </span>
+                                <input type="search" id="booking-list-search-input"
+                                    class="theme-input-style search-form__input"
+                                    value="{{ $queryParams['search'] ?? '' }}" name="search"
+                                    placeholder="{{ translate('Search_admin_booking_list') }}"
+                                    autocomplete="off">
+                            </div>
+                        </form>
+
+                        <div class="booking-list-header__tools">
+                            <button type="button" class="btn booking-list-header__btn filter-btn">
+                                <span class="material-icons">filter_list</span>
+                                {{ translate('Filter') }}
+                                <span class="count">{{ $filterCounter ?? 0 }}</span>
+                            </button>
                             @if(is_super_admin())
-                                <a href="{{ route('admin.booking.deleted') }}" class="btn btn--secondary btn-sm h-45">
+                                <a href="{{ route('admin.booking.deleted') }}" class="btn btn--secondary booking-list-header__btn">
                                     <span class="material-icons">delete</span>
                                     {{ translate('Deleted_bookings') }}
                                 </a>
@@ -229,38 +284,18 @@
                             @if($isStandardListMode)
                                 @can('booking_view')
                                     @if($isRepeatBookingList)
-                                        <a href="{{ route('admin.booking.create-repeat') }}" class="btn btn--primary btn-sm h-45">
+                                        <a href="{{ route('admin.booking.create-repeat') }}" class="btn btn--primary booking-list-header__btn">
                                             <span class="material-icons">add</span>
                                             {{ translate('Add_repeat_booking') }}
                                         </a>
                                     @else
-                                        <a href="{{ route('admin.booking.create') }}" class="btn btn--primary btn-sm h-45">
+                                        <a href="{{ route('admin.booking.create') }}" class="btn btn--primary booking-list-header__btn">
                                             <span class="material-icons">add</span>
                                             {{ translate('Add_New_Booking') }}
                                         </a>
                                     @endif
                                 @endcan
                             @endif
-                            <div class="d-flex gap-2 align-items-center">
-                                <span class="opacity-75">{{ translate('Total_Request') }}:</span>
-                                <span class="title-color">{{ $bookings->total() }}</span>
-                            </div>
-                            @can('booking_export')
-                                <div class="dropdown">
-                                    <button type="button"
-                                        class="btn btn--secondary text-capitalize dropdown-toggle btn-sm h-45"
-                                        data-bs-toggle="dropdown">
-                                        <span class="material-icons">file_download</span>
-                                        {{ translate('download') }}
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
-                                        <li><a class="dropdown-item"
-                                                href="{{ route('admin.booking.export', $queryParams) }}"
-                                                data-turbo="false">{{ translate('excel') }}</a>
-                                        </li>
-                                    </ul>
-                                </div>
-                            @endcan
                         </div>
                     </div>
                     @if($isCancelledByProviderList)
@@ -448,53 +483,8 @@
                     </div>
                     @endif
 
-                    <div class="card">
+                    <div class="card booking-list-card">
                         <div class="card-body">
-                            <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-
-                                <form
-                                    action="{{ $bookingListFilterAction }}"
-                                    id="booking-list-search-form"
-                                    class="search-form search-form_style-two booking-list-search-form" method="GET">
-                                    @if(!empty($queryParams['booking_status']))
-                                        <input type="hidden" name="booking_status" value="{{ $queryParams['booking_status'] }}">
-                                    @endif
-                                    <input type="hidden" name="service_type" value="{{ $queryParams['service_type'] ?? 'all' }}">
-                                    @if(!empty($queryParams['booking_type']))
-                                        <input type="hidden" name="booking_type" value="{{ $queryParams['booking_type'] }}">
-                                    @endif
-                                    @if(!empty($queryParams['provider_assigned']))
-                                        <input type="hidden" name="provider_assigned" value="{{ $queryParams['provider_assigned'] }}">
-                                    @endif
-                                    @foreach (['start_date', 'end_date', 'schedule_start_date', 'schedule_end_date'] as $dateParam)
-                                        @if(!empty($queryParams[$dateParam]))
-                                            <input type="hidden" name="{{ $dateParam }}" value="{{ $queryParams[$dateParam] }}">
-                                        @endif
-                                    @endforeach
-                                    @foreach (['category_ids', 'sub_category_ids', 'zone_ids', 'assignee_ids'] as $arrayParam)
-                                        @foreach ($queryParams[$arrayParam] ?? [] as $selectedId)
-                                            <input type="hidden" name="{{ $arrayParam }}[]" value="{{ $selectedId }}">
-                                        @endforeach
-                                    @endforeach
-                                    <div class="input-group search-form__input_group">
-                                        <span class="search-form__icon">
-                                            <span class="material-icons">search</span>
-                                        </span>
-                                        <input type="search" id="booking-list-search-input"
-                                            class="theme-input-style search-form__input"
-                                            value="{{ $queryParams['search'] ?? '' }}" name="search"
-                                            placeholder="{{ translate('Search_admin_booking_list') }}"
-                                            autocomplete="off">
-                                    </div>
-                                </form>
-                                <div class="d-flex flex-wrap align-items-center gap-3">
-                                    <button type="button" class="btn text-capitalize filter-btn border px-3">
-                                        <span class="material-icons">filter_list</span> {{ translate('Filter') }}
-                                        <span class="count">{{ $filterCounter ?? 0 }}</span>
-                                    </button>
-                                </div>
-                            </div>
-
                             @php $bookingListReasonTab = $queryParams['booking_status'] ?? ''; @endphp
                             <div class="booking-compact-list">
                                 @forelse ($bookings as $key => $booking)
@@ -585,6 +575,14 @@
                 }
             });
 
+            $('#booking_source_selector__select').on('change', function() {
+                var selectedValues = $(this).val();
+                if (selectedValues !== null && selectedValues.includes('all')) {
+                    $(this).find('option').not(':disabled').prop('selected', 'selected');
+                    $(this).find('option[value="all"]').prop('selected', false);
+                }
+            });
+
             $('.category-select').select2({
                 placeholder: "{{ translate('Select Category') }}"
             });
@@ -596,6 +594,9 @@
             });
             $('.assignee-select').select2({
                 placeholder: "{{ translate('Select_Assignee') }}"
+            });
+            $('.booking-source-select').select2({
+                placeholder: "{{ translate('Select_Source') }}"
             });
             $('.booking-status-select').select2({
                 placeholder: "{{ translate('Select_booking_status') }}",

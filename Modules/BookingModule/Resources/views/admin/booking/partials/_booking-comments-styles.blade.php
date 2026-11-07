@@ -148,11 +148,6 @@
     }
     .booking-detail-v2 .lead-comment-compose .staff-chat-entity-picker,
     .booking-detail-v2 .comment-compose .staff-chat-entity-picker {
-        position: absolute;
-        left: .75rem;
-        right: .75rem;
-        bottom: 100%;
-        margin-bottom: .375rem;
         z-index: 30;
         max-height: min(280px, 50vh);
         overflow: auto;

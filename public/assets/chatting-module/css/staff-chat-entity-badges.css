@@ -228,36 +228,52 @@
     border: 1px solid #a5b4fc;
 }
 
-/* Compose textarea — live colored tag pills while typing */
+/* Compose field — real caret in a contenteditable, pills are part of the text */
 .staff-chat-compose-editor {
     position: relative;
     width: 100%;
 }
 
-.staff-chat-compose-highlight {
-    position: absolute;
-    inset: 0;
-    overflow: auto;
+.staff-chat-compose-editable {
     white-space: pre-wrap;
     word-break: break-word;
     overflow-wrap: anywhere;
-    color: #1e293b;
-    pointer-events: none;
-    z-index: 0;
+    cursor: text;
+    caret-color: #1e293b !important;
+    color: #1e293b !important;
+    -webkit-text-fill-color: #1e293b !important;
+    min-height: 56px;
 }
 
-.staff-chat-compose-input {
-    position: relative;
-    z-index: 1;
-    background: transparent !important;
-    color: transparent !important;
-    caret-color: #1e293b;
-    -webkit-text-fill-color: transparent;
+.staff-chat-compose-editable:focus {
+    outline: none;
 }
 
-.staff-chat-compose-input::placeholder {
-    -webkit-text-fill-color: #94a3b8;
+.staff-chat-compose-editable:empty:before {
+    content: attr(data-placeholder);
     color: #94a3b8;
+    -webkit-text-fill-color: #94a3b8;
+    pointer-events: none;
+}
+
+textarea.staff-chat-compose-backing {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    resize: none !important;
+    left: 0;
+    top: 0;
+}
+
+.staff-chat-compose-highlight {
+    display: none;
 }
 
 .staff-chat-compose-highlight .staff-chat-compose-pill {
