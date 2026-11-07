@@ -27,8 +27,19 @@ $cssFiles = array_values(array_map(static function (string $path): string {
     return 'admin-module/css/'.basename($path);
 }, $cssGlob));
 
-$paths = implode(',', $cssFiles);
-echo 'Syncing '.count($cssFiles).' CSS files'.PHP_EOL;
+$extraAssets = [
+    'chatting-module/css/staff-chat-entity-badges.css',
+    'chatting-module/js/staff-chat-compose.js',
+];
+foreach ($extraAssets as $rel) {
+    if (! is_file(public_path('assets/'.$rel))) {
+        throw new RuntimeException('Missing asset: '.$rel);
+    }
+}
+
+$allFiles = array_values(array_unique(array_merge($cssFiles, $extraAssets)));
+$paths = implode(',', $allFiles);
+echo 'Syncing '.count($allFiles).' asset files (admin CSS + chatting CSS/JS)'.PHP_EOL;
 
 $prefixSetting = BusinessSettings::query()
     ->where('key_name', 'storage_path_prefix')
@@ -75,8 +86,11 @@ try {
         foreach ([
             'admin-module/css/top-nav.css',
             'admin-module/css/lead-detail-redesign.css',
+            'admin-module/css/booking-list-compact.css',
             'admin-module/css/style.css',
             'admin-module/css/custom.css',
+            'chatting-module/css/staff-chat-entity-badges.css',
+            'chatting-module/js/staff-chat-compose.js',
         ] as $rel) {
             $key = $prefix.'/assets/'.$rel;
             $exists = Storage::disk('s3')->exists($key);
