@@ -121,9 +121,13 @@ class CartController extends Controller
                 return response()->json(response_formatter(DEFAULT_404), 404);
             }
 
-            $normalizedSchedule = $request->filled('service_schedule')
-                ? normalize_company_service_schedule(date('Y-m-d H:i:s', strtotime($request['service_schedule'])))
-                : null;
+            $normalizedSchedule = null;
+            if ($request->filled('service_schedule')) {
+                $normalizedSchedule = date('Y-m-d H:i:s', strtotime($request['service_schedule']));
+                if ($reject = $this->rejectOutsideCompanyServiceHours($normalizedSchedule)) {
+                    return $reject;
+                }
+            }
 
             $existingCart = $this->findCartLineForBooking(
                 $customerUserId,
@@ -242,14 +246,17 @@ class CartController extends Controller
 
         $customerUserId = $this->customerUserId;
 
+        $serviceSchedule = date('Y-m-d H:i:s', strtotime($request['service_schedule']));
+        if ($reject = $this->rejectOutsideCompanyServiceHours($serviceSchedule)) {
+            return $reject;
+        }
+
         CartServiceInfo::updateOrCreate(
             ['customer_id' => $customerUserId],
             [
                 'zone_id' => $request['zone_id'],
                 'service_address_id' => $request['service_address_id'],
-                'service_schedule' => normalize_company_service_schedule(
-                    date('Y-m-d H:i:s', strtotime($request['service_schedule']))
-                ),
+                'service_schedule' => $serviceSchedule,
             ]
         );
 
@@ -285,9 +292,10 @@ class CartController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $normalizedSchedule = normalize_company_service_schedule(
-            date('Y-m-d H:i:s', strtotime($request['service_schedule']))
-        );
+        $normalizedSchedule = date('Y-m-d H:i:s', strtotime($request['service_schedule']));
+        if ($reject = $this->rejectOutsideCompanyServiceHours($normalizedSchedule)) {
+            return $reject;
+        }
 
         $this->cart
             ->where(['id' => $id, 'customer_id' => $customerUserId])
@@ -673,5 +681,17 @@ class CartController extends Controller
         }
 
         return $query->first();
+    }
+
+    private function rejectOutsideCompanyServiceHours(?string $schedule): ?JsonResponse
+    {
+        $message = company_service_schedule_error($schedule);
+        if ($message === null) {
+            return null;
+        }
+
+        return response()->json(response_formatter(DEFAULT_400, null, [
+            ['error_code' => 'service_schedule', 'message' => $message],
+        ]), 400);
     }
 }

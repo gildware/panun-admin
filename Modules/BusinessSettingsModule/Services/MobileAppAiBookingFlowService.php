@@ -194,7 +194,11 @@ class MobileAppAiBookingFlowService
         if ($scheduleType === 'asap') {
             $dt = Carbon::now()->addMinutes(2);
 
-            return ['ok' => true, 'schedule' => $dt->format('Y-m-d H:i:s'), 'schedule_type' => 'asap'];
+            return $this->rejectScheduleOutsideServiceHours([
+                'ok' => true,
+                'schedule' => $dt->format('Y-m-d H:i:s'),
+                'schedule_type' => 'asap',
+            ]);
         }
 
         if ($raw === '') {
@@ -204,11 +208,11 @@ class MobileAppAiBookingFlowService
         if ($scheduleType !== 'custom' && MobileAppAiSchedulePhraseParser::looksLikeSchedulePhrase($raw)) {
             $parsed = MobileAppAiSchedulePhraseParser::parse($raw);
             if ($parsed['ok'] ?? false) {
-                return [
+                return $this->rejectScheduleOutsideServiceHours([
                     'ok' => true,
                     'schedule' => $parsed['schedule'],
                     'schedule_type' => $parsed['schedule_type'] ?? 'custom',
-                ];
+                ]);
             }
         }
 
@@ -217,11 +221,11 @@ class MobileAppAiBookingFlowService
         } catch (\Throwable) {
             $parsed = MobileAppAiSchedulePhraseParser::parse($raw);
             if ($parsed['ok'] ?? false) {
-                return [
+                return $this->rejectScheduleOutsideServiceHours([
                     'ok' => true,
                     'schedule' => $parsed['schedule'],
                     'schedule_type' => $parsed['schedule_type'] ?? 'custom',
-                ];
+                ]);
             }
 
             return ['ok' => false, 'error' => 'invalid_schedule_format', 'missing_steps' => ['step 3: Use format Y-m-d H:i:s e.g. 2026-05-22 14:00']];
@@ -229,18 +233,22 @@ class MobileAppAiBookingFlowService
 
         if ($dt->lt(Carbon::now()->addHours(2))) {
             if ($scheduleType === 'custom' && $dt->isFuture()) {
-                return ['ok' => true, 'schedule' => $dt->format('Y-m-d H:i:s'), 'schedule_type' => 'custom'];
+                return $this->rejectScheduleOutsideServiceHours([
+                    'ok' => true,
+                    'schedule' => $dt->format('Y-m-d H:i:s'),
+                    'schedule_type' => 'custom',
+                ]);
             }
 
             // Stale ASAP slot (saved as now+2 min) — refresh instead of failing checkout.
             if ($scheduleType === 'asap' || $dt->lte(Carbon::now()->addMinutes(30))) {
                 $refreshed = Carbon::now()->addMinutes(2);
 
-                return [
+                return $this->rejectScheduleOutsideServiceHours([
                     'ok' => true,
                     'schedule' => $refreshed->format('Y-m-d H:i:s'),
                     'schedule_type' => 'asap',
-                ];
+                ]);
             }
 
             return [
@@ -250,7 +258,34 @@ class MobileAppAiBookingFlowService
             ];
         }
 
-        return ['ok' => true, 'schedule' => $dt->format('Y-m-d H:i:s'), 'schedule_type' => 'custom'];
+        return $this->rejectScheduleOutsideServiceHours([
+            'ok' => true,
+            'schedule' => $dt->format('Y-m-d H:i:s'),
+            'schedule_type' => 'custom',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function rejectScheduleOutsideServiceHours(array $result): array
+    {
+        if (! ($result['ok'] ?? false)) {
+            return $result;
+        }
+
+        $message = company_service_schedule_error($result['schedule'] ?? null);
+        if ($message === null) {
+            return $result;
+        }
+
+        return [
+            'ok' => false,
+            'error' => 'outside_service_hours',
+            'message' => $message,
+            'missing_steps' => ['step 3: '.$message],
+        ];
     }
 
     /**
