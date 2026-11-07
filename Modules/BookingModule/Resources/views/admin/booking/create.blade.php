@@ -121,7 +121,9 @@
                                     <div class="col-md-10">
                                         <div class="mb-3">
                                             <label class="form-label">{{ translate('Customer') }}</label>
-                                            <select name="customer_id" class="form-control js-select" id="customer-select" required>
+                                            <select name="customer_id" class="form-control" id="customer-select"
+                                                    data-placeholder="{{ translate('Search_by_customer_name_or_phone') }}"
+                                                    required>
                                                 <option value="">{{ translate('Select_Customer') }}</option>
                                                 @foreach($customers as $customer)
                                                     <option value="{{ $customer->id }}"
@@ -811,7 +813,7 @@
     <script>
         "use strict";
         $(document).ready(function () {
-            $('.js-select').select2();
+            $('.js-select').not('#customer-select').select2();
             if (typeof initZoneTreeSelect2 === 'function') {
                 initZoneTreeSelect2($('#service-zone-select'));
             }
@@ -977,6 +979,38 @@
             const $serviceLocationHidden = $('#service-location-hidden');
             const $addressRow = $('#customer-address-select').closest('.row');
             const $quickAddressForm = $('#quick-address-form');
+            const customerSearchUrl = @json(route('admin.booking.service.ajax-search-customers'));
+
+            function initCustomerSelect2() {
+                if (!$customerSelect.length) {
+                    return;
+                }
+                if ($customerSelect.hasClass('select2-hidden-accessible')) {
+                    $customerSelect.select2('destroy');
+                }
+                $customerSelect.select2({
+                    width: '100%',
+                    allowClear: true,
+                    placeholder: $customerSelect.data('placeholder') || '{{ translate('Select_Customer') }}',
+                    ajax: {
+                        url: customerSearchUrl,
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return {
+                                q: params.term || '',
+                            };
+                        },
+                        processResults: function (data) {
+                            return data;
+                        },
+                        cache: true,
+                    },
+                    minimumInputLength: 0,
+                });
+            }
+
+            initCustomerSelect2();
 
             function syncEditAddressButtonState() {
                 if (!$editAddressBtn.length) {

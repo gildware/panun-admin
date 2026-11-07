@@ -968,22 +968,17 @@ class BookingController extends Controller
             })
             ->orderBy('name')
             ->get();
-        // Categories/providers/servicemen load via AJAX on the create form — do not preload all rows.
-        $customers = User::query()->inCustomerDirectory()
-            ->orderByDesc('created_at')
-            ->select('id', 'first_name', 'last_name', 'phone')
-            ->limit(100)
-            ->get();
-
+        // Customer picker uses AJAX search; only preload the selected/prefilled customer for display.
         $prefillCustomerId = $request->input('customer_id');
-        if ($prefillCustomerId && !$customers->contains(fn ($u) => (string) $u->id === (string) $prefillCustomerId)) {
-            $extraCustomer = User::query()
+        $customers = collect();
+        if ($prefillCustomerId) {
+            $prefillCustomer = User::query()
                 ->inCustomerDirectory()
                 ->where('id', $prefillCustomerId)
                 ->select('id', 'first_name', 'last_name', 'phone')
                 ->first();
-            if ($extraCustomer) {
-                $customers->prepend($extraCustomer);
+            if ($prefillCustomer) {
+                $customers->push($prefillCustomer);
             }
         }
 
@@ -7566,6 +7561,80 @@ class BookingController extends Controller
             ->get();
 
         return response()->json(response_formatter(DEFAULT_200, $services), 200);
+    }
+
+    /**
+     * Select2 customer search for admin booking create (name, phone, email).
+     */
+    public function ajaxSearchCustomers(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q', $request->query('term', '')));
+        $selected = $request->query('selected');
+
+        if ($selected) {
+            $customer = User::query()
+                ->inCustomerDirectory()
+                ->where('id', $selected)
+                ->select('id', 'first_name', 'last_name', 'phone')
+                ->first();
+
+            if (! $customer) {
+                return response()->json(['results' => []]);
+            }
+
+            return response()->json([
+                'results' => [[
+                    'id' => $customer->id,
+                    'text' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')) . ' - ' . ($customer->phone ?? ''),
+                ]],
+            ]);
+        }
+
+        $query = User::query()
+            ->inCustomerDirectory()
+            ->select('id', 'first_name', 'last_name', 'phone');
+
+        if ($q !== '') {
+            $digits = User::normalizeContactPhoneDigits($q);
+            $terms = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+            $query->where(function ($builder) use ($terms, $digits, $q) {
+                foreach ($terms as $term) {
+                    $like = '%' . $term . '%';
+                    $builder->where(function ($inner) use ($like) {
+                        $inner->where('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('email', 'like', $like);
+                    });
+                }
+
+                if ($digits !== '' && $digits !== $q) {
+                    $builder->orWhere('phone', 'like', '%' . $digits . '%');
+                }
+
+                if ($digits !== '' && strlen($digits) >= 7 && DB::connection()->getDriverName() === 'mysql') {
+                    $builder->orWhereRaw(
+                        'REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') LIKE ?',
+                        ['%' . $digits . '%']
+                    );
+                }
+            });
+        }
+
+        $results = $query
+            ->orderByDesc('created_at')
+            ->limit(30)
+            ->get()
+            ->map(function (User $customer) {
+                return [
+                    'id' => $customer->id,
+                    'text' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')) . ' - ' . ($customer->phone ?? ''),
+                ];
+            })
+            ->values();
+
+        return response()->json(['results' => $results]);
     }
 
     /**
