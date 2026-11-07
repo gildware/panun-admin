@@ -7081,6 +7081,7 @@ _Message' => 'Customer notification for provider bid offer
   'Advance_Payment_Transaction_ID_(Optional)' => 'Advance Payment Transaction ID (Optional)',
   'Transaction_ID_is_required_when_advance_paid_is_greater_than_zero' => 'Transaction ID is required when advance paid amount is greater than zero.',
   'Advance_Payment' => 'Advance Payment',
+  'Repeat_advance_payment_optional_help' => 'Advance payment is optional for repeat bookings. Leave it empty to use Cash After Service; final payment is collected at each visit.',
   'Add_any_extra_information_or_requirements_for_this_service' => 'Add any extra information or requirements for this service',
   'The bidding post validity must be greater than 0.' => 'The bidding post validity must be greater than 0.',
   'Service_Additional_Details_(Optional)' => 'Service Additional Details (Optional)',

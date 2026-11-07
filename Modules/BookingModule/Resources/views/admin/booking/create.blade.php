@@ -548,16 +548,29 @@
                         }
                         $advanceCollectedByProvider = $advanceHasAmount && $advanceReceivedBy === 'provider';
                         $advancePmDisabled = ! $advanceHasAmount;
+                        // Repeat create: advance is optional — hide method UI until an amount is entered so it does not look required.
+                        $hideAdvancePaymentMethod = $advanceCollectedByProvider || (! $advanceHasAmount && ! empty($isRepeatCreate));
                     @endphp
-                    <div class="mb-4 border rounded-3 p-3" id="advance-payment-section">
-                        <h4 class="mb-3">{{ translate('Advance_Payment') }}</h4>
+                    <div class="mb-4 border rounded-3 p-3" id="advance-payment-section" data-advance-optional="{{ ! empty($isRepeatCreate) ? '1' : '0' }}">
+                        <h4 class="mb-3">
+                            {{ translate('Advance_Payment') }}
+                            @if(! empty($isRepeatCreate))
+                                <span class="text-muted fw-normal fs-6">({{ translate('Optional') }})</span>
+                            @endif
+                        </h4>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">{{ translate('Advance_Paid_Amount') }}</label>
+                                    <label class="form-label">
+                                        {{ translate('Advance_Paid_Amount') }}
+                                        @if(! empty($isRepeatCreate))
+                                            <span class="text-muted fw-normal">({{ translate('Optional') }})</span>
+                                        @endif
+                                    </label>
                                     <input type="number" step="0.01" min="0" name="advance_paid_amount" id="advance-paid-amount"
                                            class="form-control" value="{{ old('advance_paid_amount', request('advance_paid_amount')) }}"
-                                           placeholder="0">
+                                           placeholder="0"
+                                           @if(! empty($isRepeatCreate)) aria-required="false" @endif>
                                     @error('advance_paid_amount')
                                     <span class="text-danger">{{ $message }}</span>
                                     @enderror
@@ -590,11 +603,15 @@
                                 'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
                                 'advancePmDisabled' => $advancePmDisabled,
                                 'advancePmSelected' => $advancePmSelected,
-                                'hideAdvancePaymentMethod' => $advanceCollectedByProvider,
+                                'hideAdvancePaymentMethod' => $hideAdvancePaymentMethod,
                             ])
                         </div>
                         <p class="text-muted mb-0 small {{ $advanceHasAmount ? 'd-none' : '' }}" id="advance-payment-help-no-advance">
-                            {{ translate('Payment_method_will_be_set_as_Cash_After_Service_and_final_payment_will_be_taken_from_customer_at_completion.') }}
+                            @if(! empty($isRepeatCreate))
+                                {{ translate('Repeat_advance_payment_optional_help') }}
+                            @else
+                                {{ translate('Payment_method_will_be_set_as_Cash_After_Service_and_final_payment_will_be_taken_from_customer_at_completion.') }}
+                            @endif
                         </p>
                         <p class="text-muted mb-0 small {{ ($advanceHasAmount && ! $advanceCollectedByProvider) ? '' : 'd-none' }}" id="advance-payment-help-with-advance">
                             {{ translate('Advance_payment_method_help') }}
@@ -2225,9 +2242,16 @@
                 return ($('#advance-payment-section input[name="advance_received_by"]:checked').val() || 'company') === 'provider';
             }
 
+            function isAdvancePaymentOptionalOnCreate() {
+                return String($('#advance-payment-section').attr('data-advance-optional') || '0') === '1'
+                    || isAdminRepeatCreate();
+            }
+
             function updateAdvancePaymentMethodUi() {
                 var adv = parseFloat($('#advance-paid-amount').val()) || 0;
                 var byProvider = adv > 0 && advanceCollectedByProvider();
+                var advanceOptional = isAdvancePaymentOptionalOnCreate();
+                var hideMethod = byProvider || (adv <= 0 && advanceOptional);
                 var $collected = $('#advance-collected-by-wrap');
                 var $scope = $('#advance-payment-section .pk-apm-scope');
                 var $wrap = $('#advance-payment-method-wrap-booking-create');
@@ -2239,9 +2263,12 @@
                     }
                 }
                 if ($scope.length) {
-                    $scope.toggleClass('d-none', byProvider);
+                    $scope.toggleClass('d-none', hideMethod);
                 }
                 if (!$wrap.length) {
+                    $('#advance-payment-help-no-advance').toggleClass('d-none', adv > 0);
+                    $('#advance-payment-help-with-advance').toggleClass('d-none', !(adv > 0 && !byProvider));
+                    $('#advance-payment-help-provider').toggleClass('d-none', !byProvider);
                     return;
                 }
                 var $allPm = $('#advance-payment-section .pk-apm-tier1, #advance-payment-section .pk-apm-tier2-digital, #advance-payment-section .pk-apm-tier2-offline');
@@ -3549,6 +3576,7 @@
                 var advRaw = ($('#advance-paid-amount').val() || '').trim();
                 var advParsed = advRaw === '' ? 0 : parseFloat(advRaw);
                 var advanceAmountValid = true;
+                // Repeat booking: advance amount may be left blank / zero.
                 if (advRaw !== '') {
                     if (isNaN(advParsed) || advParsed < 0) {
                         advanceAmountValid = false;
