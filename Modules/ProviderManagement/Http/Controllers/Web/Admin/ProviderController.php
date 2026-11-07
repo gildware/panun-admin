@@ -221,6 +221,10 @@ class ProviderController extends Controller
                 },
                 'storage',
                 'subscribed_services.category',
+                'zone:id,name',
+                'zones' => function ($zoneQuery) {
+                    $zoneQuery->select('zones.id', 'zones.name')->orderBy('zones.name');
+                },
             ])
             ->withCount(['bookings as bookings_count' => function ($query) {
                 $query->forRevenueReporting();
@@ -4010,10 +4014,12 @@ class ProviderController extends Controller
                 }
             })
             ->when($zoneId !== '' && $zoneId !== null, function ($query) use ($zoneId) {
-                $query->where(function ($q) use ($zoneId) {
-                    $q->whereHas('zones', function ($zq) use ($zoneId) {
-                        $zq->where('zones.id', $zoneId);
-                    })->orWhere('zone_id', $zoneId);
+                // Providers are stored on leaf zones. Searching a parent (district) includes those child zones.
+                $zoneIds = Zone::selfAndDescendantIds($zoneId);
+                $query->where(function ($q) use ($zoneIds) {
+                    $q->whereHas('zones', function ($zq) use ($zoneIds) {
+                        $zq->whereIn('zones.id', $zoneIds);
+                    })->orWhereIn('zone_id', $zoneIds);
                 });
             })
             ->when($performanceFilter !== 'all', function ($query) use ($performanceFilter) {

@@ -462,13 +462,9 @@ class AdminNavRegistry
 
     private static function bookingsItems(): array
     {
-        if (is_admin_employee()) {
-            return [];
-        }
-
         $group = translate('Bookings');
 
-        return [
+        $items = [
             self::entry('bookings', $group, null, translate('Booking_Requests'), route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']), [
                 'admin/booking/list', 'admin/booking/details*', 'admin/booking/rebooking*',
                 'admin/booking/success*', 'admin/booking/create',
@@ -476,9 +472,16 @@ class AdminNavRegistry
             self::entry('bookings', $group, null, translate('Repeat_booking'), route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']), [
                 'admin/booking/repeat/list*', 'admin/booking/create/repeat', 'admin/booking/repeat-details*', 'admin/booking/repeat-single-details*',
             ], [], 'booking.repeat'),
+        ];
+
+        if (is_admin_employee()) {
+            return $items;
+        }
+
+        return array_merge($items, [
             self::entry('bookings', $group, null, translate('verify_requests'), route('admin.booking.list.verification', ['booking_status' => 'pending', 'type' => 'pending']), ['admin/booking/list/verification*'], [], 'booking.verify'),
             self::entry('bookings', $group, null, translate('Booking_Review'), route('admin.booking.reviews.list'), ['admin/booking/reviews/list*']),
-        ];
+        ]);
     }
 
     private static function peopleItems(): array

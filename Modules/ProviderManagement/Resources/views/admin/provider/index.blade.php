@@ -334,22 +334,67 @@
         .provider-list-table-wrap .table.provider-list-table {
             font-size: 0.8125rem;
             margin-bottom: 0;
+            table-layout: fixed;
+            width: 100%;
         }
 
         .provider-list-table-wrap .table.provider-list-table > :not(caption) > * > * {
-            padding: 0.4rem 0.5rem;
+            padding: 0.55rem 0.65rem;
             vertical-align: middle;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .provider-list-table-wrap .table.provider-list-table thead th {
-            font-size: 0.72rem;
+            position: relative;
+            font-size: 0.75rem;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
+            text-transform: none;
+            letter-spacing: 0;
             white-space: nowrap;
+            line-height: 1.2;
             color: rgba(33, 37, 41, 0.72);
             background: var(--bs-gray-100, #f8f9fa);
             border-bottom-width: 1px;
+            padding-block: 0.5rem;
+            padding-inline: 0.45rem 0.7rem;
+            vertical-align: middle;
+        }
+
+        .provider-list-table-wrap .table.provider-list-table tbody td {
+            white-space: nowrap;
+        }
+
+        .provider-col-resizer {
+            position: absolute;
+            inset-block: 0;
+            inset-inline-end: 0;
+            width: 10px;
+            cursor: col-resize;
+            user-select: none;
+            touch-action: none;
+            z-index: 2;
+        }
+
+        .provider-col-resizer::after {
+            content: "";
+            position: absolute;
+            inset-block: 18%;
+            inset-inline-end: 4px;
+            width: 2px;
+            border-radius: 1px;
+            background: rgba(33, 37, 41, 0.2);
+        }
+
+        .provider-list-table thead th:hover .provider-col-resizer::after,
+        .provider-col-resizer.is-dragging::after {
+            background: var(--bs-primary, #0d6efd);
+        }
+
+        body.provider-col-resizing,
+        body.provider-col-resizing * {
+            cursor: col-resize !important;
+            user-select: none !important;
         }
 
         .provider-list-table-wrap .provider-info-cell {
@@ -385,7 +430,7 @@
             font-size: 0.8125rem;
             line-height: 1.25;
             display: block;
-            max-width: 14rem;
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -395,16 +440,17 @@
             font-size: 0.72rem;
             line-height: 1.25;
             display: inline-block;
-            max-width: 11rem;
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
-        .provider-list-table-wrap .provider-list-categories {
+        .provider-list-table-wrap .provider-list-categories,
+        .provider-list-table-wrap .provider-list-zones {
             font-size: 0.72rem;
             line-height: 1.35;
-            max-width: 11rem;
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -554,7 +600,12 @@
 
         $canManageStatus = auth()->user()->can('provider_manage_status');
         $canUpdate = auth()->user()->can('provider_update');
-        $tableColspan = 11 + ($canUpdate ? 1 : 0);
+        $tableColspan = 12 + ($canUpdate ? 1 : 0);
+        $providerListColWeights = [13, 9, 9, 8, 9, 6, 7, 7, 8, 7, 6, 7];
+        if ($canUpdate) {
+            $providerListColWeights[] = 5;
+        }
+        $providerListColWeightTotal = array_sum($providerListColWeights);
     @endphp
 
     <div class="main-content provider-list-page">
@@ -652,21 +703,27 @@
 
                             <div class="table-responsive provider-list-table-wrap">
                                 <table id="example" class="table table-sm align-middle provider-list-table">
+                                    <colgroup>
+                                        @foreach($providerListColWeights as $colWeight)
+                                            <col style="width: {{ round(($colWeight / $providerListColWeightTotal) * 100, 4) }}%">
+                                        @endforeach
+                                    </colgroup>
                                     <thead>
                                     <tr>
-                                        <th>{{translate('Provider_Info')}}</th>
-                                        <th>{{translate('Category')}}</th>
-                                        <th class="text-center">{{translate('Rating')}}</th>
-                                        <th>{{translate('phone')}}</th>
-                                        <th class="text-center">{{translate('Total_Bookings')}}</th>
-                                        <th class="text-center">{{translate('App')}}</th>
-                                        <th class="text-center">{{translate('Joined')}}</th>
-                                        <th class="text-center">{{translate('Performance_Status')}}</th>
-                                        <th class="text-center">{{translate('Service_Availability')}}</th>
-                                        <th class="text-center">{{translate('status')}}</th>
-                                        <th class="text-center">{{translate('App_Availability')}}</th>
+                                        <th title="{{ translate('Provider_Info') }}">{{translate('Provider_Info')}}</th>
+                                        <th title="{{ translate('Category') }}">{{translate('Category')}}</th>
+                                        <th title="{{ translate('Zones') }}">{{translate('Zones')}}</th>
+                                        <th class="text-center" title="{{ translate('Rating') }}">{{translate('Rating')}}</th>
+                                        <th title="{{ translate('phone') }}">{{translate('phone')}}</th>
+                                        <th class="text-center" title="{{ translate('Total_Bookings') }}">{{translate('Total_Bookings')}}</th>
+                                        <th class="text-center" title="{{ translate('App') }}">{{translate('App')}}</th>
+                                        <th class="text-center" title="{{ translate('Joined') }}">{{translate('Joined')}}</th>
+                                        <th class="text-center" title="{{ translate('Performance_Status') }}">{{translate('Performance_Status')}}</th>
+                                        <th class="text-center" title="{{ translate('Service_Availability') }}">{{translate('Service_Availability')}}</th>
+                                        <th class="text-center" title="{{ translate('status') }}">{{translate('status')}}</th>
+                                        <th class="text-center" title="{{ translate('App_Availability') }}">{{translate('App_Availability')}}</th>
                                         @can('provider_update')
-                                            <th class="text-center">{{translate('action')}}</th>
+                                            <th class="text-center" title="{{ translate('action') }}">{{translate('action')}}</th>
                                         @endcan
                                     </tr>
                                     </thead>
@@ -688,6 +745,12 @@
                                             $subscribedCategories = $provider->subscribed_services
                                                 ? $provider->subscribed_services->pluck('category.name')->filter()->unique()->values()
                                                 : collect();
+                                            $providerZoneNames = $provider->relationLoaded('zones')
+                                                ? $provider->zones->pluck('name')->filter()->unique()->values()
+                                                : collect();
+                                            if ($providerZoneNames->isEmpty() && $provider->zone?->name) {
+                                                $providerZoneNames = collect([$provider->zone->name]);
+                                            }
                                         @endphp
                                         <tr>
                                             <td>
@@ -715,6 +778,12 @@
                                                 <span class="provider-list-categories"
                                                       title="{{ $subscribedCategories->implode(', ') }}">
                                                     {{ $subscribedCategories->isNotEmpty() ? $subscribedCategories->implode(', ') : '—' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="provider-list-zones"
+                                                      title="{{ $providerZoneNames->implode(', ') }}">
+                                                    {{ $providerZoneNames->isNotEmpty() ? $providerZoneNames->implode(', ') : '—' }}
                                                 </span>
                                             </td>
                                             <td class="text-center">
@@ -1066,6 +1135,120 @@
                     clearTimeout(debounceTimer);
                     submitSearch();
                 }
+            });
+        })();
+
+        (function () {
+            var table = document.querySelector('.provider-list-table');
+            if (!table) {
+                return;
+            }
+
+            var headers = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+            var cols = Array.prototype.slice.call(table.querySelectorAll('colgroup col'));
+            if (!headers.length || headers.length !== cols.length) {
+                return;
+            }
+
+            var minWidth = 56;
+            var rtl = document.documentElement.getAttribute('dir') === 'rtl';
+            var widths = [];
+
+            try {
+                localStorage.removeItem('provider-list-column-widths:' + headers.length);
+            } catch (e) {}
+
+            function fitAllColumns() {
+                table.style.width = '100%';
+            }
+
+            function applyWidths() {
+                var total = 0;
+                widths.forEach(function (width, index) {
+                    var px = Math.max(minWidth, Math.round(width));
+                    widths[index] = px;
+                    cols[index].style.width = px + 'px';
+                    total += px;
+                });
+                var visible = table.parentElement ? table.parentElement.clientWidth : total;
+                table.style.width = Math.max(visible, total) + 'px';
+            }
+
+            function measureColumn(index) {
+                var probe = document.createElement('div');
+                probe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;width:max-content;height:auto;';
+                document.body.appendChild(probe);
+                var max = headers[index].scrollWidth;
+                table.querySelectorAll('tbody tr').forEach(function (row) {
+                    var cell = row.children[index];
+                    if (!cell || cell.colSpan > 1) {
+                        return;
+                    }
+                    probe.className = cell.className;
+                    probe.innerHTML = cell.innerHTML;
+                    max = Math.max(max, probe.scrollWidth);
+                });
+                probe.remove();
+                return Math.min(Math.max(minWidth, max + 28), 720);
+            }
+
+            fitAllColumns();
+
+            headers.forEach(function (header, index) {
+                var handle = document.createElement('span');
+                handle.className = 'provider-col-resizer';
+                handle.title = 'Drag to resize. Double-click to fit the content.';
+                handle.setAttribute('role', 'separator');
+                handle.setAttribute('aria-orientation', 'vertical');
+                header.appendChild(handle);
+
+                handle.addEventListener('pointerdown', function (event) {
+                    if (event.button !== 0) {
+                        return;
+                    }
+                    event.preventDefault();
+                    event.stopPropagation();
+                    handle.setPointerCapture(event.pointerId);
+                    handle.classList.add('is-dragging');
+                    document.body.classList.add('provider-col-resizing');
+
+                    widths = headers.map(function (th) {
+                        return th.getBoundingClientRect().width;
+                    });
+                    var startX = event.clientX;
+                    var startWidth = widths[index];
+
+                    function onMove(moveEvent) {
+                        var delta = moveEvent.clientX - startX;
+                        if (rtl) {
+                            delta = -delta;
+                        }
+                        widths[index] = startWidth + delta;
+                        applyWidths();
+                    }
+
+                    function onUp() {
+                        handle.classList.remove('is-dragging');
+                        document.body.classList.remove('provider-col-resizing');
+                        handle.removeEventListener('pointermove', onMove);
+                        handle.removeEventListener('pointerup', onUp);
+                        handle.removeEventListener('pointercancel', onUp);
+                    }
+
+                    handle.addEventListener('pointermove', onMove);
+                    handle.addEventListener('pointerup', onUp);
+                    handle.addEventListener('pointercancel', onUp);
+                });
+
+                handle.addEventListener('dblclick', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    widths = headers.map(function (th) {
+                        return th.getBoundingClientRect().width;
+                    });
+                    widths[index] = measureColumn(index);
+                    applyWidths();
+                });
             });
         })();
     </script>

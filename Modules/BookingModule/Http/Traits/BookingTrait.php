@@ -71,6 +71,18 @@ trait BookingTrait
             return ['flag' => 'failed', 'message' => 'no data found'];
         }
 
+        $schedules = [];
+        if (! empty($request['service_schedule'])) {
+            $schedules[] = $request['service_schedule'];
+        }
+        foreach ($cartData as $cartItem) {
+            if (! empty($cartItem->service_schedule)) {
+                $schedules[] = $cartItem->service_schedule;
+            }
+        }
+        if ($rejected = $this->rejectScheduleOutsideServiceHours($schedules)) {
+            return $rejected;
+        }
 
         $isPartials = $request['is_partial'] ? 1 : 0;
         $paymentAmountType = $request['payment_amount_type'] ?? 'full';
@@ -343,6 +355,22 @@ trait BookingTrait
             return ['flag' => 'failed', 'message' => 'no data found'];
         }
 
+        $repeatSchedules = [];
+        $repeatDates = json_decode($request['dates'] ?? '[]', true);
+        if (is_array($repeatDates)) {
+            foreach ($repeatDates as $repeat) {
+                if (is_array($repeat) && ! empty($repeat['date'])) {
+                    $repeatSchedules[] = $repeat['date'];
+                }
+            }
+        }
+        if (! empty($request['service_schedule'])) {
+            $repeatSchedules[] = $request['service_schedule'];
+        }
+        if ($rejected = $this->rejectScheduleOutsideServiceHours($repeatSchedules)) {
+            return $rejected;
+        }
+
         $loginToken = null;
         $bookingIds = [];
 
@@ -584,8 +612,28 @@ trait BookingTrait
      * @return array
      */
 
+    /**
+     * @param  array<int, mixed>  $schedules
+     * @return array{flag: string, message: string}|null
+     */
+    protected function rejectScheduleOutsideServiceHours(array $schedules): ?array
+    {
+        foreach ($schedules as $schedule) {
+            $message = company_service_schedule_error($schedule);
+            if ($message !== null) {
+                return ['flag' => 'service_hours', 'message' => $message];
+            }
+        }
+
+        return null;
+    }
+
     protected function placeBookingRequestForBidding($customerUserId, $request, $transactionId, $data): array
     {
+        if ($rejected = $this->rejectScheduleOutsideServiceHours([$data['service_schedule'] ?? null])) {
+            return $rejected;
+        }
+
         $booking = new Booking();
 
         try {
