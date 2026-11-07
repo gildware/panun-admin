@@ -2199,7 +2199,7 @@ class ProviderController extends Controller
             $provider,
             'ledger_payment_sent_to_provider',
             $waVars,
-            auth()->id() ? (int) auth()->id() : null
+            auth()->id() ? (string) auth()->id() : null
         );
 
         Toastr::success(translate('Payment_recorded_successfully'));
@@ -2256,7 +2256,7 @@ class ProviderController extends Controller
             $provider,
             'ledger_payment_received_from_provider',
             $waVars,
-            auth()->id() ? (int) auth()->id() : null
+            auth()->id() ? (string) auth()->id() : null
         );
 
         Toastr::success(translate('Amount_collected_successfully'));
@@ -2361,7 +2361,7 @@ class ProviderController extends Controller
         $ledgerWa = app(LedgerPaymentWhatsAppService::class);
         $result = $ledgerWa->trySendProviderPaymentReminder(
             $provider,
-            auth()->id() ? (int) auth()->id() : null
+            auth()->id() ? (string) auth()->id() : null
         );
 
         if (($result['nothing_due'] ?? false) === true) {

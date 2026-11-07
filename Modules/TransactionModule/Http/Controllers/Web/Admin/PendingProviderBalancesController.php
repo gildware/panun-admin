@@ -106,7 +106,7 @@ class PendingProviderBalancesController extends Controller
 
         $ids = array_values(array_unique(array_filter($ids)));
         $ledgerWa = app(LedgerPaymentWhatsAppService::class);
-        $adminUserId = auth()->id() ? (int) auth()->id() : null;
+        $adminUserId = auth()->id() ? (string) auth()->id() : null;
 
         $sent = 0;
         $failed = 0;
