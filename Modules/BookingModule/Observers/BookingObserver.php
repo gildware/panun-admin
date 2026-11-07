@@ -2,10 +2,13 @@
 
 namespace Modules\BookingModule\Observers;
 
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Services\BookingAuditLogger;
+use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 
 class BookingObserver
 {
@@ -89,20 +92,37 @@ class BookingObserver
             return;
         }
 
-        if (! class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
+        if (! class_exists(BookingWhatsAppNotificationService::class)) {
             return;
         }
 
-        $wa = app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class);
+        // Status history (cancel / hold reason) is inserted after this save in the same request.
+        // Send after the response so that row is visible. Skip if a caller already sent this transition.
+        $bookingId = (string) $booking->id;
+        $cacheKey = BookingWhatsAppNotificationService::CACHE_STATUS_SENT_PREFIX.$bookingId.':'.$previousStatus.':'.$newStatus;
 
-        try {
-            $wa->sendBookingStatusChange($booking, $previousStatus);
-        } catch (\Throwable $e) {
-            Log::warning('Booking WhatsApp status notification failed', [
-                'booking_id' => $booking->id,
-                'message' => $e->getMessage(),
-            ]);
-        }
+        DB::afterCommit(function () use ($bookingId, $previousStatus, $cacheKey) {
+            app()->terminating(function () use ($bookingId, $previousStatus, $cacheKey) {
+                if (Cache::has($cacheKey)) {
+                    return;
+                }
+
+                $fresh = Booking::query()->find($bookingId);
+                if (! $fresh || (string) ($fresh->booking_status ?? '') === $previousStatus) {
+                    return;
+                }
+
+                try {
+                    app(BookingWhatsAppNotificationService::class)
+                        ->sendBookingStatusChange($fresh, $previousStatus);
+                } catch (\Throwable $e) {
+                    Log::warning('Booking WhatsApp status notification failed', [
+                        'booking_id' => $bookingId,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            });
+        });
     }
 
     public function deleting(Booking $booking): void
