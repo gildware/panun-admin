@@ -55,6 +55,12 @@ class AdminInboxNotificationService
         ?string $referenceId = null,
         ?string $category = null,
     ): ?UserNotification {
+        $userId = trim($userId);
+        // Avoid FK failures when callers pass int-cast UUID garbage ("0") or empty ids.
+        if ($userId === '' || $userId === '0') {
+            return null;
+        }
+
         $category = $category ?? UserNotification::categoryForType($type);
 
         try {

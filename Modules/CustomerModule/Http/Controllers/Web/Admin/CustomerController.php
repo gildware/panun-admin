@@ -1258,7 +1258,7 @@ class CustomerController extends Controller
             'ledger_customer_payment_reminder',
             $vars,
             $customer->phone,
-            $request->user()?->id ? (int) $request->user()->id : null
+            $request->user()?->id ? (string) $request->user()->id : null
         );
 
         $failMessage = __('lang.WhatsApp_payment_reminder_failed_with_recipient', [

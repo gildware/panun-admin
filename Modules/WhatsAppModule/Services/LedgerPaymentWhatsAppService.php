@@ -35,7 +35,7 @@ class LedgerPaymentWhatsAppService
      *     attempted_normalized_digits: string
      * }
      */
-    public function trySendProviderPaymentReminder(Provider $provider, ?int $adminUserId): array
+    public function trySendProviderPaymentReminder(Provider $provider, ?string $adminUserId): array
     {
         $provider->loadMissing(['owner.account']);
 
