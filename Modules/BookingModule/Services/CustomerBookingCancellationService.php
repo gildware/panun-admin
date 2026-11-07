@@ -81,7 +81,7 @@ class CustomerBookingCancellationService
                     $repeat->save();
 
                     $repeatHistory = new BookingStatusHistory;
-                    $repeatHistory->booking_id = 0;
+                    $repeatHistory->booking_id = $booking->id;
                     $repeatHistory->booking_repeat_id = $repeat->id;
                     $repeatHistory->changed_by = $customer->id;
                     $repeatHistory->booking_status = 'canceled';

@@ -506,7 +506,7 @@ class BookingController extends Controller
                         $repeat->save();
 
                         $repeatBookingStatusHistory = new $this->bookingStatusHistory;
-                        $repeatBookingStatusHistory->booking_id = 0;
+                        $repeatBookingStatusHistory->booking_id = $bookingId;
                         $repeatBookingStatusHistory->booking_repeat_id = $repeat->id;
                         $repeatBookingStatusHistory->changed_by = $request->user()->id;
                         $repeatBookingStatusHistory->booking_status = 'accepted';

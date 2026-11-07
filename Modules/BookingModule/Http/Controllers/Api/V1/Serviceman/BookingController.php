@@ -183,7 +183,7 @@ class BookingController extends Controller
             }
 
             $bookingStatusHistory = $this->bookingStatusHistory;
-            $bookingStatusHistory->booking_id = 0;
+            $bookingStatusHistory->booking_id = $booking->booking_id;
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = $request['booking_status'];
             $bookingStatusHistory->booking_repeat_id = $bookingId;

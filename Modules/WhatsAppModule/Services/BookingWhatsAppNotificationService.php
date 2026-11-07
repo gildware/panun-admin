@@ -131,7 +131,9 @@ class BookingWhatsAppNotificationService
         '{verification_action}' => 'Last verification action: approve, deny, or cancel',
         '{reopen_resolve_remarks}' => 'Remarks when a reopen case is marked resolved (reopen resolved template only)',
         '{booking_cancellation_reason}' => 'Cancellation reason (from the latest cancel action on this booking)',
+        '{cancellation_reason}' => 'Same as {booking_cancellation_reason} (Meta templates named cancellation_reason)',
         '{on_hold_reason}' => 'Put on hold — reason (from the latest hold action on this booking)',
+        '{on_hold}' => 'Same as {on_hold_reason} (Meta templates named on_hold)',
         '{on_hold_reason_remarks}' => 'Put on hold — remarks/notes (from the latest hold action on this booking)',
         '{reopen_from_completed_reason}' => 'Reopen from completed — reason or notes (from reopen flow)',
         '{provider_pending_balance}' => 'Amount provider owes the company (settlement basis; payment reminders to provider)',
@@ -242,7 +244,9 @@ class BookingWhatsAppNotificationService
         '{verification_action}' => "Modules: Booking — verification.\nWhen: Templates describing the last verification action.\nContains: Action label such as approve, deny, or cancel when applicable.",
         '{reopen_resolve_remarks}' => "Modules: Booking — reopen resolved.\nWhen: “Reopen resolved” status segment only.\nContains: Admin/staff remarks entered when the reopen case is marked resolved.",
         '{booking_cancellation_reason}' => "Modules: Booking.\nWhen: Cancellation or status flows that capture a reason.\nContains: Last cancellation reason text from the booking.",
+        '{cancellation_reason}' => "Modules: Booking.\nWhen: Cancellation WhatsApp templates.\nContains: Same text as {booking_cancellation_reason}.",
         '{on_hold_reason}' => "Modules: Booking.\nWhen: On-hold / hold-related status messaging.\nContains: Reason from the latest hold action.",
+        '{on_hold}' => "Modules: Booking.\nWhen: On-hold WhatsApp templates.\nContains: Same text as {on_hold_reason}.",
         '{on_hold_reason_remarks}' => "Modules: Booking.\nWhen: On-hold / hold-related status messaging.\nContains: Remarks/notes recorded when the booking is put on hold.",
         '{reopen_from_completed_reason}' => "Modules: Booking — reopened from completed.\nWhen: Reopen flows that store a reason.\nContains: Text from the reopen-from-completed flow.",
         '{provider_pending_balance}' => "Modules: Payments / ledger (WhatsApp “Ledger payment messages” tab).\nWhen: Provider payment reminders — amount they still owe the company.\nContains: Formatted pending settlement due from provider to company.",
@@ -351,7 +355,9 @@ class BookingWhatsAppNotificationService
         '{verification_action}' => 'approve',
         '{reopen_resolve_remarks}' => 'Technician visit completed; case closed.',
         '{booking_cancellation_reason}' => 'Customer requested reschedule',
+        '{cancellation_reason}' => 'Customer requested reschedule',
         '{on_hold_reason}' => 'Awaiting parts',
+        '{on_hold}' => 'Awaiting parts',
         '{on_hold_reason_remarks}' => 'Need supplier confirmation before resuming',
         '{reopen_from_completed_reason}' => 'Issue recurred after visit',
         '{provider_pending_balance}' => '12,500.00',
@@ -529,7 +535,9 @@ class BookingWhatsAppNotificationService
     {
         return [
             '{booking_cancellation_reason}',
+            '{cancellation_reason}',
             '{on_hold_reason}',
+            '{on_hold}',
             '{on_hold_reason_remarks}',
             '{reopen_from_completed_reason}',
             '{reopen_resolve_remarks}',
@@ -1514,6 +1522,14 @@ class BookingWhatsAppNotificationService
             return;
         }
 
+        // Callers that send after writing status history set this so the observer's
+        // end-of-request send does not deliver a second copy of the same transition.
+        Cache::put(
+            self::CACHE_STATUS_SENT_PREFIX.$booking->id.':'.$previousBookingStatus.':'.$newStatus,
+            1,
+            now()->addSeconds(90)
+        );
+
         $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus, $booking);
 
         $config = $this->getConfig();
@@ -2035,13 +2051,23 @@ class BookingWhatsAppNotificationService
             ->latest('id')
             ->first();
         if ($repeatHoldHist) {
-            $repeatHoldReason = trim((string) ($repeatHoldHist->holdReopenReason?->name ?? ''));
-            $repeatHoldRemarks = trim((string) ($repeatHoldHist->status_change_remarks ?? ''));
-            if ($repeatHoldReason === '' && $repeatHoldRemarks !== '') {
-                $repeatHoldReason = $repeatHoldRemarks;
-            }
+            [$repeatHoldReason, $repeatHoldRemarks] = $this->holdReasonTextsFromHistory($repeatHoldHist);
             $vars['{on_hold_reason}'] = $repeatHoldReason !== '' ? $repeatHoldReason : '—';
+            $vars['{on_hold}'] = $vars['{on_hold_reason}'];
             $vars['{on_hold_reason_remarks}'] = $repeatHoldRemarks !== '' ? $repeatHoldRemarks : '—';
+        }
+
+        $repeatCancelHist = BookingStatusHistory::query()
+            ->where('booking_repeat_id', $repeat->id)
+            ->whereIn('booking_status', ['canceled', 'cancelled'])
+            ->with(['cancellationReason', 'providerCancellationReason', 'customerCancellationReason'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+        if ($repeatCancelHist) {
+            $repeatCancelReason = $this->cancellationReasonTextFromHistory($repeatCancelHist);
+            $vars['{booking_cancellation_reason}'] = $repeatCancelReason !== '' ? $repeatCancelReason : '—';
+            $vars['{cancellation_reason}'] = $vars['{booking_cancellation_reason}'];
         }
 
         $totalBill = get_booking_total_amount($repeat);
@@ -3178,6 +3204,12 @@ class BookingWhatsAppNotificationService
                 continue;
             }
 
+            $alias = self::placeholderAlias($k);
+            if ($alias !== null && isset($vars[$alias])) {
+                $out[] = (string) $vars[$alias];
+                continue;
+            }
+
             // Some older saves (or manual edits) may store the bare token name without braces.
             // Treat "token_name" as "{token_name}" for lookup.
             if (preg_match('/^[a-z][a-z0-9_]*$/', $k)) {
@@ -3994,6 +4026,64 @@ class BookingWhatsAppNotificationService
     }
 
     /**
+     * Admin, customer, and provider cancellations store the reason on different history columns.
+     */
+    protected function cancellationReasonTextFromHistory(?BookingStatusHistory $hist): string
+    {
+        if (! $hist) {
+            return '';
+        }
+
+        $hist->loadMissing(['cancellationReason', 'providerCancellationReason', 'customerCancellationReason']);
+
+        foreach ([
+            $hist->cancellationReason?->name ?? null,
+            $hist->customerCancellationReason?->name ?? null,
+            $hist->providerCancellationReason?->name ?? null,
+        ] as $name) {
+            $text = trim((string) $name);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return trim((string) ($hist->status_change_remarks ?? ''));
+    }
+
+    /**
+     * @return array{0: string, 1: string} reason, remarks
+     */
+    protected function holdReasonTextsFromHistory(?BookingStatusHistory $hist): array
+    {
+        if (! $hist) {
+            return ['', ''];
+        }
+
+        $hist->loadMissing('holdReopenReason');
+        $reason = trim((string) ($hist->holdReopenReason?->name ?? ''));
+        $remarks = trim((string) ($hist->status_change_remarks ?? ''));
+        if ($reason === '' && $remarks !== '') {
+            $reason = $remarks;
+        }
+
+        return [$reason, $remarks];
+    }
+
+    /**
+     * Meta template variable names that mean an existing booking placeholder.
+     */
+    protected static function placeholderAlias(string $key): ?string
+    {
+        $bare = trim($key, "{} \t");
+
+        return match ($bare) {
+            'cancellation_reason' => '{booking_cancellation_reason}',
+            'on_hold' => '{on_hold_reason}',
+            default => null,
+        };
+    }
+
+    /**
      * @param  array<string, mixed>  $config  Unused; prefix is read from the same business settings as Cloud sends.
      */
     public function normalizePhone(?string $phone, array $config): ?string
@@ -4073,11 +4163,11 @@ class BookingWhatsAppNotificationService
         $cancelHist = BookingStatusHistory::query()
             ->where('booking_id', $booking->id)
             ->whereIn('booking_status', ['canceled', 'cancelled'])
-            ->with('cancellationReason')
+            ->with(['cancellationReason', 'providerCancellationReason', 'customerCancellationReason'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->first();
-        $cancellationReasonText = trim((string) ($cancelHist?->cancellationReason?->name ?? ''));
+        $cancellationReasonText = $this->cancellationReasonTextFromHistory($cancelHist);
         if ($cancellationReasonText === '') {
             $cancellationReasonText = '—';
         }
@@ -4091,12 +4181,7 @@ class BookingWhatsAppNotificationService
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->first();
-        $onHoldReasonText = trim((string) ($holdHist?->holdReopenReason?->name ?? ''));
-        $onHoldRemarksText = trim((string) ($holdHist?->status_change_remarks ?? ''));
-        // Some flows capture remarks but not a structured reason; ensure the message still shows something meaningful.
-        if ($onHoldReasonText === '' && $onHoldRemarksText !== '') {
-            $onHoldReasonText = $onHoldRemarksText;
-        }
+        [$onHoldReasonText, $onHoldRemarksText] = $this->holdReasonTextsFromHistory($holdHist);
         if ($onHoldReasonText === '') {
             $onHoldReasonText = '—';
         }
@@ -4149,7 +4234,9 @@ class BookingWhatsAppNotificationService
             '{verification_action}' => '—',
             '{reopen_resolve_remarks}' => (($t = trim((string) ($booking->reopen_resolve_remarks ?? ''))) !== '' ? $t : '—'),
             '{booking_cancellation_reason}' => $cancellationReasonText,
+            '{cancellation_reason}' => $cancellationReasonText,
             '{on_hold_reason}' => $onHoldReasonText,
+            '{on_hold}' => $onHoldReasonText,
             '{on_hold_reason_remarks}' => $onHoldRemarksText,
             '{reopen_from_completed_reason}' => $reopenFromCompletedText,
             '{customer_refund_before_this}' => '—',
