@@ -1648,6 +1648,7 @@ class BookingController extends Controller
                 'service_address_id' => ['nullable', 'integer', 'required_if:service_location,customer'],
                 'service_location' => ['required', 'in:customer,provider'],
                 'booking_source' => ['required', 'string', 'max:255'],
+                // Advance stays optional on create (including repeat series — amount may be blank / 0).
                 'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
                 'advance_received_by' => ['nullable', 'string', Rule::in(['company', 'provider'])],
                 'advance_payment_method' => [
@@ -1889,6 +1890,7 @@ class BookingController extends Controller
             'service_address_id' => ['nullable', 'integer', 'required_if:service_location,customer'],
             'service_location' => ['required', 'in:customer,provider'],
             'booking_source' => ['required', 'string', 'max:255'],
+            // Advance stays optional on create (including repeat series — amount may be blank / 0).
             'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
             'advance_received_by' => ['nullable', 'string', Rule::in(['company', 'provider'])],
             'advance_payment_method' => [
