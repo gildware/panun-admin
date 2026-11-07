@@ -140,6 +140,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
             Route::get('ajax-get-subcategories', [BookingController::class, 'ajaxGetSubcategories'])->name('ajax-get-subcategories');
             Route::get('ajax-get-services', [BookingController::class, 'ajaxGetServices'])->name('ajax-get-services');
             Route::get('ajax-get-providers', [BookingController::class, 'ajaxGetProviders'])->name('ajax-get-providers');
+            Route::get('ajax-search-customers', [BookingController::class, 'ajaxSearchCustomers'])->name('ajax-search-customers');
         });
 
         Route::get('rebooking/details/{id}', [BookingController::class, 'reBookingDetails'])->name('rebooking.details');
