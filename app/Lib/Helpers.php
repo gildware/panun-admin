@@ -2741,6 +2741,41 @@ if (!function_exists('is_within_company_service_hours')) {
     }
 }
 
+if (!function_exists('company_service_schedule_error')) {
+    /**
+     * When service hours are on, a schedule outside the daily window or on an off day is rejected.
+     * Returns null when the schedule can be kept as the customer sent it.
+     */
+    function company_service_schedule_error(mixed $schedule): ?string
+    {
+        $config = company_service_hours_config();
+        if ($config === null || $schedule === null || $schedule === '') {
+            return null;
+        }
+
+        try {
+            $dateTime = \Carbon\Carbon::parse($schedule);
+        } catch (\Throwable) {
+            return translate('Please_enter_a_valid_service_schedule');
+        }
+
+        if (is_within_company_service_hours($dateTime)) {
+            return null;
+        }
+
+        $start = \Carbon\Carbon::parse($config['start_time'])->format('g:i A');
+        $end = \Carbon\Carbon::parse($config['end_time'])->format('g:i A');
+        $day = strtolower($dateTime->format('l'));
+        if (in_array($day, $config['weekends'], true)) {
+            return translate('Services are not available on this day') . '. '
+                . translate('Services are available only between') . " {$start} and {$end}.";
+        }
+
+        return translate('Services are available only between') . " {$start} and {$end}. "
+            . translate('Please choose a time inside these hours.');
+    }
+}
+
 if (!function_exists('resolve_company_service_schedule')) {
     function resolve_company_service_schedule(\Carbon\Carbon $requested): \Carbon\Carbon
     {

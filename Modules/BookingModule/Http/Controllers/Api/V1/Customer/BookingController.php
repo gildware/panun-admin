@@ -297,6 +297,12 @@ class BookingController extends Controller
             return response()->json(response_formatter(BOOKING_PLACE_SUCCESS_200, $response), 200);
         }
 
+        if (($response['flag'] ?? '') === 'service_hours') {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'service_schedule', 'message' => $response['message']],
+            ]), 400);
+        }
+
         if (($response['message'] ?? '') === 'wallet_max_spend_per_transaction') {
             return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
         }

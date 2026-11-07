@@ -102,6 +102,17 @@
 
 
 <div class="preloader"></div>
+<script>
+    // window.load never fires if one asset stalls; don't leave the spinner up forever.
+    (function () {
+        function hidePreloader() {
+            var el = document.querySelector('.preloader');
+            if (el) { el.style.display = 'none'; }
+        }
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(hidePreloader, 1500); });
+        setTimeout(hidePreloader, 6000);
+    })();
+</script>
 
 @if($adminUsesPartialNav)
     <div id="admin-partial-progress" class="admin-partial-progress" aria-hidden="true"></div>
