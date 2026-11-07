@@ -498,7 +498,8 @@ class ProviderProfileChangeRequestService
         ProviderChangeRequest $changeRequest,
         string $fieldKey,
         bool $approved,
-        ?string $reviewedBy = null
+        ?string $reviewedBy = null,
+        ?string $denialReason = null
     ): array {
         $changeRequest->loadMissing('provider.owner');
         $pendingKeys = $this->pendingFieldChangesForRequest($changeRequest);
@@ -539,7 +540,7 @@ class ProviderProfileChangeRequestService
         $requestClosed = $remainingKeys === [];
 
         if ($requestClosed) {
-            $this->finalizeReviewedChangeRequest($changeRequest, $reviewedBy, $labelsByKey);
+            $this->finalizeReviewedChangeRequest($changeRequest, $reviewedBy, $labelsByKey, $denialReason);
             $changeRequest->refresh();
         }
 
@@ -559,7 +560,8 @@ class ProviderProfileChangeRequestService
     private function finalizeReviewedChangeRequest(
         ProviderChangeRequest $changeRequest,
         ?string $reviewedBy,
-        $labelsByKey
+        $labelsByKey,
+        ?string $denialReason = null
     ): void {
         $reviews = is_array($changeRequest->payload['field_reviews'] ?? null)
             ? $changeRequest->payload['field_reviews']
@@ -586,8 +588,15 @@ class ProviderProfileChangeRequestService
             ? ProviderChangeRequest::STATUS_APPROVED
             : ProviderChangeRequest::STATUS_DENIED;
 
-        if ($approvedCount > 0 && $deniedNames !== []) {
-            $changeRequest->admin_note = translate('Denied_items').': '.implode(', ', $deniedNames);
+        if ($approvedCount > 0) {
+            $changeRequest->denial_reason = null;
+            if ($deniedNames !== []) {
+                $changeRequest->admin_note = translate('Denied_items').': '.implode(', ', $deniedNames);
+            }
+        } else {
+            $reason = trim((string) $denialReason);
+            $fallback = implode(', ', array_values(array_filter($deniedNames)));
+            $changeRequest->denial_reason = $reason !== '' ? $reason : ($fallback !== '' ? $fallback : null);
         }
 
         $changeRequest->save();

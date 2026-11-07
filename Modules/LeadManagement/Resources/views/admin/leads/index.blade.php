@@ -6,13 +6,39 @@
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.css') }}"/>
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/dataTables/select.dataTables.min.css') }}"/>
     <style>
-        /* Full page — moderate compact (not cramped) */
         .lead-index-page .page-title-wrap { margin-bottom: 0.75rem !important; gap: 0.75rem !important; }
         .lead-index-page .page-title { font-size: 1.35rem; margin-bottom: 0; }
         .lead-index-page .lead-index-tabs { margin-bottom: 0.75rem !important; gap: 0.5rem !important; }
         .lead-index-page .lead-index-toolbar.card { margin-bottom: 0.75rem !important; }
-        .lead-index-page .lead-index-toolbar .card-body { padding: 0.75rem 1rem; }
-        .lead-index-page .lead-index-toolbar .row { --bs-gutter-y: 0.5rem; }
+        .lead-index-page .lead-index-toolbar .card-body { padding: 0.65rem 1rem; }
+        .lead-index-toolbar__row {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .lead-index-toolbar__search {
+            flex: 1 1 auto;
+            min-width: 8rem;
+        }
+        .lead-index-toolbar__search .form-control {
+            height: 2.25rem;
+            min-height: 2.25rem;
+            padding: 0.25rem 0.75rem;
+        }
+        .lead-index-toolbar__actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 0 0 auto;
+        }
+        .lead-index-toolbar__actions .btn {
+            height: 2.25rem;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
 
         /* Table — between default and ultra-compact */
         .table-leads-card .card-body { padding: 1rem 1.25rem; }
@@ -141,7 +167,7 @@
             z-index: 2;
         }
         .lead-filter-btn { overflow: visible; }
-        .lead-filter-btn-margin { margin-right: 1rem; }
+        .lead-filter-btn-margin { margin-right: 0.55rem; }
         .lead-filter-offcanvas { display: flex; flex-direction: column; }
         .lead-filter-offcanvas .lead-filter-form-flex { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         .lead-filter-offcanvas .lead-filter-body { flex: 1; min-height: 0; }
@@ -154,34 +180,62 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12 lead-index-page">
-                    <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
-                        <h2 class="page-title">{{ translate('Lead_Management') }}</h2>
-                        <div class="d-flex flex-wrap gap-2">
-                            @if(is_super_admin())
-                            <a href="{{ route('admin.lead.deleted') }}" class="btn btn--secondary">
-                                <span class="material-icons">delete</span>
-                                {{ translate('Deleted_leads') }}
-                            </a>
-                            @endif
-                            <button type="button" class="btn btn--primary" data-bs-toggle="modal" data-bs-target="#leadCreateModal">
-                                <span class="material-icons">add</span>
-                                {{ translate('Add_New_Lead') }}
-                            </button>
-                        </div>
-                    </div>
+                    @php
+                        $leadTabCounts = $leadTabCounts ?? [
+                            'all' => 0,
+                            'unknown' => 0,
+                            'customer' => 0,
+                            'future_customer' => 0,
+                            'future_provider' => 0,
+                            'provider' => 0,
+                            'invalid' => 0,
+                        ];
+                        $sourceIds = $sourceIds ?? [];
+                        $adSourceIds = $adSourceIds ?? [];
+                        $handledByInput = $handledByInput ?? [];
+                        $handledByInputStr = array_map('strval', $handledByInput);
+                        $filterUnassignedSelected = in_array(\Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE, $handledByInputStr, true);
+                        $handledByEmployeePickCount = count(array_filter($handledByInputStr, fn ($v) => $v !== \Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE));
+                        $handledByFilterSelections = $handledByEmployeePickCount + ($filterUnassignedSelected ? 1 : 0);
+                        $filterStatusIds = $filterStatusIds ?? [];
+                        $filterDistrictIds = $filterDistrictIds ?? [];
+                        $filterZoneIds = $filterZoneIds ?? [];
+                        $filterCategoryIds = $filterCategoryIds ?? [];
+                        $filterCustomerStatusIds = $filterCustomerStatusIds ?? [];
+                        $filterCustomerZoneIds = $filterCustomerZoneIds ?? [];
+                        $filterCustomerCategoryIds = $filterCustomerCategoryIds ?? [];
+                        $filterCustomerSubCategoryIds = $filterCustomerSubCategoryIds ?? [];
+                        $leadStatusFilter = $leadStatusFilter ?? 'all';
+                        $estimatedDateFrom = $estimatedDateFrom ?? '';
+                        $estimatedDateTo = $estimatedDateTo ?? '';
+                        $followupFrom = $followupFrom ?? '';
+                        $followupTo = $followupTo ?? '';
+                        $outboundEnquiryFilter = $outboundEnquiryFilter ?? 'all';
+                        $outboundEnquiryCount = $outboundEnquiryCount ?? '';
+                        $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + $handledByFilterSelections
+                            + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
+                        if ($leadStatusFilter !== 'all') {
+                            $filtersAppliedCount += 1;
+                        }
+                        if (in_array($tab, ['all', 'unknown', 'customer', 'provider'], true) && !empty($followupFrom) && !empty($followupTo)) {
+                            $filtersAppliedCount += 1;
+                        }
+                        $leadTemperatures = $leadTemperatures ?? [];
+                        if ($tab === 'provider') {
+                            $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds) + count($leadTemperatures);
+                        }
+                        if ($tab === 'customer') {
+                            $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0) + count($leadTemperatures);
+                            if (($customerHasBooking ?? 'all') !== 'all') {
+                                $filtersAppliedCount += 1;
+                            }
+                        }
+                        if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
+                            $filtersAppliedCount += 1;
+                        }
+                    @endphp
 
                     <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3 lead-index-tabs">
-                        @php
-                            $leadTabCounts = $leadTabCounts ?? [
-                                'all' => 0,
-                                'unknown' => 0,
-                                'customer' => 0,
-                                'future_customer' => 0,
-                                'future_provider' => 0,
-                                'provider' => 0,
-                                'invalid' => 0,
-                            ];
-                        @endphp
                         <ul class="nav nav--tabs nav--tabs__style2 nav--tabs__booking-tally flex-wrap gap-2">
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'all' ? 'active' : '' }}"
@@ -240,62 +294,12 @@
                                 </a>
                             </li>
                         </ul>
-                        <div class="d-flex gap-2 fw-medium">
-                            <span class="opacity-75">{{ translate('Total_Leads') }}:</span>
-                            <span class="title-color" id="lead-total-count">{{ $leads->total() }}</span>
-                        </div>
                     </div>
-
-                    @php
-                        $sourceIds = $sourceIds ?? [];
-                        $adSourceIds = $adSourceIds ?? [];
-                        $handledByInput = $handledByInput ?? [];
-                        $handledByInputStr = array_map('strval', $handledByInput);
-                        $filterUnassignedSelected = in_array(\Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE, $handledByInputStr, true);
-                        $handledByEmployeePickCount = count(array_filter($handledByInputStr, fn ($v) => $v !== \Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE));
-                        $handledByFilterSelections = $handledByEmployeePickCount + ($filterUnassignedSelected ? 1 : 0);
-                        $filterStatusIds = $filterStatusIds ?? [];
-                        $filterDistrictIds = $filterDistrictIds ?? [];
-                        $filterZoneIds = $filterZoneIds ?? [];
-                        $filterCategoryIds = $filterCategoryIds ?? [];
-                        $filterCustomerStatusIds = $filterCustomerStatusIds ?? [];
-                        $filterCustomerZoneIds = $filterCustomerZoneIds ?? [];
-                        $filterCustomerCategoryIds = $filterCustomerCategoryIds ?? [];
-                        $filterCustomerSubCategoryIds = $filterCustomerSubCategoryIds ?? [];
-                        $leadStatusFilter = $leadStatusFilter ?? 'all';
-                        $estimatedDateFrom = $estimatedDateFrom ?? '';
-                        $estimatedDateTo = $estimatedDateTo ?? '';
-                        $followupFrom = $followupFrom ?? '';
-                        $followupTo = $followupTo ?? '';
-                        $outboundEnquiryFilter = $outboundEnquiryFilter ?? 'all';
-                        $outboundEnquiryCount = $outboundEnquiryCount ?? '';
-                        $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + $handledByFilterSelections
-                            + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
-                        if ($leadStatusFilter !== 'all') {
-                            $filtersAppliedCount += 1;
-                        }
-                        if (in_array($tab, ['all', 'unknown', 'customer', 'provider'], true) && !empty($followupFrom) && !empty($followupTo)) {
-                            $filtersAppliedCount += 1;
-                        }
-                        $leadTemperatures = $leadTemperatures ?? [];
-                        if ($tab === 'provider') {
-                            $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds) + count($leadTemperatures);
-                        }
-                        if ($tab === 'customer') {
-                            $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0) + count($leadTemperatures);
-                            if (($customerHasBooking ?? 'all') !== 'all') {
-                                $filtersAppliedCount += 1;
-                            }
-                        }
-                        if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
-                            $filtersAppliedCount += 1;
-                        }
-                    @endphp
 
                     <div class="card mb-3 lead-index-toolbar">
                         <div class="card-body">
-                            <div class="row g-2 align-items-center">
-                                <div class="col-md-6 col-lg-8">
+                            <div class="lead-index-toolbar__row">
+                                <div class="lead-index-toolbar__search">
                                     <input type="text"
                                            name="search"
                                            id="lead-search-input"
@@ -303,7 +307,41 @@
                                            value="{{ $search ?? '' }}"
                                            placeholder="{{ translate('Search_by_name_phone_or_lead_id') }}">
                                 </div>
-                                <div class="col-md-6 col-lg-4 d-flex justify-content-md-end">
+                                <div class="lead-index-toolbar__actions">
+                                    @can('lead_export')
+                                        <a href="{{ route('admin.lead.export', array_filter([
+                                                'step' => 1,
+                                                'scope' => $tab,
+                                                'search' => ($search ?? '') !== '' ? $search : null,
+                                                'source_id' => $sourceIds ?: null,
+                                                'ad_source_id' => $adSourceIds ?: null,
+                                                'handled_by' => $handledByInput ?: null,
+                                                'lead_status' => ($leadStatusFilter ?? 'all') !== 'all' ? $leadStatusFilter : null,
+                                                'date_from' => $dateFrom ?: null,
+                                                'date_to' => $dateTo ?: null,
+                                                'followup_from' => $followupFrom ?: null,
+                                                'followup_to' => $followupTo ?: null,
+                                                'lead_temperature' => ($leadTemperatures ?? []) ?: null,
+                                                'status_id' => ($filterStatusIds ?? []) ?: null,
+                                                'district_id' => ($filterDistrictIds ?? []) ?: null,
+                                                'zone_id' => ($filterZoneIds ?? []) ?: null,
+                                                'category_id' => ($filterCategoryIds ?? []) ?: null,
+                                                'customer_status_id' => ($filterCustomerStatusIds ?? []) ?: null,
+                                                'customer_zone_id' => ($filterCustomerZoneIds ?? []) ?: null,
+                                                'customer_category_id' => ($filterCustomerCategoryIds ?? []) ?: null,
+                                                'customer_sub_category_id' => ($filterCustomerSubCategoryIds ?? []) ?: null,
+                                                'estimated_date_from' => $estimatedDateFrom ?: null,
+                                                'estimated_date_to' => $estimatedDateTo ?: null,
+                                                'customer_has_booking' => ($customerHasBooking ?? 'all') !== 'all' ? $customerHasBooking : null,
+                                                'outbound_enquiry_filter' => ($outboundEnquiryFilter ?? 'all') !== 'all' ? $outboundEnquiryFilter : null,
+                                                'outbound_enquiry_count' => isset($outboundEnquiryCount) && $outboundEnquiryCount !== null && ($outboundEnquiryFilter ?? 'all') !== 'all' ? $outboundEnquiryCount : null,
+                                            ], fn ($value) => $value !== null && $value !== '' && $value !== [])) }}"
+                                           class="btn btn--secondary"
+                                           data-turbo="false">
+                                            <span class="material-icons">file_download</span>
+                                            {{ translate('Export') }}
+                                        </a>
+                                    @endcan
                                     <button type="button"
                                             class="btn btn-outline-primary d-inline-flex align-items-center gap-2 position-relative lead-filter-btn lead-filter-btn-margin"
                                             data-bs-toggle="offcanvas"
@@ -314,6 +352,16 @@
                                         @if($filtersAppliedCount > 0)
                                             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger lead-filter-count" id="lead-filter-count-badge">{{ $filtersAppliedCount }}</span>
                                         @endif
+                                    </button>
+                                    @if(is_super_admin())
+                                        <a href="{{ route('admin.lead.deleted') }}" class="btn btn--secondary">
+                                            <span class="material-icons">delete</span>
+                                            {{ translate('Deleted_leads') }}
+                                        </a>
+                                    @endif
+                                    <button type="button" class="btn btn--primary" data-bs-toggle="modal" data-bs-target="#leadCreateModal">
+                                        <span class="material-icons">add</span>
+                                        {{ translate('Add_New_Lead') }}
                                     </button>
                                 </div>
                             </div>

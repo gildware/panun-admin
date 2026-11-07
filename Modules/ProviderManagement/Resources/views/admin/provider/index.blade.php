@@ -662,34 +662,25 @@
                                     </button>
 
                                     @can('provider_export')
-                                        <div class="dropdown">
-                                            <button type="button"
-                                                    class="btn btn--secondary dropdown-toggle"
-                                                    data-bs-toggle="dropdown"
-                                                    title="{{ translate('download') }}">
-                                                <span class="material-icons">file_download</span>
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li>
-                                                    <a class="dropdown-item"
-                                                       href="{{ env('APP_ENV') != 'demo' ? route('admin.provider.download') . '?' . http_build_query(array_filter([
-                                                           'search' => $queryParam['search'] ?? null,
-                                                           'status' => $queryParam['status'] ?? null,
-                                                           'performance_filter' => ($queryParam['performance_filter'] ?? 'all') !== 'all' ? $queryParam['performance_filter'] : null,
-                                                           'category_id' => $queryParam['category_id'] ?? null,
-                                                           'zone_id' => $queryParam['zone_id'] ?? null,
-                                                           'sort' => ($queryParam['sort'] ?? 'latest') !== 'latest' ? $queryParam['sort'] : null,
-                                                           'from' => $queryParam['from'] ?? null,
-                                                           'to' => $queryParam['to'] ?? null,
-                                                           'limit' => $queryParam['limit'] ?? null,
-                                                           'rating_filter' => ($queryParam['rating_filter'] ?? 'all') !== 'all' ? $queryParam['rating_filter'] : null,
-                                                           'app_filter' => ($queryParam['app_filter'] ?? 'all') !== 'all' ? $queryParam['app_filter'] : null,
-                                                       ])) : 'javascript:demo_mode()' }}">
-                                                        {{translate('excel')}}
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </div>
+                                        <a href="{{ route('admin.provider.export', array_filter([
+                                                'step' => 1,
+                                                'search' => $queryParam['search'] ?? null,
+                                                'status' => ($queryParam['status'] ?? 'all') !== 'all' ? ($queryParam['status'] ?? null) : null,
+                                                'performance_filter' => ($queryParam['performance_filter'] ?? 'all') !== 'all' ? $queryParam['performance_filter'] : null,
+                                                'category_id' => $queryParam['category_id'] ?? null,
+                                                'zone_id' => $queryParam['zone_id'] ?? null,
+                                                'sort' => ($queryParam['sort'] ?? 'latest') !== 'latest' ? ($queryParam['sort'] ?? null) : null,
+                                                'from' => $queryParam['from'] ?? null,
+                                                'to' => $queryParam['to'] ?? null,
+                                                'limit' => $queryParam['limit'] ?? null,
+                                                'rating_filter' => ($queryParam['rating_filter'] ?? 'all') !== 'all' ? $queryParam['rating_filter'] : null,
+                                                'app_filter' => ($queryParam['app_filter'] ?? 'all') !== 'all' ? $queryParam['app_filter'] : null,
+                                            ], fn ($value) => $value !== null && $value !== '')) }}"
+                                           class="btn btn--secondary"
+                                           data-turbo="false">
+                                            <span class="material-icons">file_download</span>
+                                            {{ translate('Export') }}
+                                        </a>
                                     @endcan
 
                                     @can('provider_add')

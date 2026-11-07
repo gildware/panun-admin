@@ -64,6 +64,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('details/{id}/revert-settlement-payment', [ProviderController::class, 'revertProviderSettlementPayment'])->name('details.revert_settlement_payment');
         Route::post('details/{id}/whatsapp/provider-payment-reminder/preview', [ProviderController::class, 'whatsappProviderPaymentReminderPreview'])->name('details.whatsapp.provider_payment_reminder.preview');
         Route::post('details/{id}/whatsapp/provider-payment-reminder/send', [ProviderController::class, 'whatsappProviderPaymentReminderSend'])->name('details.whatsapp.provider_payment_reminder.send');
+        Route::get('export', [ProviderController::class, 'export'])->name('export');
+        Route::post('export', [ProviderController::class, 'exportDownload'])->name('export.download');
         Route::any('download', [ProviderController::class, 'download'])->name('download');
         Route::any('reviews/download', [ProviderController::class, 'reviewsDownload'])->name('reviews.download');
         Route::get('get-provider-info/{provider_id}', [ProviderController::class, 'getProviderInfo'])->name('get-provider-info');
@@ -89,6 +91,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         });
 
         Route::any('onboarding-request', [ProviderController::class, 'onboardingRequest'])->name('onboarding_request');
+        Route::get('onboarding-request/export', [ProviderController::class, 'onboardingExport'])->name('onboarding.export');
+        Route::post('onboarding-request/export', [ProviderController::class, 'onboardingExportDownload'])->name('onboarding.export.download');
         Route::get('onboarding-details/{id}', [ProviderController::class, 'onboardingDetails'])->name('onboarding_details');
         Route::get('update-approval/{id}/{status}', [ProviderController::class, 'updateApproval'])->name('update-approval');
 

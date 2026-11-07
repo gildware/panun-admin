@@ -255,6 +255,8 @@ class BookingController extends Controller
 
         $queryParams = $request->only(['zone_ids', 'category_ids', 'sub_category_ids', 'start_date', 'end_date', 'schedule_start_date', 'schedule_end_date', 'search']);
         $queryParams['assignee_ids'] = $this->normalizeAdminAssigneeFilterIds((array) $request->input('assignee_ids', []));
+        $queryParams['booking_sources'] = $this->normalizeAdminBookingSourceFilter((array) $request->input('booking_sources', []));
+        $request->merge(['booking_sources' => $queryParams['booking_sources']]);
         $filterCounter = collect($queryParams)->filter()->count();
         $bookingStatus = $queryParams['booking_status'] = $request->input('booking_status') ?: 'all';
         $queryParams['booking_type'] = $request->input('booking_type', '');
@@ -357,6 +359,7 @@ class BookingController extends Controller
             ->orderBy('last_name')
             ->select('id', 'first_name', 'last_name', 'email', 'phone', 'user_type')
             ->get();
+        $bookingSourceOptions = $this->bookingListSourceOptions($queryParams['booking_sources']);
 
         $bookingTabCounts = $bookingListQuery->statusTabCounts(
             $request,
@@ -366,7 +369,7 @@ class BookingController extends Controller
         );
         $followupListMeta = app(BookingFollowupService::class)->buildBookingFollowupListMeta($bookings->getCollection());
 
-        return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts', 'followupListMeta', 'isRepeatBookingList'));
+        return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'bookingSourceOptions', 'queryParams', 'filterCounter', 'bookingTabCounts', 'followupListMeta', 'isRepeatBookingList'));
     }
 
     /**
@@ -473,6 +476,68 @@ class BookingController extends Controller
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function normalizeAdminBookingSourceFilter(array $raw): array
+    {
+        $out = [];
+        foreach ($raw as $value) {
+            if (! is_string($value) && ! is_numeric($value)) {
+                continue;
+            }
+            $value = strtolower(trim((string) $value));
+            if ($value === '' || $value === 'all' || strlen($value) > 255) {
+                continue;
+            }
+            $out[] = $value;
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * Configured booking sources, plus any source already stored on a booking.
+     *
+     * @param  list<string>  $selected
+     * @return array<string, string>
+     */
+    protected function bookingListSourceOptions(array $selected): array
+    {
+        $options = [];
+        foreach (BookingSource::query()->orderBy('name')->get(['name']) as $source) {
+            $value = strtolower(trim((string) $source->name));
+            if ($value === '') {
+                continue;
+            }
+            $options[$value] = $source->name;
+        }
+
+        $used = $this->booking->newQuery()
+            ->whereNotNull('booking_source')
+            ->where('booking_source', '!=', '')
+            ->distinct()
+            ->pluck('booking_source');
+
+        foreach ($used as $raw) {
+            $value = strtolower(trim((string) $raw));
+            if ($value === '' || $value === 'app' || isset($options[$value])) {
+                continue;
+            }
+            $options[$value] = booking_source_display_label($value);
+        }
+
+        foreach ($selected as $value) {
+            if (! isset($options[$value])) {
+                $options[$value] = booking_source_display_label($value);
+            }
+        }
+
+        asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $options;
     }
 
     /**
@@ -6772,6 +6837,7 @@ class BookingController extends Controller
             'category_ids' => array_values(array_filter((array) $request->input('category_ids', []))),
             'sub_category_ids' => array_values(array_filter((array) $request->input('sub_category_ids', []))),
             'assignee_ids' => $assigneeIds,
+            'booking_sources' => $this->normalizeAdminBookingSourceFilter((array) $request->input('booking_sources', [])),
         ];
     }
 

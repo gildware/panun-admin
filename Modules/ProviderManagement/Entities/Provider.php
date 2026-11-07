@@ -39,6 +39,7 @@ class Provider extends Model
         'app_availability' => 'integer',
         'allow_advertisement' => 'integer',
         'is_approved' => 'integer',
+        'approved_at' => 'datetime',
         'coordinates' => 'json',
         'company_identity_images' => 'array',
         'is_active_for_jobs' => 'integer',
@@ -84,6 +85,16 @@ class Provider extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id')->where('user_type', 'provider-admin');
+    }
+
+    public function deniedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'denied_by');
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
     public function user(): BelongsTo
     {

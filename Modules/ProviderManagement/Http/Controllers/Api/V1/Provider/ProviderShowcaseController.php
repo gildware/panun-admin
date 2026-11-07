@@ -186,6 +186,10 @@ class ProviderShowcaseController extends Controller
 
             if ($item->is_approved === ProviderShowcaseItem::STATUS_APPROVED) {
                 $item->is_approved = ProviderShowcaseItem::STATUS_PENDING;
+                $item->approved_by = null;
+                $item->approved_at = null;
+                $item->denied_by = null;
+                $item->denial_reason = null;
             }
 
             $item->save();

@@ -31,6 +31,7 @@ class ProviderChangeRequest extends Model
         'reviewed_by',
         'reviewed_at',
         'admin_note',
+        'denial_reason',
     ];
 
     public function provider(): BelongsTo
