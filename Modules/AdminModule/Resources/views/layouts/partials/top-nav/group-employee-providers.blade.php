@@ -38,6 +38,11 @@
                 'fullPage' => true,
             ])
             @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.provider.whatsapp-match'),
+                'label' => translate('WhatsApp_Provider_Match'),
+                'active' => request()->is('admin/provider/whatsapp-match*'),
+            ])
+            @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.provider.list', ['status' => 'all']),
                 'label' => translate('Provider_List'),
                 'active' => request()->is('admin/provider/list') || request()->is('admin/provider/details*') || request()->is('admin/provider/edit*') || request()->is('admin/provider/collect-cash*'),
