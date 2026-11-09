@@ -458,6 +458,47 @@
             color: rgba(33, 37, 41, 0.78);
         }
 
+        .provider-list-table-wrap .provider-wa-groups {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            max-width: 12rem;
+        }
+
+        .provider-list-table-wrap .provider-wa-group-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            max-width: 100%;
+            padding: 0.1rem 0.4rem 0.1rem 0.25rem;
+            border: 1px solid rgba(16, 24, 40, 0.1);
+            border-radius: 0.35rem;
+            background: #fff;
+            font-size: 0.68rem;
+            font-weight: 650;
+            color: #134e4a;
+            line-height: 1.25;
+        }
+
+        .provider-list-table-wrap .provider-wa-group-swatch {
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(16, 24, 40, 0.12);
+            flex-shrink: 0;
+        }
+
+        .provider-list-table-wrap .provider-wa-group-chip span:last-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .provider-list-table-wrap .provider-wa-groups-empty {
+            color: #98a2b3;
+            font-size: 0.72rem;
+        }
+
         .provider-list-table-wrap .provider-list-rating {
             display: inline-flex;
             align-items: center;
@@ -600,8 +641,8 @@
 
         $canManageStatus = auth()->user()->can('provider_manage_status');
         $canUpdate = auth()->user()->can('provider_update');
-        $tableColspan = 12 + ($canUpdate ? 1 : 0);
-        $providerListColWeights = [13, 9, 9, 8, 9, 6, 7, 7, 8, 7, 6, 7];
+        $tableColspan = 13 + ($canUpdate ? 1 : 0);
+        $providerListColWeights = [12, 8, 8, 7, 8, 10, 5, 6, 6, 7, 6, 5, 6];
         if ($canUpdate) {
             $providerListColWeights[] = 5;
         }
@@ -706,6 +747,7 @@
                                         <th title="{{ translate('Zones') }}">{{translate('Zones')}}</th>
                                         <th class="text-center" title="{{ translate('Rating') }}">{{translate('Rating')}}</th>
                                         <th title="{{ translate('phone') }}">{{translate('phone')}}</th>
+                                        <th title="{{ translate('WhatsApp_groups') }}">{{translate('WhatsApp_groups')}}</th>
                                         <th class="text-center" title="{{ translate('Total_Bookings') }}">{{translate('Total_Bookings')}}</th>
                                         <th class="text-center" title="{{ translate('App') }}">{{translate('App')}}</th>
                                         <th class="text-center" title="{{ translate('Joined') }}">{{translate('Joined')}}</th>
@@ -742,6 +784,7 @@
                                             if ($providerZoneNames->isEmpty() && $provider->zone?->name) {
                                                 $providerZoneNames = collect([$provider->zone->name]);
                                             }
+                                            $providerWhatsAppGroups = collect($provider->whatsapp_groups ?? []);
                                         @endphp
                                         <tr>
                                             <td>
@@ -803,6 +846,22 @@
                                                        title="{{ $providerPhone }}">
                                                         {{ $providerPhone ?: '—' }}
                                                     </a>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($providerWhatsAppGroups->isEmpty())
+                                                    <span class="provider-wa-groups-empty">—</span>
+                                                @else
+                                                    <div class="provider-wa-groups"
+                                                         title="{{ $providerWhatsAppGroups->pluck('name')->implode(', ') }}">
+                                                        @foreach($providerWhatsAppGroups as $group)
+                                                            <span class="provider-wa-group-chip">
+                                                                <span class="provider-wa-group-swatch"
+                                                                      style="background: {{ $group['color'] ?? '#F2F4F7' }};"></span>
+                                                                <span>{{ $group['name'] }}</span>
+                                                            </span>
+                                                        @endforeach
+                                                    </div>
                                                 @endif
                                             </td>
                                             <td class="text-center">{{ $provider->bookings_count }}</td>

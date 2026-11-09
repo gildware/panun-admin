@@ -12,6 +12,20 @@ use Throwable;
 
 class WhatsAppProviderMatchService
 {
+    /**
+     * Soft pastel backgrounds for match-list rows (unique per group).
+     *
+     * @var list<string>
+     */
+    private const GROUP_COLOR_PALETTE = [
+        '#DBEAFE', '#DCFCE7', '#FEF3C7', '#FCE7F3', '#E0E7FF',
+        '#FFEDD5', '#CCFBF1', '#F3E8FF', '#FEE2E2', '#E0F2FE',
+        '#ECFCCB', '#FDE68A', '#FBCFE8', '#C7D2FE', '#BBF7D0',
+        '#FECACA', '#A5F3FC', '#DDD6FE', '#FED7AA', '#BFDBFE',
+        '#F5D0FE', '#99F6E4', '#FDE047', '#FDA4AF', '#A5B4FC',
+        '#86EFAC', '#FDBA74', '#67E8F9', '#E9D5FF', '#FCD34D',
+    ];
+
     public function sourcePath(): string
     {
         return dirname(__DIR__).'/Data/whatsapp_provider_numbers.json';
@@ -45,6 +59,51 @@ class WhatsAppProviderMatchService
             }
 
             $this->pushPhone($chunk, $out, $seen);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Normalize contact rows from the admin form (name optional, phone required).
+     *
+     * @param  array<int, mixed>  $rawContacts
+     * @return list<array{phone: string, name: string}>
+     */
+    public function parseContacts(array $rawContacts): array
+    {
+        $out = [];
+        $seen = [];
+
+        foreach ($rawContacts as $row) {
+            if (! is_array($row)) {
+                $digits = $this->last10($row);
+                if ($digits === null || isset($seen[$digits])) {
+                    continue;
+                }
+                $seen[$digits] = true;
+                $out[] = ['phone' => $digits, 'name' => ''];
+                continue;
+            }
+
+            $digits = $this->last10($row['phone'] ?? $row['number'] ?? null);
+            if ($digits === null) {
+                continue;
+            }
+
+            $name = trim((string) ($row['name'] ?? ''));
+            $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+
+            if (isset($seen[$digits])) {
+                $index = $seen[$digits];
+                if ($name !== '' && ($out[$index]['name'] ?? '') === '') {
+                    $out[$index]['name'] = $name;
+                }
+                continue;
+            }
+
+            $seen[$digits] = count($out);
+            $out[] = ['phone' => $digits, 'name' => $name];
         }
 
         return $out;
@@ -129,15 +188,22 @@ class WhatsAppProviderMatchService
     }
 
     /**
-     * @return array{rows: array<int, array<string, mixed>>, stats: array<string, int>, categories: array<int, string>}
+     * @return array{
+     *   rows: array<int, array<string, mixed>>,
+     *   stats: array<string, int>,
+     *   categories: array<int, string>,
+     *   colors: array<string, string>
+     * }
      */
     public function build(): array
     {
-        $byCategory = $this->loadSourceNumbers();
+        $source = $this->loadSourceData();
+        $byCategory = $source['groups'];
+        $colors = $source['colors'];
         $phoneSet = [];
-        foreach ($byCategory as $phones) {
-            foreach ($phones as $phone) {
-                $phoneSet[$phone] = true;
+        foreach ($byCategory as $contacts) {
+            foreach ($contacts as $contact) {
+                $phoneSet[$contact['phone']] = true;
             }
         }
 
@@ -147,9 +213,11 @@ class WhatsAppProviderMatchService
         $draftByPhone = $this->indexDrafts(array_keys($phoneSet));
 
         $rows = [];
-        foreach ($byCategory as $category => $phones) {
+        foreach ($byCategory as $category => $contacts) {
             $categoryRows = [];
-            foreach ($phones as $phone) {
+            $groupColor = $colors[$category] ?? $this->fallbackColorForGroup($category);
+            foreach ($contacts as $contact) {
+                $phone = $contact['phone'];
                 $providers = $providerByPhone[$phone] ?? [];
                 $list = array_values(array_filter($providers, fn ($p) => (int) $p['is_approved'] === 1));
                 $onboarding = array_values(array_filter($providers, fn ($p) => (int) $p['is_approved'] === 2));
@@ -168,7 +236,9 @@ class WhatsAppProviderMatchService
 
                 $categoryRows[] = [
                     'phone' => $phone,
+                    'contact_name' => $contact['name'],
                     'category' => $category,
+                    'color' => $groupColor,
                     'provider_profile' => array_merge($list, $other),
                     'onboarding' => $onboarding,
                     'provider_lead' => $leads,
@@ -204,43 +274,365 @@ class WhatsAppProviderMatchService
             'rows' => $rows,
             'stats' => $stats,
             'categories' => array_keys($byCategory),
+            'colors' => $colors,
         ];
     }
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, list<array{phone: string, name: string}>>
      */
-    private function loadSourceNumbers(): array
+    public function groups(): array
+    {
+        return $this->loadSourceData()['groups'];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function groupColors(): array
+    {
+        return $this->loadSourceData()['colors'];
+    }
+
+    /**
+     * Map provider IDs to the WhatsApp groups their phones belong to.
+     *
+     * @param  iterable<mixed>  $providers
+     * @return array<string, list<array{name: string, color: string}>>
+     */
+    public function groupsForProviders(iterable $providers): array
+    {
+        $source = $this->loadSourceData();
+        $groupsByPhone = $this->indexGroupsByPhone($source['groups'], $source['colors']);
+        $out = [];
+
+        foreach ($providers as $provider) {
+            $id = (string) (is_object($provider) ? ($provider->id ?? '') : ($provider['id'] ?? ''));
+            if ($id === '') {
+                continue;
+            }
+
+            $rawPhones = [];
+            if (is_object($provider)) {
+                $rawPhones = [
+                    $provider->company_phone ?? null,
+                    $provider->contact_person_phone ?? null,
+                    $provider->contact_phone_digits ?? null,
+                    is_object($provider->owner ?? null) ? ($provider->owner->phone ?? null) : null,
+                    is_object($provider->owner ?? null) ? ($provider->owner->provider_admin_phone_digits ?? null) : null,
+                ];
+            } elseif (is_array($provider)) {
+                $rawPhones = [
+                    $provider['company_phone'] ?? null,
+                    $provider['contact_person_phone'] ?? null,
+                    $provider['owner_phone'] ?? null,
+                ];
+            }
+
+            $phones = [];
+            foreach ($rawPhones as $raw) {
+                $digits = $this->last10($raw);
+                if ($digits !== null) {
+                    $phones[$digits] = true;
+                }
+            }
+
+            $byName = [];
+            foreach (array_keys($phones) as $phone) {
+                foreach ($groupsByPhone[$phone] ?? [] as $group) {
+                    $byName[$group['name']] = $group;
+                }
+            }
+
+            $groups = array_values($byName);
+            usort($groups, static fn (array $a, array $b) => strcmp($a['name'], $b['name']));
+            $out[$id] = $groups;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<int, mixed>|string  $contactsOrRawPhones
+     * @return array{ok: bool, message: string, group: string, count: int}
+     */
+    public function upsertGroup(string $groupName, array|string $contactsOrRawPhones, ?string $originalName = null, bool $requirePhones = true): array
+    {
+        $groupName = $this->normalizeGroupName($groupName);
+        if ($groupName === '') {
+            return ['ok' => false, 'message' => 'WhatsApp_group_name_required', 'group' => '', 'count' => 0];
+        }
+
+        $contacts = is_array($contactsOrRawPhones)
+            ? $this->parseContacts($contactsOrRawPhones)
+            : $this->parseContacts(array_map(
+                static fn (string $phone) => ['phone' => $phone, 'name' => ''],
+                $this->parsePhones($contactsOrRawPhones)
+            ));
+
+        if ($requirePhones && $contacts === []) {
+            return ['ok' => false, 'message' => 'No_valid_phone_numbers_found_in_input', 'group' => $groupName, 'count' => 0];
+        }
+
+        $source = $this->loadSourceData();
+        $groups = $source['groups'];
+        $colors = $source['colors'];
+        $originalName = $originalName !== null ? $this->normalizeGroupName($originalName) : null;
+
+        if ($originalName !== null && $originalName !== '' && $originalName !== $groupName) {
+            if (isset($groups[$groupName])) {
+                return ['ok' => false, 'message' => 'WhatsApp_group_name_already_exists', 'group' => $groupName, 'count' => count($contacts)];
+            }
+            if (isset($groups[$originalName])) {
+                unset($groups[$originalName]);
+            }
+            if (isset($colors[$originalName])) {
+                $colors[$groupName] = $colors[$originalName];
+                unset($colors[$originalName]);
+            }
+        }
+
+        if (! isset($colors[$groupName])) {
+            $colors[$groupName] = $this->nextUniqueColor($colors);
+        }
+
+        $groups[$groupName] = $contacts;
+
+        if (! $this->writeSourceData($groups, $colors)) {
+            return ['ok' => false, 'message' => 'Failed_to_save_WhatsApp_group', 'group' => $groupName, 'count' => count($contacts)];
+        }
+
+        return [
+            'ok' => true,
+            'message' => 'WhatsApp_group_saved_successfully',
+            'group' => $groupName,
+            'count' => count($contacts),
+        ];
+    }
+
+    /**
+     * @return array{ok: bool, message: string, group: string}
+     */
+    public function deleteGroup(string $groupName): array
+    {
+        $groupName = $this->normalizeGroupName($groupName);
+        if ($groupName === '') {
+            return ['ok' => false, 'message' => 'WhatsApp_group_name_required', 'group' => ''];
+        }
+
+        $source = $this->loadSourceData();
+        $groups = $source['groups'];
+        $colors = $source['colors'];
+        if (! isset($groups[$groupName])) {
+            return ['ok' => false, 'message' => 'WhatsApp_group_not_found', 'group' => $groupName];
+        }
+
+        unset($groups[$groupName], $colors[$groupName]);
+
+        if (! $this->writeSourceData($groups, $colors)) {
+            return ['ok' => false, 'message' => 'Failed_to_save_WhatsApp_group', 'group' => $groupName];
+        }
+
+        return ['ok' => true, 'message' => 'WhatsApp_group_deleted_successfully', 'group' => $groupName];
+    }
+
+    private function normalizeGroupName(string $name): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+    }
+
+    /**
+     * @return array{
+     *   groups: array<string, list<array{phone: string, name: string}>>,
+     *   colors: array<string, string>
+     * }
+     */
+    private function loadSourceData(): array
     {
         $path = $this->sourcePath();
         if (! is_file($path)) {
-            return [];
+            return ['groups' => [], 'colors' => []];
         }
 
         $decoded = json_decode((string) file_get_contents($path), true);
         if (! is_array($decoded)) {
-            return [];
+            return ['groups' => [], 'colors' => []];
         }
 
-        $out = [];
-        foreach ($decoded as $category => $phones) {
-            if (! is_array($phones)) {
+        $groups = [];
+        $colors = [];
+        $needsPersist = false;
+
+        foreach ($decoded as $category => $value) {
+            $groupName = (string) $category;
+            if ($groupName === '' || $groupName === '_meta') {
                 continue;
             }
-            $clean = [];
-            $seen = [];
-            foreach ($phones as $phone) {
-                $digits = $this->last10($phone);
-                if ($digits === null || isset($seen[$digits])) {
+
+            $contactsRaw = null;
+            $color = null;
+
+            if (is_array($value) && $this->isListArray($value)) {
+                $contactsRaw = $value;
+            } elseif (is_array($value)) {
+                $color = $this->normalizeColor($value['color'] ?? null);
+                $contactsRaw = $value['contacts'] ?? $value['phones'] ?? null;
+                if (! is_array($contactsRaw)) {
                     continue;
                 }
-                $seen[$digits] = true;
-                $clean[] = $digits;
+            } else {
+                continue;
             }
-            $out[(string) $category] = $clean;
+
+            $groups[$groupName] = $this->parseContacts($contactsRaw);
+            if ($color !== null) {
+                $colors[$groupName] = $color;
+            } else {
+                $needsPersist = true;
+            }
         }
 
-        return $out;
+        foreach ($groups as $groupName => $_) {
+            if (! isset($colors[$groupName])) {
+                $colors[$groupName] = $this->nextUniqueColor($colors);
+                $needsPersist = true;
+            }
+        }
+
+        if ($needsPersist) {
+            $this->writeSourceData($groups, $colors);
+        }
+
+        return ['groups' => $groups, 'colors' => $colors];
+    }
+
+    /**
+     * @param  array<string, list<array{phone: string, name: string}>>  $groups
+     * @param  array<string, string>  $colors
+     */
+    private function writeSourceData(array $groups, array $colors): bool
+    {
+        $path = $this->sourcePath();
+        $dir = dirname($path);
+        if (! is_dir($dir) && ! mkdir($dir, 0755, true) && ! is_dir($dir)) {
+            return false;
+        }
+
+        $payload = [];
+        foreach ($groups as $groupName => $contacts) {
+            $rows = [];
+            foreach ($contacts as $contact) {
+                $row = ['phone' => $contact['phone']];
+                if (($contact['name'] ?? '') !== '') {
+                    $row['name'] = $contact['name'];
+                }
+                $rows[] = $row;
+            }
+            $color = $colors[$groupName] ?? $this->nextUniqueColor($colors);
+            $colors[$groupName] = $color;
+            $payload[$groupName] = [
+                'color' => $color,
+                'contacts' => $rows,
+            ];
+        }
+
+        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            return false;
+        }
+
+        return file_put_contents($path, $json."\n") !== false;
+    }
+
+    /**
+     * @param  array<string, string>  $usedColors
+     */
+    private function nextUniqueColor(array $usedColors): string
+    {
+        $used = [];
+        foreach ($usedColors as $color) {
+            $normalized = $this->normalizeColor($color);
+            if ($normalized !== null) {
+                $used[$normalized] = true;
+            }
+        }
+
+        foreach (self::GROUP_COLOR_PALETTE as $color) {
+            if (! isset($used[strtoupper($color)])) {
+                return strtoupper($color);
+            }
+        }
+
+        $index = count($usedColors);
+        for ($i = 0; $i < 360; $i++) {
+            $hue = (($index * 47) + $i * 13) % 360;
+            $color = $this->hslToHex($hue, 70, 86);
+            if (! isset($used[$color])) {
+                return $color;
+            }
+        }
+
+        return self::GROUP_COLOR_PALETTE[$index % count(self::GROUP_COLOR_PALETTE)];
+    }
+
+    private function fallbackColorForGroup(string $groupName): string
+    {
+        $hash = crc32($groupName);
+        $index = (int) sprintf('%u', $hash) % count(self::GROUP_COLOR_PALETTE);
+
+        return strtoupper(self::GROUP_COLOR_PALETTE[$index]);
+    }
+
+    private function normalizeColor(mixed $color): ?string
+    {
+        if (! is_string($color)) {
+            return null;
+        }
+        $color = trim($color);
+        if (! preg_match('/^#([A-Fa-f0-9]{6})$/', $color)) {
+            return null;
+        }
+
+        return strtoupper($color);
+    }
+
+    private function hslToHex(int $h, int $s, int $l): string
+    {
+        $s /= 100;
+        $l /= 100;
+        $c = (1 - abs(2 * $l - 1)) * $s;
+        $x = $c * (1 - abs(fmod($h / 60, 2) - 1));
+        $m = $l - $c / 2;
+
+        if ($h < 60) {
+            [$r, $g, $b] = [$c, $x, 0.0];
+        } elseif ($h < 120) {
+            [$r, $g, $b] = [$x, $c, 0.0];
+        } elseif ($h < 180) {
+            [$r, $g, $b] = [0.0, $c, $x];
+        } elseif ($h < 240) {
+            [$r, $g, $b] = [0.0, $x, $c];
+        } elseif ($h < 300) {
+            [$r, $g, $b] = [$x, 0.0, $c];
+        } else {
+            [$r, $g, $b] = [$c, 0.0, $x];
+        }
+
+        $toHex = static fn (float $v) => str_pad(dechex((int) round(($v + $m) * 255)), 2, '0', STR_PAD_LEFT);
+
+        return strtoupper('#'.$toHex($r).$toHex($g).$toHex($b));
+    }
+
+    /**
+     * @param  array<mixed>  $value
+     */
+    private function isListArray(array $value): bool
+    {
+        if ($value === []) {
+            return true;
+        }
+
+        return array_keys($value) === range(0, count($value) - 1);
     }
 
     /**
@@ -335,8 +727,11 @@ class WhatsAppProviderMatchService
         $wanted = array_fill_keys($phones, true);
         $indexed = [];
 
+        $providerLeadTypes = [Lead::TYPE_PROVIDER, Lead::TYPE_FUTURE_PROVIDER];
+
         Lead::query()
             ->select(['id', 'name', 'phone_number', 'lead_type', 'lead_temperature', 'hunting_status'])
+            ->whereIn('lead_type', $providerLeadTypes)
             ->whereNull('deleted_at')
             ->chunkById(500, function (Collection $chunk) use (&$indexed, $wanted) {
                 foreach ($chunk as $lead) {
@@ -352,13 +747,14 @@ class WhatsAppProviderMatchService
             PartyAlternatePhone::query()
                 ->where('owner_type', PartyAlternatePhone::OWNER_PROVIDER_LEAD)
                 ->select(['id', 'phone_digits', 'owner_id'])
-                ->chunkById(500, function (Collection $chunk) use (&$indexed, $wanted) {
+                ->chunkById(500, function (Collection $chunk) use (&$indexed, $wanted, $providerLeadTypes) {
                     $ownerIds = $chunk->pluck('owner_id')->filter()->unique()->values()->all();
                     if ($ownerIds === []) {
                         return;
                     }
                     $leads = Lead::query()
                         ->whereIn('id', $ownerIds)
+                        ->whereIn('lead_type', $providerLeadTypes)
                         ->whereNull('deleted_at')
                         ->get(['id', 'name', 'lead_type', 'lead_temperature', 'hunting_status'])
                         ->keyBy('id');
@@ -462,6 +858,38 @@ class WhatsAppProviderMatchService
             'kind' => 'lead',
             'url' => route('admin.lead.show', $lead->id),
         ];
+    }
+
+    /**
+     * Reverse index: last-10 phone => list of WhatsApp groups (name + color).
+     *
+     * @param  array<string, list<array{phone: string, name: string}>>  $byCategory
+     * @param  array<string, string>  $colors
+     * @return array<string, list<array{name: string, color: string}>>
+     */
+    private function indexGroupsByPhone(array $byCategory, array $colors): array
+    {
+        $indexed = [];
+        foreach ($byCategory as $category => $contacts) {
+            $color = $colors[$category] ?? $this->fallbackColorForGroup($category);
+            foreach ($contacts as $contact) {
+                $phone = $contact['phone'];
+                if (! isset($indexed[$phone])) {
+                    $indexed[$phone] = [];
+                }
+                foreach ($indexed[$phone] as $existing) {
+                    if (($existing['name'] ?? '') === $category) {
+                        continue 2;
+                    }
+                }
+                $indexed[$phone][] = [
+                    'name' => $category,
+                    'color' => $color,
+                ];
+            }
+        }
+
+        return $indexed;
     }
 
     private function last10(mixed $value): ?string

@@ -38,8 +38,8 @@
                 'fullPage' => true,
             ])
             @include('adminmodule::layouts.partials.top-nav._link', [
-                'href' => route('admin.provider.whatsapp-match'),
-                'label' => translate('WhatsApp_Provider_Match'),
+                'href' => route('admin.provider.whatsapp-match.lookup'),
+                'label' => translate('Manage_Data'),
                 'active' => request()->is('admin/provider/whatsapp-match*'),
             ])
             @include('adminmodule::layouts.partials.top-nav._link', [
