@@ -10871,6 +10871,7 @@ _Message' => 'Customer notification for provider bid offer
   'Audio' => 'Audio',
   'Attach_images_files_audio_or_video' => 'Attach images files audio or video',
   'Adding' => 'Adding',
+  'Adding_comment' => 'Adding comment...',
   'Empty_comment' => 'Empty comment',
   'Pending_Lead_Followup' => 'Pending Lead Followup',
   'Pending_Booking_Followup' => 'Pending Booking Followup',

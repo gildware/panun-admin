@@ -290,8 +290,33 @@
         if (!textarea || !editable) {
             return;
         }
-        textarea.value = serializeEditable(editable);
+        var fromEditable = serializeEditable(editable);
+        // Keep typed text if the user somehow edited the backing textarea
+        // (e.g. duplicate visible box) while the contenteditable stayed empty.
+        if (
+            String(fromEditable || "").trim() === ""
+            && String(textarea.value || "").trim() !== ""
+        ) {
+            return;
+        }
+        textarea.value = fromEditable;
     }
+
+    /**
+     * Ensure every compose field in a form has its backing textarea synced
+     * from the visible contenteditable before AJAX/FormData reads it.
+     */
+    function syncComposeForm(form) {
+        if (!form) {
+            return;
+        }
+        form.querySelectorAll("textarea.staff-chat-message-input, textarea[name='body']").forEach(function (field) {
+            syncTextareaFromEditable(field, editableFor(field));
+        });
+    }
+
+    window.syncStaffChatComposeForm = syncComposeForm;
+    window.syncStaffChatComposeFromEditable = syncTextareaFromEditable;
 
     function placeCaretAfter(node) {
         var range = document.createRange();
@@ -636,9 +661,7 @@
         if (form && !form.dataset.staffComposeSync) {
             form.dataset.staffComposeSync = "1";
             form.addEventListener("submit", function () {
-                form.querySelectorAll("textarea.staff-chat-message-input").forEach(function (field) {
-                    syncTextareaFromEditable(field, editableFor(field));
-                });
+                syncComposeForm(form);
             }, true);
         }
     }

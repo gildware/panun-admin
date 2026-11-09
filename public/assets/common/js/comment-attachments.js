@@ -85,15 +85,60 @@
         }
     }
 
-    function buildFormData(form, composeEl) {
-        var fd = new FormData(form);
-        var body = form.querySelector('.staff-chat-message-input, textarea[name="body"]');
+    function readComposeBody(form) {
+        // Contenteditable may hold the visible text; sync before reading.
+        if (typeof window.syncStaffChatComposeForm === 'function') {
+            window.syncStaffChatComposeForm(form);
+        } else {
+            form.querySelectorAll(
+                'textarea.staff-chat-message-input, textarea[name="body"]'
+            ).forEach(function (field) {
+                var editor = field.closest('.staff-chat-compose-editor');
+                var editable = editor
+                    ? editor.querySelector('.staff-chat-compose-editable')
+                    : null;
+                if (!editable) {
+                    return;
+                }
+                var text = String(
+                    editable.innerText || editable.textContent || ''
+                ).replace(/\u200b/g, '');
+                if (text.trim() !== '' || String(field.value || '').trim() === '') {
+                    field.value = text;
+                }
+            });
+        }
+
+        var body = form.querySelector(
+            'textarea[name="body"], textarea.staff-chat-message-input'
+        );
         var bodyValue = body ? String(body.value || '') : '';
 
-        if (body && typeof window.resolveStaffChatTags === 'function') {
+        // Fallback: read contenteditable directly if textarea is still empty.
+        if (bodyValue.trim() === '') {
+            var editable = form.querySelector('.staff-chat-compose-editable');
+            if (editable) {
+                bodyValue = String(
+                    editable.innerText || editable.textContent || ''
+                ).replace(/\u200b/g, '');
+                if (body) {
+                    body.value = bodyValue;
+                }
+            }
+        }
+
+        bodyValue = String(bodyValue || '').replace(/\u200b/g, '');
+
+        if (typeof window.resolveStaffChatTags === 'function') {
             bodyValue = window.resolveStaffChatTags(bodyValue);
         }
 
+        return bodyValue;
+    }
+
+    function buildFormData(form, composeEl) {
+        var bodyValue = readComposeBody(form);
+        var fd = new FormData(form);
         fd.set('body', bodyValue);
 
         var state = composeEl ? getComposeState(composeEl) : { files: [] };
@@ -124,7 +169,7 @@
                 var loadingLabel =
                     form.getAttribute('data-comment-loading-label') ||
                     window.commentAttachmentsLoadingMessage ||
-                    'Adding...';
+                    'Adding comment...';
                 submitBtn.disabled = true;
                 submitBtn.setAttribute('aria-disabled', 'true');
                 submitBtn.innerHTML =
@@ -230,6 +275,25 @@
                     if (composeEl) {
                         getComposeState(composeEl).files = [];
                         renderPreview(composeEl);
+                    }
+                    var bodyField = form.querySelector(
+                        'textarea[name="body"], textarea.staff-chat-message-input'
+                    );
+                    if (bodyField) {
+                        bodyField.value = '';
+                    }
+                    var editable = form.querySelector('.staff-chat-compose-editable');
+                    if (editable) {
+                        editable.innerHTML = '';
+                    }
+                    // Restore button before reload so a slow/failed reload
+                    // does not leave the form stuck on "Adding...".
+                    setFormSubmitting(form, false);
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success(
+                            window.commentAttachmentsSuccessMessage ||
+                                'Comment added'
+                        );
                     }
                     window.location.reload();
                 })
