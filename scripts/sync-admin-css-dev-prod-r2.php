@@ -30,6 +30,7 @@ $cssFiles = array_values(array_map(static function (string $path): string {
 $extraAssets = [
     'chatting-module/css/staff-chat-entity-badges.css',
     'chatting-module/js/staff-chat-compose.js',
+    'common/js/comment-attachments.js',
 ];
 foreach ($extraAssets as $rel) {
     if (! is_file(public_path('assets/'.$rel))) {
@@ -91,6 +92,7 @@ try {
             'admin-module/css/custom.css',
             'chatting-module/css/staff-chat-entity-badges.css',
             'chatting-module/js/staff-chat-compose.js',
+            'common/js/comment-attachments.js',
         ] as $rel) {
             $key = $prefix.'/assets/'.$rel;
             $exists = Storage::disk('s3')->exists($key);

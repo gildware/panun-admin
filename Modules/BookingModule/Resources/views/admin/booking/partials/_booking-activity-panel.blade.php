@@ -76,7 +76,7 @@
                 @include('leadmanagement::admin.leads.partials._comment-compose')
                 <textarea name="body"
                           id="bookingCommentBody"
-                          class="form-control form-control-sm staff-chat-message-input lead-comment-compose__input w-100"
+                          class="form-control form-control-sm staff-chat-message-input staff-chat-compose-plain lead-comment-compose__input w-100"
                           rows="2"
                           maxlength="5000"
                           placeholder="{{ translate('Write_a_comment') }}"></textarea>
