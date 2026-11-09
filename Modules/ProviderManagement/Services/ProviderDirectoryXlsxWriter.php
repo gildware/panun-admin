@@ -23,9 +23,11 @@ use ZipArchive;
  */
 class ProviderDirectoryXlsxWriter
 {
-    private const MAX_EMBEDDED = 500;
+    private const MAX_EMBEDDED = 120;
 
-    private const MAX_PER_CELL = 6;
+    private const MAX_PER_CELL = 4;
+
+    private const EMBED_ROW_LIMIT = 25;
 
     private const THUMB = 48;
 
@@ -41,6 +43,8 @@ class ProviderDirectoryXlsxWriter
     private array $imageCache = [];
 
     private int $embedded = 0;
+
+    private bool $embedImages = true;
 
     /** @var list<array{col: int, row: int, index: int, bytes: string}> */
     private array $pictures = [];
@@ -64,11 +68,25 @@ class ProviderDirectoryXlsxWriter
     public function __construct(private ProviderDirectoryExcelExport $export) {}
 
     /**
+     * Embed photos only for small exports. Larger lists use clickable links so live
+     * downloads finish before the reverse-proxy idle timeout.
+     */
+    public static function shouldEmbedImages(int $total, array $keys, ProviderDirectoryExcelExport $export): bool
+    {
+        if ($total <= 0 || $total > self::EMBED_ROW_LIMIT) {
+            return false;
+        }
+
+        return array_intersect($keys, $export->imageKeys()) !== [];
+    }
+
+    /**
      * @param  list<string>  $keys
      * @param  array<string, string>  $labels
      */
-    public function write(string $path, Builder $query, array $keys, int $limit, array $labels): void
+    public function write(string $path, Builder $query, array $keys, int $limit, array $labels, bool $embedImages = true): void
     {
+        $this->embedImages = $embedImages;
         $this->writeRows($path, $keys, $this->export->headerLabels($keys, $labels), $this->export->streamValueRows($query, $keys, $limit));
     }
 
@@ -149,6 +167,10 @@ class ProviderDirectoryXlsxWriter
         $urls = array_slice($this->urlsIn($value), 0, self::MAX_PER_CELL);
         if ($urls === []) {
             return ['cell' => Cell::fromValue(''), 'count' => 0];
+        }
+
+        if (! $this->embedImages) {
+            return ['cell' => $this->linkCell($urls, $column, $excelRow), 'count' => 0];
         }
 
         $saved = 0;
@@ -313,6 +335,8 @@ class ProviderDirectoryXlsxWriter
             return $this->imageCache[$url];
         }
 
+        // Prefer local/S3 disk reads. Remote HTTP is a last resort with a short timeout
+        // so one missing photo cannot stall the whole export on live.
         $raw = $this->readLocalPublicFile($url) ?? $this->readCloudFile($url) ?? $this->httpGet($url);
         $jpeg = is_string($raw) && $raw !== '' ? $this->thumbnail($raw) : null;
         $this->imageCache[$url] = $jpeg;
@@ -346,13 +370,8 @@ class ProviderDirectoryXlsxWriter
 
     private function readCloudFile(string $url): ?string
     {
-        $base = rtrim((string) CloudStorageConfigurator::publicBaseUrl(), '/');
-        if ($base === '' || ! str_starts_with($url, $base.'/')) {
-            return null;
-        }
-
-        $key = rawurldecode(ltrim((string) parse_url(substr($url, strlen($base)), PHP_URL_PATH), '/'));
-        if ($key === '' || str_contains($key, '..')) {
+        $key = $this->cloudObjectKey($url);
+        if ($key === null) {
             return null;
         }
 
@@ -363,6 +382,34 @@ class ProviderDirectoryXlsxWriter
         }
 
         return is_string($bytes) && $bytes !== '' ? $bytes : null;
+    }
+
+    private function cloudObjectKey(string $url): ?string
+    {
+        $base = rtrim((string) CloudStorageConfigurator::publicBaseUrl(), '/');
+        $path = rawurldecode(ltrim((string) (parse_url($url, PHP_URL_PATH) ?? ''), '/'));
+        if ($path === '' || str_contains($path, '..')) {
+            return null;
+        }
+
+        if ($base !== '' && str_starts_with($url, $base.'/')) {
+            $key = rawurldecode(ltrim((string) parse_url(substr($url, strlen($base)), PHP_URL_PATH), '/'));
+
+            return $key !== '' && ! str_contains($key, '..') ? $key : null;
+        }
+
+        // Signed / alternate CDN hosts: recover the object key from a known media prefix.
+        foreach (['provider/', 'customer/', 'business/', 'category/', 'service/', 'zone/', 'banner/', 'campaign/'] as $prefix) {
+            $pos = strpos($path, $prefix);
+            if ($pos === false) {
+                continue;
+            }
+            $key = substr($path, $pos);
+
+            return $key !== '' ? $key : null;
+        }
+
+        return null;
     }
 
     private function httpGet(string $url): ?string
@@ -385,9 +432,9 @@ class ProviderDirectoryXlsxWriter
         $options = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 3,
-            CURLOPT_CONNECTTIMEOUT => 4,
-            CURLOPT_TIMEOUT => 12,
+            CURLOPT_MAXREDIRS => 2,
+            CURLOPT_CONNECTTIMEOUT => 2,
+            CURLOPT_TIMEOUT => 3,
             CURLOPT_USERAGENT => 'PanunProviderExport',
         ];
         if (defined('CURLPROTO_HTTP') && defined('CURLPROTO_HTTPS')) {
