@@ -5,6 +5,7 @@ namespace Modules\ProviderManagement\Services;
 use Illuminate\Support\Collection;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\PartyAlternatePhone;
+use Modules\LeadManagement\Services\PartyPhoneDirectory;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderRegistrationDraft;
 use Modules\WhatsAppModule\Entities\ProviderLead as WhatsAppProviderLead;
@@ -12,9 +13,120 @@ use Throwable;
 
 class WhatsAppProviderMatchService
 {
+    public function __construct(
+        private readonly PartyPhoneDirectory $phoneDirectory
+    ) {
+    }
+
     public function sourcePath(): string
     {
         return dirname(__DIR__).'/Data/whatsapp_provider_numbers.json';
+    }
+
+    /**
+     * Parse pasted/typed phone input into unique last-10 digit numbers (order preserved).
+     * Accepts newlines/commas/semicolons as separators, and keeps spaced numbers like +91 88250 59511.
+     *
+     * @return list<string>
+     */
+    public function parsePhones(string $raw): array
+    {
+        $out = [];
+        $seen = [];
+
+        // Prefer phone-shaped tokens (digits with optional + / spaces / dashes / parens).
+        if (preg_match_all('/\+?\d[\d\s\-()]{6,}\d/', $raw, $matches) && ! empty($matches[0])) {
+            foreach ($matches[0] as $part) {
+                $digits = $this->last10($part);
+                if ($digits === null || isset($seen[$digits])) {
+                    continue;
+                }
+                $seen[$digits] = true;
+                $out[] = $digits;
+            }
+
+            return $out;
+        }
+
+        // Fallback: split on newlines / commas / semicolons / pipes (not spaces).
+        $parts = preg_split('/[\n\r,;|]+/', $raw) ?: [];
+        foreach ($parts as $part) {
+            $digits = $this->last10($part);
+            if ($digits === null || isset($seen[$digits])) {
+                continue;
+            }
+            $seen[$digits] = true;
+            $out[] = $digits;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Lookup arbitrary phone numbers against providers, onboarding, leads, and profile relations.
+     *
+     * @param  list<string>  $phones
+     * @return array{results: list<array<string, mixed>>, stats: array<string, int>, phones: list<string>}
+     */
+    public function lookup(array $phones): array
+    {
+        $phones = array_values(array_unique(array_filter(array_map(fn ($p) => $this->last10($p), $phones))));
+        if ($phones === []) {
+            return [
+                'results' => [],
+                'stats' => ['searched' => 0, 'matched' => 0, 'none' => 0],
+                'phones' => [],
+            ];
+        }
+
+        $providerByPhone = $this->indexProviders($phones);
+        $leadByPhone = $this->indexLeads($phones);
+        $waByPhone = $this->indexWhatsAppLeads($phones);
+        $draftByPhone = $this->indexDrafts($phones);
+
+        $results = [];
+        foreach ($phones as $phone) {
+            $providers = array_map(
+                fn (array $p) => $this->enrichProvider($p),
+                $providerByPhone[$phone] ?? []
+            );
+            $list = array_values(array_filter($providers, fn ($p) => (int) $p['is_approved'] === 1));
+            $onboarding = array_values(array_filter($providers, fn ($p) => (int) $p['is_approved'] === 2));
+            $other = array_values(array_filter($providers, fn ($p) => ! in_array((int) $p['is_approved'], [1, 2], true)));
+
+            $leads = array_merge(
+                $leadByPhone[$phone] ?? [],
+                $waByPhone[$phone] ?? [],
+                $draftByPhone[$phone] ?? []
+            );
+
+            $relations = $this->buildRelations($phone, $providers, $leads);
+
+            $hasAny = $list !== [] || $onboarding !== [] || $other !== [] || $leads !== [] || $relations !== [];
+
+            $results[] = [
+                'phone' => $phone,
+                'provider_list' => $list,
+                'onboarding' => $onboarding,
+                'other_providers' => $other,
+                'leads' => $leads,
+                'relations' => $relations,
+                'in_list' => $list !== [],
+                'in_onboarding' => $onboarding !== [],
+                'in_lead' => $leads !== [],
+                'has_any' => $hasAny,
+            ];
+        }
+
+        return [
+            'results' => $results,
+            'stats' => [
+                'searched' => count($results),
+                'matched' => count(array_filter($results, fn ($r) => $r['has_any'])),
+                'none' => count(array_filter($results, fn ($r) => ! $r['has_any'])),
+            ],
+            'phones' => $phones,
+        ];
     }
 
     /**
@@ -177,6 +289,10 @@ class WhatsAppProviderMatchService
                     $info = [
                         'id' => (string) $provider->id,
                         'name' => (string) ($provider->company_name ?: $provider->contact_person_name ?: 'Unnamed'),
+                        'contact_person_name' => (string) ($provider->contact_person_name ?: ''),
+                        'company_phone' => (string) ($provider->company_phone ?: ''),
+                        'contact_person_phone' => (string) ($provider->contact_person_phone ?: ''),
+                        'owner_phone' => (string) ($provider->owner?->phone ?: ''),
                         'is_approved' => (int) $provider->is_approved,
                         'is_active' => (int) $provider->is_active === 1,
                         'kind' => 'provider',
@@ -189,6 +305,168 @@ class WhatsAppProviderMatchService
             });
 
         return $indexed;
+    }
+
+    /**
+     * @param  array<string, mixed>  $provider
+     * @return array<string, mixed>
+     */
+    private function enrichProvider(array $provider): array
+    {
+        $approved = (int) ($provider['is_approved'] ?? 0);
+        $provider['status_label'] = match ($approved) {
+            1 => 'Provider list',
+            2 => 'Onboarding',
+            0 => 'Denied',
+            default => 'Status '.$approved,
+        };
+        $provider['url'] = $approved === 2
+            ? route('admin.provider.onboarding_details', $provider['id'])
+            : route('admin.provider.details', [$provider['id'], 'web_page' => 'overview']);
+
+        return $provider;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $providers
+     * @param  list<array<string, mixed>>  $leads
+     * @return list<array<string, mixed>>
+     */
+    private function buildRelations(string $phone, array $providers, array $leads): array
+    {
+        $relations = [];
+        $seen = [];
+
+        try {
+            $owner = $this->phoneDirectory->findOwner($phone);
+        } catch (Throwable) {
+            $owner = null;
+        }
+
+        if ($owner) {
+            $key = $owner['owner_type'].':'.$owner['owner_id'];
+            $seen[$key] = true;
+            $relatedPhones = [];
+            try {
+                $relatedPhones = $this->phoneDirectory->phonesForOwner($owner['owner_type'], $owner['owner_id']);
+            } catch (Throwable) {
+                $relatedPhones = [];
+            }
+
+            $relations[] = [
+                'type' => $owner['owner_type'],
+                'id' => $owner['owner_id'],
+                'label' => $owner['label'],
+                'via' => $owner['via'] ?? 'primary',
+                'related_phones' => array_values(array_filter($relatedPhones, fn ($p) => $p !== $phone)),
+                'url' => $this->relationUrl($owner['owner_type'], $owner['owner_id']),
+                'note' => 'Directory owner for this number',
+            ];
+        }
+
+        foreach ($providers as $provider) {
+            $key = PartyAlternatePhone::OWNER_PROVIDER.':'.$provider['id'];
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $relatedPhones = [];
+            try {
+                $relatedPhones = $this->phoneDirectory->phonesForOwner(PartyAlternatePhone::OWNER_PROVIDER, $provider['id']);
+            } catch (Throwable) {
+                $relatedPhones = array_values(array_filter([
+                    $this->last10($provider['company_phone'] ?? null),
+                    $this->last10($provider['contact_person_phone'] ?? null),
+                    $this->last10($provider['owner_phone'] ?? null),
+                ]));
+            }
+            $relations[] = [
+                'type' => PartyAlternatePhone::OWNER_PROVIDER,
+                'id' => $provider['id'],
+                'label' => $provider['name'],
+                'via' => 'provider profile',
+                'related_phones' => array_values(array_filter($relatedPhones, fn ($p) => $p !== $phone)),
+                'url' => $provider['url'] ?? route('admin.provider.details', [$provider['id'], 'web_page' => 'overview']),
+                'note' => ($provider['status_label'] ?? 'Provider').' profile linked to this number',
+            ];
+        }
+
+        foreach ($leads as $lead) {
+            if (($lead['kind'] ?? '') !== 'lead') {
+                continue;
+            }
+            $key = PartyAlternatePhone::OWNER_PROVIDER_LEAD.':'.$lead['id'];
+            if (isset($seen[$key])) {
+                // Still try to attach linked provider if primary owner was something else
+            } else {
+                $seen[$key] = true;
+                $relatedPhones = [];
+                try {
+                    $relatedPhones = $this->phoneDirectory->phonesForOwner(PartyAlternatePhone::OWNER_PROVIDER_LEAD, $lead['id']);
+                } catch (Throwable) {
+                    $relatedPhones = [];
+                }
+                $relations[] = [
+                    'type' => PartyAlternatePhone::OWNER_PROVIDER_LEAD,
+                    'id' => $lead['id'],
+                    'label' => $lead['name'] ?? $lead['label'] ?? $lead['id'],
+                    'via' => 'lead',
+                    'related_phones' => array_values(array_filter($relatedPhones, fn ($p) => $p !== $phone)),
+                    'url' => $lead['url'] ?? route('admin.lead.show', $lead['id']),
+                    'note' => 'Lead record for this number',
+                ];
+            }
+        }
+
+        // Linked-from-lead alternate rows that point at providers/customers for this phone
+        try {
+            $alts = PartyAlternatePhone::query()
+                ->where('phone_digits', $phone)
+                ->get(['owner_type', 'owner_id', 'linked_from_lead_id']);
+            foreach ($alts as $alt) {
+                $key = $alt->owner_type.':'.$alt->owner_id;
+                if (isset($seen[$key])) {
+                    if ($alt->linked_from_lead_id) {
+                        foreach ($relations as &$rel) {
+                            if ($rel['type'] === $alt->owner_type && (string) $rel['id'] === (string) $alt->owner_id) {
+                                $rel['linked_from_lead_id'] = (string) $alt->linked_from_lead_id;
+                                $rel['linked_from_lead_url'] = route('admin.lead.show', $alt->linked_from_lead_id);
+                                $rel['note'] = trim(($rel['note'] ?? '').' · linked from lead #'.$alt->linked_from_lead_id);
+                            }
+                        }
+                        unset($rel);
+                    }
+                    continue;
+                }
+                $seen[$key] = true;
+                $relations[] = [
+                    'type' => $alt->owner_type,
+                    'id' => (string) $alt->owner_id,
+                    'label' => $alt->ownerLabel(),
+                    'via' => 'alternate',
+                    'related_phones' => [],
+                    'url' => $this->relationUrl($alt->owner_type, (string) $alt->owner_id),
+                    'linked_from_lead_id' => $alt->linked_from_lead_id ? (string) $alt->linked_from_lead_id : null,
+                    'linked_from_lead_url' => $alt->linked_from_lead_id ? route('admin.lead.show', $alt->linked_from_lead_id) : null,
+                    'note' => 'Alternate phone link'.($alt->linked_from_lead_id ? ' from lead #'.$alt->linked_from_lead_id : ''),
+                ];
+            }
+        } catch (Throwable) {
+            // optional
+        }
+
+        return $relations;
+    }
+
+    private function relationUrl(string $ownerType, string $ownerId): ?string
+    {
+        return match ($ownerType) {
+            PartyAlternatePhone::OWNER_PROVIDER => route('admin.provider.details', [$ownerId, 'web_page' => 'overview']),
+            PartyAlternatePhone::OWNER_PROVIDER_LEAD,
+            PartyAlternatePhone::OWNER_CUSTOMER_LEAD => route('admin.lead.show', $ownerId),
+            PartyAlternatePhone::OWNER_CUSTOMER => route('admin.customer.detail', [$ownerId]),
+            default => null,
+        };
     }
 
     /**
