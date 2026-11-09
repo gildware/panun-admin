@@ -585,8 +585,27 @@
         editor.appendChild(editable);
         editor.appendChild(textarea);
         textarea.classList.add("staff-chat-compose-input", "staff-chat-compose-backing");
+        textarea.classList.remove("form-control", "form-control-sm", "w-100", "lead-comment-compose__input");
         textarea.setAttribute("tabindex", "-1");
         textarea.setAttribute("aria-hidden", "true");
+        // Inline hide so a missing/stale CSS file never shows a second comment box
+        textarea.style.cssText = [
+            "position:absolute",
+            "width:1px",
+            "height:1px",
+            "min-height:0",
+            "padding:0",
+            "margin:0",
+            "border:0",
+            "opacity:0",
+            "pointer-events:none",
+            "overflow:hidden",
+            "resize:none",
+            "clip:rect(0,0,0,0)",
+            "left:0",
+            "top:0",
+            "z-index:-1",
+        ].join(";");
         if (minHeight && minHeight !== "auto") {
             editable.style.minHeight = minHeight;
         }

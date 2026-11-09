@@ -74,6 +74,42 @@
   box-shadow: 0 0 0 2px rgba(37, 39, 77, .1);
   outline: none;
 }
+/* Staff-chat wraps textarea in contenteditable; keep only one visible compose field */
+.lead-detail-v2 .staff-chat-compose-editor {
+  position: relative;
+  width: 100%;
+}
+.lead-detail-v2 .staff-chat-compose-editable.lead-comment-compose__input,
+.lead-detail-v2 .staff-chat-compose-editable.form-control {
+  border: 1px solid var(--ld-border);
+  border-radius: var(--ld-radius-sm);
+  background: #fff;
+  min-height: 56px;
+}
+.lead-detail-v2 textarea.staff-chat-compose-backing,
+.lead-detail-v2 .staff-chat-compose-editor > textarea.staff-chat-message-input,
+.lead-detail-v2 .staff-chat-compose-editor > textarea.lead-comment-compose__input,
+.lead-detail-v2 .staff-chat-compose-editor > textarea.form-control {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  max-height: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  resize: none !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  left: 0 !important;
+  top: 0 !important;
+  z-index: -1 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
 .lead-detail-v2 .lead-comment-compose__footer {
   border-top: 1px solid var(--ld-border);
   margin-top: .5rem;
