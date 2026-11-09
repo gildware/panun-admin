@@ -4,129 +4,206 @@
 
 @push('css_or_js')
     <style>
-        .wa-match-stats {
+        .wa-page-header {
             display: flex;
             flex-wrap: wrap;
-            gap: .5rem;
-            margin-bottom: .85rem;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: .75rem 1rem;
+            margin-bottom: 1rem;
         }
-        .wa-match-stat {
+        .wa-page-header h4 {
+            margin: 0 0 .2rem;
+            font-size: 1.2rem;
+            font-weight: 650;
+        }
+        .wa-page-header p {
+            margin: 0;
+            color: #667085;
+            font-size: .875rem;
+        }
+        .wa-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .55rem;
+            margin-bottom: .9rem;
+        }
+        .wa-stat {
             background: #fff;
-            border: 1px solid #e5e7eb;
-            border-radius: .5rem;
-            padding: .55rem .8rem;
-            min-width: 6.5rem;
+            border: 1px solid #e4e7ec;
+            border-radius: .55rem;
+            padding: .55rem .85rem;
+            min-width: 5.75rem;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
         }
-        .wa-match-stat b {
+        .wa-stat strong {
             display: block;
             font-size: 1.15rem;
+            line-height: 1.15;
             color: #0f766e;
-            line-height: 1.1;
+            font-weight: 700;
         }
-        .wa-match-stat span {
+        .wa-stat span {
             font-size: .72rem;
-            color: #6b7280;
+            color: #667085;
             text-transform: uppercase;
             letter-spacing: .03em;
         }
-        .wa-match-toolbar {
+        .wa-toolbar {
             display: flex;
             flex-wrap: wrap;
-            gap: .65rem;
+            gap: .65rem 1rem;
             align-items: center;
             margin-bottom: .75rem;
+            padding: .7rem .85rem;
+            background: #fff;
+            border: 1px solid #e4e7ec;
+            border-radius: .55rem;
         }
-        .wa-match-toolbar input[type="search"] {
+        .wa-toolbar input[type="search"] {
             flex: 1 1 14rem;
             min-width: 12rem;
-            max-width: 22rem;
-            height: 2.1rem;
-            border: 1px solid #d1d5db;
-            border-radius: .4rem;
-            padding: 0 .65rem;
-            font-size: .85rem;
-        }
-        .wa-match-filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: .35rem .75rem;
-            font-size: .8rem;
-            color: #6b7280;
-        }
-        .wa-match-filters label {
-            cursor: pointer;
-            margin: 0;
-            white-space: nowrap;
-        }
-        .wa-match-table-wrap {
-            overflow: auto;
-            border: 1px solid #e5e7eb;
-            border-radius: .55rem;
+            max-width: 20rem;
+            height: 2.25rem;
+            border: 1px solid #d0d5dd;
+            border-radius: .45rem;
+            padding: 0 .75rem;
+            font-size: .875rem;
             background: #fff;
         }
-        .wa-match-table {
+        .wa-toolbar input[type="search"]:focus {
+            outline: none;
+            border-color: #0f766e;
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, .12);
+        }
+        .wa-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+        }
+        .wa-filters label {
+            cursor: pointer;
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            user-select: none;
+        }
+        .wa-filters input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .wa-filters span {
+            display: inline-flex;
+            align-items: center;
+            min-height: 2rem;
+            padding: .2rem .75rem;
+            border: 1px solid #d0d5dd;
+            border-radius: 999px;
+            background: #fff;
+            color: #475467;
+            font-size: .8rem;
+            font-weight: 600;
+            line-height: 1.2;
+            transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+        }
+        .wa-filters label:hover span {
+            border-color: #98a2b3;
+            color: #101828;
+        }
+        .wa-filters input:checked + span {
+            background: #0f766e;
+            border-color: #0f766e;
+            color: #fff;
+            box-shadow: 0 1px 2px rgba(15, 118, 110, .25);
+        }
+        .wa-filters input:focus-visible + span {
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, .18);
+        }
+        .wa-table-wrap {
+            overflow: auto;
+            border: 1px solid #e4e7ec;
+            border-radius: .65rem;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+        }
+        .wa-table {
             width: 100%;
-            border-collapse: collapse;
-            font-size: .8125rem;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: .84rem;
             margin: 0;
         }
-        .wa-match-table th {
+        .wa-table th {
             position: sticky;
             top: 0;
             z-index: 1;
-            background: #111827;
+            background: #1d2939;
             color: #fff;
             text-align: left;
-            padding: .65rem .55rem;
+            padding: .7rem .75rem;
             white-space: nowrap;
             font-weight: 600;
-        }
-        .wa-match-table td {
-            padding: .55rem;
-            border-bottom: 1px solid #eef0f3;
-            vertical-align: top;
-        }
-        .wa-match-table tr.cat-head td {
-            background: #ecfdf5;
-            border-bottom: 2px solid #99f6e4;
-            font-weight: 600;
-        }
-        .wa-match-table tr.cat-head .cat-meta {
-            font-weight: 400;
-            color: #6b7280;
             font-size: .78rem;
-            margin-left: .4rem;
         }
-        .wa-match-table tr.unmatched td {
-            opacity: .72;
+        .wa-table td {
+            padding: .65rem .75rem;
+            border-bottom: 1px solid #f2f4f7;
+            vertical-align: top;
+            line-height: 1.35;
         }
-        .wa-match-table tbody tr:not(.cat-head):hover td {
+        .wa-table tr.cat-head td {
+            background: #f0fdf9;
+            border-bottom: 1px solid #99f6e4;
+            font-weight: 650;
+            color: #134e4a;
+            padding: .6rem .75rem;
+        }
+        .wa-table tr.cat-head .cat-meta {
+            font-weight: 500;
+            color: #667085;
+            font-size: .78rem;
+            margin-left: .45rem;
+        }
+        .wa-table tr.unmatched td {
+            color: #667085;
+            background: #fcfcfd;
+        }
+        .wa-table tbody tr:not(.cat-head):hover td {
             background: #f8fafc;
         }
         .wa-phone {
             font-variant-numeric: tabular-nums;
-            font-weight: 600;
+            font-weight: 700;
             white-space: nowrap;
+            color: #101828;
         }
-        .wa-check {
-            text-align: center;
-            white-space: nowrap;
-        }
+        .wa-check { text-align: center; white-space: nowrap; }
         .wa-yes,
         .wa-no {
-            display: inline-block;
-            padding: .1rem .45rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.4rem;
+            padding: .15rem .55rem;
             border-radius: 999px;
             font-size: .72rem;
-            font-weight: 600;
+            font-weight: 650;
+            line-height: 1.3;
         }
         .wa-yes { background: #dcfce7; color: #166534; }
         .wa-no { background: #ffedd5; color: #9a3412; }
-        .wa-miss { color: #a8a29e; }
-        .wa-match-note {
-            margin-top: .75rem;
-            color: #6b7280;
-            font-size: .78rem;
+        .wa-miss { color: #98a2b3; }
+        .wa-table a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .wa-table a:hover { text-decoration: underline; }
+        .wa-note {
+            margin-top: .85rem;
+            color: #667085;
+            font-size: .8rem;
         }
     </style>
 @endpush
@@ -139,48 +216,44 @@
 
     <div class="main-content">
         <div class="container-fluid">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div class="wa-page-header">
                 <div>
-                    <h4 class="mb-1">{{ translate('WhatsApp_Provider_Match') }}</h4>
-                    <div class="text-muted small">
-                        {{ translate('Match_WhatsApp_provider_numbers_against_provider_list_onboarding_and_leads') }}
-                    </div>
+                    <h4>{{ translate('WhatsApp_Provider_Match') }}</h4>
+                    <p>{{ translate('Match_WhatsApp_provider_numbers_against_provider_list_onboarding_and_leads') }}</p>
                 </div>
-                <a href="{{ route('admin.provider.whatsapp-match.lookup') }}" class="btn btn--primary btn-sm">
-                    <span class="material-icons" style="font-size:1rem;vertical-align:middle;">search</span>
+                <a href="{{ route('admin.provider.whatsapp-match.lookup') }}" class="btn btn--primary">
                     {{ translate('Lookup_phone_numbers') }}
                 </a>
             </div>
 
-            <div class="wa-match-stats">
-                <div class="wa-match-stat"><b>{{ $stats['unique_phones'] ?? 0 }}</b><span>{{ translate('Unique_numbers') }}</span></div>
-                <div class="wa-match-stat"><b>{{ $stats['rows'] ?? 0 }}</b><span>{{ translate('Rows') }}</span></div>
-                <div class="wa-match-stat"><b>{{ $stats['matched'] ?? 0 }}</b><span>{{ translate('Any_match') }}</span></div>
-                <div class="wa-match-stat"><b>{{ $stats['in_list'] ?? 0 }}</b><span>{{ translate('Provider_list') }}</span></div>
-                <div class="wa-match-stat"><b>{{ $stats['in_onboarding'] ?? 0 }}</b><span>{{ translate('Onboarding') }}</span></div>
-                <div class="wa-match-stat"><b>{{ $stats['in_lead'] ?? 0 }}</b><span>{{ translate('Provider_lead') }}</span></div>
-                <div class="wa-match-stat"><b>{{ $stats['none'] ?? 0 }}</b><span>{{ translate('No_match') }}</span></div>
+            <div class="wa-stats">
+                <div class="wa-stat"><strong>{{ $stats['unique_phones'] ?? 0 }}</strong><span>{{ translate('Unique_numbers') }}</span></div>
+                <div class="wa-stat"><strong>{{ $stats['matched'] ?? 0 }}</strong><span>{{ translate('Any_match') }}</span></div>
+                <div class="wa-stat"><strong>{{ $stats['in_list'] ?? 0 }}</strong><span>{{ translate('Provider_list') }}</span></div>
+                <div class="wa-stat"><strong>{{ $stats['in_onboarding'] ?? 0 }}</strong><span>{{ translate('Onboarding') }}</span></div>
+                <div class="wa-stat"><strong>{{ $stats['in_lead'] ?? 0 }}</strong><span>{{ translate('Provider_lead') }}</span></div>
+                <div class="wa-stat"><strong>{{ $stats['none'] ?? 0 }}</strong><span>{{ translate('No_match') }}</span></div>
             </div>
 
-            <div class="wa-match-toolbar">
+            <div class="wa-toolbar">
                 <input type="search" id="wa-match-q" placeholder="{{ translate('Search_phone_category_name') }}">
-                <div class="wa-match-filters">
-                    <label><input type="radio" name="wa-match-f" value="all" checked> {{ translate('All') }}</label>
-                    <label><input type="radio" name="wa-match-f" value="matched"> {{ translate('Matched') }}</label>
-                    <label><input type="radio" name="wa-match-f" value="unmatched"> {{ translate('Unmatched') }}</label>
-                    <label><input type="radio" name="wa-match-f" value="list"> {{ translate('In_provider_list') }}</label>
-                    <label><input type="radio" name="wa-match-f" value="onboarding"> {{ translate('In_onboarding') }}</label>
-                    <label><input type="radio" name="wa-match-f" value="lead"> {{ translate('In_lead') }}</label>
+                <div class="wa-filters" role="radiogroup" aria-label="{{ translate('Filter') }}">
+                    <label><input type="radio" name="wa-match-f" value="all" checked><span>{{ translate('All') }}</span></label>
+                    <label><input type="radio" name="wa-match-f" value="matched"><span>{{ translate('Matched') }}</span></label>
+                    <label><input type="radio" name="wa-match-f" value="unmatched"><span>{{ translate('Unmatched') }}</span></label>
+                    <label><input type="radio" name="wa-match-f" value="list"><span>{{ translate('In_provider_list') }}</span></label>
+                    <label><input type="radio" name="wa-match-f" value="onboarding"><span>{{ translate('In_onboarding') }}</span></label>
+                    <label><input type="radio" name="wa-match-f" value="lead"><span>{{ translate('In_lead') }}</span></label>
                 </div>
             </div>
 
-            <div class="wa-match-table-wrap">
-                <table class="wa-match-table" id="wa-match-table">
+            <div class="wa-table-wrap">
+                <table class="wa-table" id="wa-match-table">
                     <thead>
                         <tr>
                             <th>{{ translate('Phone_number') }}</th>
                             <th>{{ translate('WhatsApp_group') }}</th>
-                            <th>{{ translate('In_list') }}?</th>
+                            <th>{{ translate('In_list') }}</th>
                             <th>{{ translate('Provider_Profile') }}</th>
                             <th>{{ translate('In_onboarding') }}?</th>
                             <th>{{ translate('Onboarding_Profile') }}</th>
@@ -270,7 +343,7 @@
                 </table>
             </div>
 
-            <p class="wa-match-note">
+            <p class="wa-note">
                 {{ translate('Sorted_by_category_then_matches_before_no_matches') }}.
                 {{ translate('Phone_match_uses_last_10_digits') }}.
             </p>

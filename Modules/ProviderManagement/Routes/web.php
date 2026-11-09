@@ -24,7 +24,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('list', [ProviderController::class, 'index'])->name('list');
         Route::get('live-view', [ProviderLiveViewController::class, 'index'])->name('live-view');
         Route::get('whatsapp-match', [WhatsAppProviderMatchController::class, 'index'])->name('whatsapp-match');
-        Route::get('whatsapp-match/lookup', [WhatsAppProviderMatchController::class, 'lookup'])->name('whatsapp-match.lookup');
+        Route::match(['get', 'post'], 'whatsapp-match/lookup', [WhatsAppProviderMatchController::class, 'lookup'])->name('whatsapp-match.lookup');
         Route::get('top-providers', [ProviderController::class, 'topProviders'])->name('top-providers');
         Route::any('status-update/{id}', [ProviderController::class, 'statusUpdate'])->name('status_update');
         Route::any('service-availability/{id}', [ProviderController::class, 'serviceAvailability'])->name('service_availability');
