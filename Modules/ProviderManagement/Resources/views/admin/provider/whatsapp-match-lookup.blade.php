@@ -1,6 +1,6 @@
 @extends('adminmodule::layouts.master')
 
-@section('title', translate('Phone_Number_Lookup'))
+@section('title', translate('Manage_Data'))
 
 @push('css_or_js')
     <style>
@@ -270,12 +270,10 @@
         <div class="container-fluid">
             <div class="plu-page-header">
                 <div>
-                    <h4>{{ translate('Phone_Number_Lookup') }}</h4>
+                    <h4>{{ translate('Manage_Data') }}</h4>
                     <p>{{ translate('Paste_multiple_numbers_to_find_provider_onboarding_and_leads') }}</p>
                 </div>
-                <a href="{{ route('admin.provider.whatsapp-match') }}" class="btn btn-outline-secondary">
-                    {{ translate('Back_to_WhatsApp_match') }}
-                </a>
+                @include('providermanagement::admin.provider.partials._whatsapp-match-nav', ['active' => 'lookup'])
             </div>
 
             <div class="plu-search-card">

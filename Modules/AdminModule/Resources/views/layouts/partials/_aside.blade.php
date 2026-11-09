@@ -771,8 +771,8 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                    class="{{request()->is('admin/provider/live-view*')?'active-menu':''}}">{{translate('Provider_Live_View')}}</a>
                             </li>
                             <li>
-                                <a href="{{route('admin.provider.whatsapp-match')}}"
-                                   class="{{request()->is('admin/provider/whatsapp-match*')?'active-menu':''}}">{{translate('WhatsApp_Provider_Match')}}</a>
+                                <a href="{{route('admin.provider.whatsapp-match.lookup')}}"
+                                   class="{{request()->is('admin/provider/whatsapp-match*')?'active-menu':''}}">{{translate('Manage_Data')}}</a>
                             </li>
                             <li>
                                 <a href="{{route('admin.provider.list', ['status'=>'all'])}}"

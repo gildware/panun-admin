@@ -75,6 +75,7 @@ use Modules\ProviderManagement\Services\ProviderContactUniquenessGuard;
 use Modules\ProviderManagement\Services\ProviderDirectoryExcelExport;
 use Modules\ProviderManagement\Services\ProviderDirectoryXlsxWriter;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
+use Modules\ProviderManagement\Services\WhatsAppProviderMatchService;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 use Modules\WhatsAppModule\Services\LedgerPaymentWhatsAppService;
 use Modules\UserManagement\Entities\Serviceman;
@@ -263,13 +264,17 @@ class ProviderController extends Controller
             $providers->getCollection()->pluck('id')->toArray()
         );
 
-        $providers->getCollection()->transform(function ($provider) use ($metrics) {
+        $whatsAppGroupsByProvider = app(WhatsAppProviderMatchService::class)
+            ->groupsForProviders($providers->getCollection());
+
+        $providers->getCollection()->transform(function ($provider) use ($metrics, $whatsAppGroupsByProvider) {
             $provider->setAppends(['list_avatar_full_path']);
 
             $row = $metrics->get($provider->id);
 
             $provider->bookings_count = (int) ($provider->bookings_count ?? 0);
             $provider->performance_score = (int) ($row?->performance_score ?? 0);
+            $provider->whatsapp_groups = $whatsAppGroupsByProvider[(string) $provider->id] ?? [];
 
             return $provider;
         });

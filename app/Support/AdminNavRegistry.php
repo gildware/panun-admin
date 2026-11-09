@@ -695,7 +695,14 @@ class AdminNavRegistry
             self::entry('providers', $group, null, translate('Onboarding_Request'), route('admin.provider.onboarding_request', ['status' => 'onboarding']), ['admin/provider/onboarding*']),
             self::entry('providers', $group, null, translate('Add_New_Provider'), route('admin.provider.create'), ['admin/provider/create']),
             self::entry('providers', $group, null, translate('Provider_Live_View'), route('admin.provider.live-view'), ['admin/provider/live-view*']),
-            self::entry('providers', $group, null, translate('WhatsApp_Provider_Match'), route('admin.provider.whatsapp-match'), ['admin/provider/whatsapp-match', 'admin/provider/whatsapp-match/*']),
+            self::entry('providers', $group, null, translate('Manage_Data'), route('admin.provider.whatsapp-match.lookup'), ['admin/provider/whatsapp-match*'], [
+                'admin.provider.whatsapp-match',
+                'admin.provider.whatsapp-match.lookup',
+                'admin.provider.whatsapp-match.groups',
+                'admin.provider.whatsapp-match.groups.store',
+                'admin.provider.whatsapp-match.groups.update',
+                'admin.provider.whatsapp-match.groups.destroy',
+            ]),
             self::entry('providers', $group, null, translate('Provider_List'), route('admin.provider.list', ['status' => 'all']), [
                 'admin/provider/list', 'admin/provider/export*', 'admin/provider/details*', 'admin/provider/edit*', 'admin/provider/collect-cash*',
             ]),
