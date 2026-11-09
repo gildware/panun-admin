@@ -3885,11 +3885,13 @@ class ProviderController extends Controller
             return (new FastExcel($export->streamLabeledRows($query, $keys, $limit, $labels)))->download($fileName);
         }
 
+        $embedImages = ProviderDirectoryXlsxWriter::shouldEmbedImages($total, $keys, $export);
         $path = storage_path('app/temp/'.$fileName);
-        (new ProviderDirectoryXlsxWriter($export))->write($path, $query, $keys, $limit, $labels);
 
-        return response()->streamDownload(function () use ($path) {
+        return response()->streamDownload(function () use ($path, $export, $query, $keys, $limit, $labels, $embedImages) {
+            @set_time_limit(0);
             try {
+                (new ProviderDirectoryXlsxWriter($export))->write($path, $query, $keys, $limit, $labels, $embedImages);
                 if (is_file($path)) {
                     readfile($path);
                 }
@@ -3898,6 +3900,7 @@ class ProviderController extends Controller
             }
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'X-Accel-Buffering' => 'no',
         ]);
     }
 
@@ -4037,11 +4040,13 @@ class ProviderController extends Controller
             return (new FastExcel($export->streamLabeledRows($query, $keys, $limit, $labels)))->download($fileName);
         }
 
+        $embedImages = ProviderDirectoryXlsxWriter::shouldEmbedImages($total, $keys, $export);
         $path = storage_path('app/temp/'.$fileName);
-        (new ProviderDirectoryXlsxWriter($export))->write($path, $query, $keys, $limit, $labels);
 
-        return response()->streamDownload(function () use ($path) {
+        return response()->streamDownload(function () use ($path, $export, $query, $keys, $limit, $labels, $embedImages) {
+            @set_time_limit(0);
             try {
+                (new ProviderDirectoryXlsxWriter($export))->write($path, $query, $keys, $limit, $labels, $embedImages);
                 if (is_file($path)) {
                     readfile($path);
                 }
@@ -4050,6 +4055,7 @@ class ProviderController extends Controller
             }
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'X-Accel-Buffering' => 'no',
         ]);
     }
 
