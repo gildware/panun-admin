@@ -1230,6 +1230,7 @@
 
             var successText = @json(translate('Export_downloaded'));
             var failedText = @json(translate('Export_download_failed'));
+            var buildingText = @json(translate('Export_building_file'));
 
             function toast(type, message) {
                 if (!window.toastr || typeof window.toastr[type] !== 'function') {
@@ -1237,7 +1238,8 @@
                 }
                 window.toastr[type](message, {
                     CloseButton: true,
-                    ProgressBar: true
+                    ProgressBar: true,
+                    timeOut: type === 'error' ? 8000 : 4000
                 });
             }
 
@@ -1263,6 +1265,27 @@
                     || type.indexOf('octet-stream') !== -1;
             }
 
+            function setBusy(submitter, buttons, original, busy) {
+                buttons.forEach(function (button) {
+                    button.disabled = busy;
+                });
+                if (!busy) {
+                    submitter.classList.remove('is-loading');
+                    submitter.removeAttribute('aria-busy');
+                    submitter.textContent = original;
+                    return;
+                }
+                submitter.classList.add('is-loading');
+                submitter.setAttribute('aria-busy', 'true');
+                submitter.textContent = '';
+                var spin = document.createElement('span');
+                spin.className = 'spinner-border spinner-border-sm me-1';
+                spin.setAttribute('role', 'status');
+                spin.setAttribute('aria-hidden', 'true');
+                submitter.appendChild(spin);
+                submitter.appendChild(document.createTextNode(' ' + (buildingText || original)));
+            }
+
             form.addEventListener('submit', function (event) {
                 if (event.defaultPrevented) {
                     return;
@@ -1278,18 +1301,7 @@
                 var original = submitter.textContent.replace(/\s+/g, ' ').trim();
                 var fallbackName = submitter.value === 'csv' ? 'providers.csv' : 'providers.xlsx';
 
-                buttons.forEach(function (button) {
-                    button.disabled = true;
-                });
-                submitter.classList.add('is-loading');
-                submitter.setAttribute('aria-busy', 'true');
-                submitter.textContent = '';
-                var spin = document.createElement('span');
-                spin.className = 'spinner-border spinner-border-sm me-1';
-                spin.setAttribute('role', 'status');
-                spin.setAttribute('aria-hidden', 'true');
-                submitter.appendChild(spin);
-                submitter.appendChild(document.createTextNode(' ' + original));
+                setBusy(submitter, buttons, original, true);
 
                 var data = new FormData(form);
                 if (submitter.name) {
@@ -1309,6 +1321,9 @@
                         throw new Error('download failed');
                     }
                     return response.blob().then(function (blob) {
+                        if (!blob || blob.size < 32) {
+                            throw new Error('empty file');
+                        }
                         return {
                             blob: blob,
                             filename: filenameFrom(response, fallbackName)
@@ -1329,12 +1344,7 @@
                 }).catch(function () {
                     toast('error', failedText);
                 }).finally(function () {
-                    submitter.classList.remove('is-loading');
-                    submitter.removeAttribute('aria-busy');
-                    submitter.textContent = original;
-                    buttons.forEach(function (button) {
-                        button.disabled = false;
-                    });
+                    setBusy(submitter, buttons, original, false);
                 });
             });
         })();

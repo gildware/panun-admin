@@ -332,8 +332,30 @@ class ProviderDirectoryExcelExport
      */
     public function eagerWith(array $keys = []): array
     {
+        $needsAppCounts = $keys === [] || $this->wants($keys, ['app']);
+        $needsOwner = $keys === [] || $this->wants($keys, [
+            'app',
+            'account_status',
+            'identity_type',
+            'identity_number',
+            'identity_images',
+            'phone',
+            'company_phone',
+            'contact_person_phone',
+        ]);
+
         $with = [
-            'owner' => function ($ownerQuery) {
+            'zone:id,name',
+            'zones' => function ($zoneQuery) {
+                $zoneQuery->select('zones.id', 'zones.name')->orderBy('zones.name');
+            },
+        ];
+
+        if ($needsOwner) {
+            $with['owner'] = function ($ownerQuery) use ($needsAppCounts) {
+                if (! $needsAppCounts) {
+                    return;
+                }
                 $ownerQuery->withCount([
                     'fcmDevices as fcm_devices_count',
                     'tokens as app_login_sessions_count',
@@ -345,12 +367,8 @@ class ProviderDirectoryExcelExport
                             });
                     },
                 ]);
-            },
-            'zone:id,name',
-            'zones' => function ($zoneQuery) {
-                $zoneQuery->select('zones.id', 'zones.name')->orderBy('zones.name');
-            },
-        ];
+            };
+        }
 
         if ($keys === [] || $this->wants($keys, ['categories', 'subscribed_services'])) {
             $with['subscribed_services.category'] = function ($query) {
@@ -368,6 +386,13 @@ class ProviderDirectoryExcelExport
         if ($this->wants($keys, ['logo', 'cover_image'])) {
             $with[] = 'storage';
         }
+        if ($this->wants($keys, ['denied_by'])) {
+            $with[] = 'deniedBy';
+        }
+        if ($this->wants($keys, ['accepted_by'])) {
+            $with[] = 'approvedBy';
+        }
+
         return $with;
     }
 
