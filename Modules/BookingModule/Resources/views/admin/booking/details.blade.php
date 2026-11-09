@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}?v={{ @filemtime(public_path('assets/admin-module/css/booking-detail-redesign.css')) }}">
     @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
-    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}?v={{ @filemtime(public_path('assets/chatting-module/css/staff-chat-entity-badges.css')) ?: time() }}">
     @include('bookingmodule::admin.booking.partials._booking-comments-styles')
     @include('bookingmodule::admin.booking.partials._booking-followup-styles')
     <style>

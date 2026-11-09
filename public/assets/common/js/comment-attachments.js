@@ -85,55 +85,50 @@
         }
     }
 
+    function editableText(editable) {
+        if (!editable) {
+            return '';
+        }
+        if (typeof window.serializeStaffChatEditable === 'function') {
+            return String(window.serializeStaffChatEditable(editable) || '').replace(
+                /\u200b/g,
+                ''
+            );
+        }
+        return String(editable.innerText || editable.textContent || '').replace(
+            /\u200b/g,
+            ''
+        );
+    }
+
     function readComposeBody(form) {
-        // Contenteditable may hold the visible text; sync before reading.
+        // Contenteditable is the visible field; always prefer it over the
+        // hidden backing textarea so submit does not see an empty body.
         if (typeof window.syncStaffChatComposeForm === 'function') {
             window.syncStaffChatComposeForm(form);
-        } else {
-            form.querySelectorAll(
-                'textarea.staff-chat-message-input, textarea[name="body"]'
-            ).forEach(function (field) {
-                var editor = field.closest('.staff-chat-compose-editor');
-                var editable = editor
-                    ? editor.querySelector('.staff-chat-compose-editable')
-                    : null;
-                if (!editable) {
-                    return;
-                }
-                var text = String(
-                    editable.innerText || editable.textContent || ''
-                ).replace(/\u200b/g, '');
-                if (text.trim() !== '' || String(field.value || '').trim() === '') {
-                    field.value = text;
-                }
-            });
         }
 
         var body = form.querySelector(
             'textarea[name="body"], textarea.staff-chat-message-input'
         );
-        var bodyValue = body ? String(body.value || '') : '';
+        var fromTextarea = body ? String(body.value || '').replace(/\u200b/g, '') : '';
+        var editable = form.querySelector('.staff-chat-compose-editable');
+        var fromEditable = editableText(editable);
 
-        // Fallback: read contenteditable directly if textarea is still empty.
-        if (bodyValue.trim() === '') {
-            var editable = form.querySelector('.staff-chat-compose-editable');
-            if (editable) {
-                bodyValue = String(
-                    editable.innerText || editable.textContent || ''
-                ).replace(/\u200b/g, '');
-                if (body) {
-                    body.value = bodyValue;
-                }
-            }
+        var bodyValue =
+            fromEditable.trim() !== ''
+                ? fromEditable
+                : fromTextarea;
+
+        if (body && bodyValue !== body.value) {
+            body.value = bodyValue;
         }
-
-        bodyValue = String(bodyValue || '').replace(/\u200b/g, '');
 
         if (typeof window.resolveStaffChatTags === 'function') {
             bodyValue = window.resolveStaffChatTags(bodyValue);
         }
 
-        return bodyValue;
+        return String(bodyValue || '').replace(/\u200b/g, '');
     }
 
     function buildFormData(form, composeEl) {
@@ -219,6 +214,14 @@
         if (composeEl) {
             bindCompose(composeEl);
         }
+
+        // Sync before the click becomes a submit, so the last keystroke is captured.
+        form.addEventListener('mousedown', function (event) {
+            var submitBtn = event.target.closest('[type="submit"]');
+            if (submitBtn && form.contains(submitBtn)) {
+                readComposeBody(form);
+            }
+        });
 
         form.addEventListener('submit', function (event) {
             event.preventDefault();

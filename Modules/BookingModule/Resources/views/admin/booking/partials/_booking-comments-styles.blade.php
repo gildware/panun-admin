@@ -176,31 +176,50 @@
     }
     .booking-detail-v2 .lead-comment-compose .staff-chat-compose-highlight,
     .booking-detail-v2 .comment-compose .staff-chat-compose-highlight {
-        border: none;
-        background: #fff;
-        border-radius: 0;
-        box-shadow: none;
+        display: none !important;
     }
-    .booking-detail-v2 .lead-comment-compose .staff-chat-compose-input,
-    .booking-detail-v2 .comment-compose .staff-chat-compose-input {
+    /* Style the visible contenteditable, never the hidden backing textarea */
+    .booking-detail-v2 .lead-comment-compose .staff-chat-compose-editable,
+    .booking-detail-v2 .comment-compose .staff-chat-compose-editable {
         border: none !important;
         box-shadow: none !important;
         background: transparent !important;
         min-height: 56px;
         width: 100%;
-        resize: vertical;
         font-size: .875rem;
         line-height: 1.5;
         padding: .25rem .5rem;
     }
-    .booking-detail-v2 .lead-comment-compose .staff-chat-compose-input:focus,
-    .booking-detail-v2 .comment-compose .staff-chat-compose-input:focus {
+    .booking-detail-v2 .lead-comment-compose .staff-chat-compose-editable:focus,
+    .booking-detail-v2 .comment-compose .staff-chat-compose-editable:focus {
         outline: none;
         box-shadow: none !important;
     }
-    .booking-detail-v2 .lead-comment-compose .staff-chat-compose-input::placeholder,
-    .booking-detail-v2 .comment-compose .staff-chat-compose-input::placeholder {
-        -webkit-text-fill-color: #94a3b8;
+    .booking-detail-v2 .lead-comment-compose .staff-chat-compose-editable:empty:before,
+    .booking-detail-v2 .comment-compose .staff-chat-compose-editable:empty:before {
         color: #94a3b8;
+        -webkit-text-fill-color: #94a3b8;
+    }
+    .booking-detail-v2 .lead-comment-compose textarea.staff-chat-compose-backing,
+    .booking-detail-v2 .comment-compose textarea.staff-chat-compose-backing,
+    .booking-detail-v2 .lead-comment-compose textarea.staff-chat-compose-input,
+    .booking-detail-v2 .comment-compose textarea.staff-chat-compose-input {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        min-height: 0 !important;
+        max-height: 1px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
+        resize: none !important;
+        clip: rect(0, 0, 0, 0) !important;
+        clip-path: inset(50%) !important;
+        left: 0 !important;
+        top: 0 !important;
+        z-index: -1 !important;
     }
 </style>
