@@ -317,6 +317,7 @@
 
     window.syncStaffChatComposeForm = syncComposeForm;
     window.syncStaffChatComposeFromEditable = syncTextareaFromEditable;
+    window.serializeStaffChatEditable = serializeEditable;
 
     function placeCaretAfter(node) {
         var range = document.createRange();
