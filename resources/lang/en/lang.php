@@ -849,6 +849,19 @@
   'Provider_Live_View' => 'Provider Live View',
   'WhatsApp_Provider_Match' => 'WhatsApp Provider Match',
   'Match_WhatsApp_provider_numbers_against_provider_list_onboarding_and_leads' => 'Match WhatsApp provider numbers against Provider List, Onboarding, and Provider Leads',
+  'Lookup_phone_numbers' => 'Lookup phone numbers',
+  'Phone_Number_Lookup' => 'Phone Number Lookup',
+  'Paste_multiple_numbers_to_find_provider_onboarding_leads_and_profile_relations' => 'Paste multiple numbers to find provider profiles, onboarding requests, leads, and profile relations',
+  'Back_to_WhatsApp_match' => 'Back to WhatsApp match',
+  'Phone_numbers' => 'Phone numbers',
+  'Paste_numbers_separated_by_new_line_comma_or_space' => 'Paste numbers separated by new line, comma, or space
+7006321479
++91 88250 59511',
+  'Search_numbers' => 'Search numbers',
+  'Searched' => 'Searched',
+  'Profile_relations' => 'Profile relations',
+  'Linked_from_lead' => 'Linked from lead',
+  'No_valid_phone_numbers_found_in_input' => 'No valid phone numbers found in input',
   'Unique_numbers' => 'Unique numbers',
   'Any_match' => 'Any match',
   'Provider_list' => 'Provider list',
@@ -11787,4 +11800,5 @@ _Message' => 'Customer notification for provider bid offer
   'Move_to_pending' => 'Move to pending',
   'want_to_move_the_provider_back_to_pending' => 'Want to move the provider back to pending',
   'Rows' => 'Rows',
+  'Clear' => 'Clear',
 );

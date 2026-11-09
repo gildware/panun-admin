@@ -146,6 +146,10 @@
                         {{ translate('Match_WhatsApp_provider_numbers_against_provider_list_onboarding_and_leads') }}
                     </div>
                 </div>
+                <a href="{{ route('admin.provider.whatsapp-match.lookup') }}" class="btn btn--primary btn-sm">
+                    <span class="material-icons" style="font-size:1rem;vertical-align:middle;">search</span>
+                    {{ translate('Lookup_phone_numbers') }}
+                </a>
             </div>
 
             <div class="wa-match-stats">
