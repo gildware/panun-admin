@@ -798,6 +798,16 @@
                                 </select>
                             </div>
                             <div class="provider-export-field">
+                                <label class="form-label" for="provider-export-whatsapp-group">{{ translate('WhatsApp_groups') }}</label>
+                                <select id="provider-export-whatsapp-group" name="whatsapp_group" class="form-select">
+                                    <option value="all" @selected(($whatsappGroup ?? 'all') === 'all')>{{ translate('all') }}</option>
+                                    <option value="none" @selected(($whatsappGroup ?? '') === 'none')>{{ translate('Not_in_any_WhatsApp_group') }}</option>
+                                    @foreach(($whatsappGroupNames ?? []) as $groupName)
+                                        <option value="{{ $groupName }}" @selected(($whatsappGroup ?? '') === $groupName)>{{ $groupName }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="provider-export-field">
                                 <label class="form-label" for="provider-export-city">{{ translate('city') }}</label>
                                 <input type="text" id="provider-export-city" name="city" class="form-control" value="{{ $city }}">
                             </div>

@@ -883,6 +883,7 @@
   'In_list' => 'Is added in admin panel',
   'WhatsApp_group' => 'WhatsApp group',
   'WhatsApp_groups' => 'WhatsApp groups',
+  'Not_in_any_WhatsApp_group' => 'Not in any WhatsApp group',
   'Provider_Profile' => 'Provider Profile',
   'Onboarding_Profile' => 'Onboarding Profile',
   'Provider_Lead' => 'Provider Lead',

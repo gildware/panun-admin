@@ -179,6 +179,7 @@ class ProviderController extends Controller
             'limit' => 'nullable|integer|min:1',
             'rating_filter' => 'nullable|in:all,4_plus,3_plus,2_plus,1_plus,unrated',
             'app_filter' => 'nullable|in:all,active,registered,not_in_app',
+            'whatsapp_group' => 'nullable|string|max:191',
         ]);
 
         $search = $request->input('search', '');
@@ -192,6 +193,7 @@ class ProviderController extends Controller
         $limit = $request->get('limit');
         $ratingFilter = $request->get('rating_filter', 'all');
         $appFilter = $request->get('app_filter', 'all');
+        $whatsappGroup = trim((string) $request->input('whatsapp_group', 'all')) ?: 'all';
 
         $queryParam = [
             'search' => $search,
@@ -205,6 +207,7 @@ class ProviderController extends Controller
             'limit' => $limit,
             'rating_filter' => $ratingFilter,
             'app_filter' => $appFilter,
+            'whatsapp_group' => $whatsappGroup,
         ];
 
         $query = $this->provider
@@ -258,13 +261,15 @@ class ProviderController extends Controller
 
         $categories = $this->category->ofType('main')->ofStatus(1)->ordered()->get(['id', 'name']);
         $zones = $this->zone->ofStatus(1)->orderBy('name')->get(['id', 'name']);
+        $whatsAppMatchService = app(WhatsAppProviderMatchService::class);
+        $whatsappGroupNames = $whatsAppMatchService->groupNames();
 
         $performanceService = app(ProviderPerformanceService::class);
         $metrics = $performanceService->getAggregatedProviderPerformanceMetrics(
             $providers->getCollection()->pluck('id')->toArray()
         );
 
-        $whatsAppGroupsByProvider = app(WhatsAppProviderMatchService::class)
+        $whatsAppGroupsByProvider = $whatsAppMatchService
             ->groupsForProviders($providers->getCollection());
 
         $providers->getCollection()->transform(function ($provider) use ($metrics, $whatsAppGroupsByProvider) {
@@ -289,6 +294,7 @@ class ProviderController extends Controller
             'sort',
             'categories',
             'zones',
+            'whatsappGroupNames',
             'queryParam'
         ));
     }
@@ -3809,6 +3815,9 @@ class ProviderController extends Controller
         $zones = $step === 2
             ? $this->zone->ofStatus(1)->orderBy('name')->get(['id', 'name'])
             : collect();
+        $whatsappGroupNames = $step === 2
+            ? app(WhatsAppProviderMatchService::class)->groupNames()
+            : [];
 
         $backQuery = $sharedQuery;
         $backQuery['status'] = $request->input('status', 'all') ?: 'all';
@@ -3825,11 +3834,13 @@ class ProviderController extends Controller
             'columnSelection' => $request->boolean('column_selection'),
             'categories' => $categories,
             'zones' => $zones,
+            'whatsappGroupNames' => $whatsappGroupNames,
             'search' => (string) $request->input('search', ''),
             'status' => (string) $request->input('status', 'all'),
             'performanceFilter' => (string) $request->input('performance_filter', 'all'),
             'categoryId' => (string) $request->input('category_id', ''),
             'zoneId' => (string) $request->input('zone_id', ''),
+            'whatsappGroup' => (string) $request->input('whatsapp_group', 'all'),
             'sort' => (string) $request->input('sort', 'latest'),
             'from' => (string) $request->input('from', ''),
             'to' => (string) $request->input('to', ''),
@@ -4479,6 +4490,16 @@ class ProviderController extends Controller
             $zoneId = '';
         }
 
+        $whatsappGroup = trim((string) $request->input('whatsapp_group', 'all'));
+        if ($whatsappGroup === '') {
+            $whatsappGroup = 'all';
+        } elseif ($whatsappGroup !== 'all' && $whatsappGroup !== 'none') {
+            $knownGroups = array_fill_keys(app(WhatsAppProviderMatchService::class)->groupNames(), true);
+            if (! isset($knownGroups[$whatsappGroup])) {
+                $whatsappGroup = 'all';
+            }
+        }
+
         $request->merge([
             'search' => trim((string) $request->input('search', '')),
             'status' => $status,
@@ -4491,6 +4512,7 @@ class ProviderController extends Controller
             'limit' => $limit,
             'category_id' => $categoryId,
             'zone_id' => $zoneId,
+            'whatsapp_group' => $whatsappGroup,
             'provider_type' => $providerType,
             'service_availability' => $serviceAvailability,
             'app_availability' => $appAvailability,
@@ -4567,6 +4589,7 @@ class ProviderController extends Controller
         $to = $request->get('to', '');
         $ratingFilter = $request->get('rating_filter', 'all');
         $appFilter = $request->get('app_filter', 'all');
+        $whatsappGroup = trim((string) $request->input('whatsapp_group', 'all')) ?: 'all';
 
         return $query
             ->when($search !== '' && $search !== null, function ($query) use ($search) {
@@ -4668,6 +4691,24 @@ class ProviderController extends Controller
                         })
                         ->whereDoesntHave('tokens');
                 });
+            })
+            ->when($whatsappGroup !== '' && $whatsappGroup !== 'all', function ($query) use ($whatsappGroup) {
+                $matchService = app(WhatsAppProviderMatchService::class);
+                if ($whatsappGroup === 'none') {
+                    $idsInAny = $matchService->providerIdsInAnyGroup();
+                    if ($idsInAny !== []) {
+                        return $query->whereNotIn('id', $idsInAny);
+                    }
+
+                    return $query;
+                }
+
+                $ids = $matchService->providerIdsInGroup($whatsappGroup);
+                if ($ids === []) {
+                    return $query->whereRaw('0 = 1');
+                }
+
+                return $query->whereIn('id', $ids);
             })
             ->when(in_array($request->input('provider_type'), ['individual', 'company'], true), function ($query) use ($request) {
                 if ($request->input('provider_type') === 'company') {

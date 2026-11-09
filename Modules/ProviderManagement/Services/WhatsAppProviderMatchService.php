@@ -287,6 +287,19 @@ class WhatsAppProviderMatchService
     }
 
     /**
+     * Sorted WhatsApp group names for admin filters / dropdowns.
+     *
+     * @return list<string>
+     */
+    public function groupNames(): array
+    {
+        $names = array_keys($this->groups());
+        natcasesort($names);
+
+        return array_values($names);
+    }
+
+    /**
      * @return array<string, string>
      */
     public function groupColors(): array
@@ -350,6 +363,117 @@ class WhatsAppProviderMatchService
         }
 
         return $out;
+    }
+
+    /**
+     * Provider IDs whose phones belong to the given WhatsApp group.
+     *
+     * @return list<string>
+     */
+    public function providerIdsInGroup(string $groupName): array
+    {
+        $groupName = $this->normalizeGroupName($groupName);
+        if ($groupName === '') {
+            return [];
+        }
+
+        $groups = $this->groups();
+        $matchedName = null;
+        foreach (array_keys($groups) as $name) {
+            if ($this->normalizeGroupName((string) $name) === $groupName) {
+                $matchedName = (string) $name;
+                break;
+            }
+        }
+
+        if ($matchedName === null) {
+            return [];
+        }
+
+        return $this->providerIdsMatchingPhones($this->phonesFromContacts($groups[$matchedName] ?? []));
+    }
+
+    /**
+     * Provider IDs whose phones belong to any configured WhatsApp group.
+     *
+     * @return list<string>
+     */
+    public function providerIdsInAnyGroup(): array
+    {
+        $phones = [];
+        foreach ($this->groups() as $contacts) {
+            foreach ($this->phonesFromContacts($contacts) as $phone) {
+                $phones[$phone] = true;
+            }
+        }
+
+        return $this->providerIdsMatchingPhones(array_keys($phones));
+    }
+
+    /**
+     * @param  list<array{phone?: string, name?: string}|mixed>  $contacts
+     * @return list<string>
+     */
+    private function phonesFromContacts(array $contacts): array
+    {
+        $phones = [];
+        foreach ($contacts as $contact) {
+            $raw = is_array($contact) ? ($contact['phone'] ?? null) : $contact;
+            $digits = $this->last10($raw);
+            if ($digits !== null) {
+                $phones[$digits] = true;
+            }
+        }
+
+        return array_keys($phones);
+    }
+
+    /**
+     * @param  list<string>  $phones
+     * @return list<string>
+     */
+    private function providerIdsMatchingPhones(array $phones): array
+    {
+        $phones = array_values(array_unique(array_filter(array_map(
+            fn ($phone) => $this->last10($phone),
+            $phones
+        ))));
+        if ($phones === []) {
+            return [];
+        }
+
+        $wanted = array_fill_keys($phones, true);
+        $ids = [];
+
+        Provider::query()
+            ->with(['owner:id,phone,provider_admin_phone_digits'])
+            ->select([
+                'id',
+                'user_id',
+                'company_phone',
+                'contact_person_phone',
+                'contact_phone_digits',
+            ])
+            ->whereNull('deleted_at')
+            ->chunkById(200, function (Collection $chunk) use (&$ids, $wanted) {
+                foreach ($chunk as $provider) {
+                    $candidates = [
+                        $this->last10($provider->company_phone),
+                        $this->last10($provider->contact_person_phone),
+                        $this->last10($provider->contact_phone_digits),
+                        $this->last10($provider->owner?->phone),
+                        $this->last10($provider->owner?->provider_admin_phone_digits),
+                    ];
+                    foreach ($candidates as $candidate) {
+                        if ($candidate !== null && isset($wanted[$candidate])) {
+                            $ids[(string) $provider->id] = true;
+                            break;
+                        }
+                    }
+                }
+            });
+
+        return array_keys($ids);
     }
 
     /**
