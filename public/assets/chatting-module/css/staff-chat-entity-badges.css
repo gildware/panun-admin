@@ -256,11 +256,15 @@
     pointer-events: none;
 }
 
-textarea.staff-chat-compose-backing {
+textarea.staff-chat-compose-backing,
+.staff-chat-compose-editor > textarea.staff-chat-message-input,
+.staff-chat-compose-editor > textarea.form-control,
+.staff-chat-compose-editor > textarea.lead-comment-compose__input {
     position: absolute !important;
     width: 1px !important;
     height: 1px !important;
     min-height: 0 !important;
+    max-height: 1px !important;
     padding: 0 !important;
     margin: 0 !important;
     border: 0 !important;
@@ -268,8 +272,13 @@ textarea.staff-chat-compose-backing {
     pointer-events: none !important;
     overflow: hidden !important;
     resize: none !important;
-    left: 0;
-    top: 0;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    left: 0 !important;
+    top: 0 !important;
+    z-index: -1 !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 
 .staff-chat-compose-highlight {

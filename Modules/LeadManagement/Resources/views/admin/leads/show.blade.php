@@ -1178,7 +1178,7 @@
 
 @push('css_or_js')
     @include('zonemanagement::admin.partials._zone-select2-assets')
-    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}?v={{ @filemtime(public_path('assets/chatting-module/css/staff-chat-entity-badges.css')) ?: time() }}">
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}?v={{ (@filemtime(public_path('assets/admin-module/css/lead-detail-redesign.css')) ?: time()) }}-h5">
     @include('leadmanagement::admin.leads.partials._comment-attachments-styles')
     <style>
@@ -1556,6 +1556,24 @@
         }
         .lead-comment-compose .staff-chat-compose-tools {
             margin-bottom: 0;
+        }
+        .lead-comment-compose .staff-chat-compose-editor > textarea.staff-chat-compose-backing,
+        .lead-comment-compose .staff-chat-compose-editor > textarea.staff-chat-message-input {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            overflow: hidden !important;
+            resize: none !important;
+            clip: rect(0, 0, 0, 0) !important;
+            left: 0 !important;
+            top: 0 !important;
+            z-index: -1 !important;
         }
     </style>
 @endpush
