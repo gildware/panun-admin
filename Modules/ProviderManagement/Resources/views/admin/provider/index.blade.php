@@ -633,6 +633,7 @@
             ($performanceFilter ?? 'all') !== 'all',
             !empty($queryParam['category_id']),
             !empty($queryParam['zone_id']),
+            ($queryParam['whatsapp_group'] ?? 'all') !== 'all' && ($queryParam['whatsapp_group'] ?? '') !== '',
             !empty($queryParam['from']),
             !empty($queryParam['to']),
             !empty($queryParam['sort']) && ($queryParam['sort'] ?? '') !== 'latest',
@@ -687,6 +688,7 @@
                                     <input type="hidden" name="limit" value="{{ $queryParam['limit'] ?? '' }}">
                                     <input type="hidden" name="rating_filter" value="{{ $queryParam['rating_filter'] ?? 'all' }}">
                                     <input type="hidden" name="app_filter" value="{{ $queryParam['app_filter'] ?? 'all' }}">
+                                    <input type="hidden" name="whatsapp_group" value="{{ $queryParam['whatsapp_group'] ?? 'all' }}">
                                 </form>
 
                                 <div class="provider-list-header__actions">
@@ -716,6 +718,7 @@
                                                 'limit' => $queryParam['limit'] ?? null,
                                                 'rating_filter' => ($queryParam['rating_filter'] ?? 'all') !== 'all' ? $queryParam['rating_filter'] : null,
                                                 'app_filter' => ($queryParam['app_filter'] ?? 'all') !== 'all' ? $queryParam['app_filter'] : null,
+                                                'whatsapp_group' => ($queryParam['whatsapp_group'] ?? 'all') !== 'all' ? ($queryParam['whatsapp_group'] ?? null) : null,
                                             ], fn ($value) => $value !== null && $value !== '')) }}"
                                            class="btn btn--secondary"
                                            data-turbo="false">
@@ -1069,6 +1072,18 @@
                 </section>
 
                 <section class="filter-section">
+                    <div class="filter-section__title">{{ translate('WhatsApp_groups') }}</div>
+                    <label class="form-label visually-hidden" for="provider-filter-whatsapp-group">{{ translate('WhatsApp_groups') }}</label>
+                    <select class="form-select js-select" id="provider-filter-whatsapp-group" name="whatsapp_group" data-allow-search="1">
+                        <option value="all" {{ ($queryParam['whatsapp_group'] ?? 'all') === 'all' ? 'selected' : '' }}>{{ translate('all') }}</option>
+                        <option value="none" {{ ($queryParam['whatsapp_group'] ?? '') === 'none' ? 'selected' : '' }}>{{ translate('Not_in_any_WhatsApp_group') }}</option>
+                        @foreach(($whatsappGroupNames ?? []) as $groupName)
+                            <option value="{{ $groupName }}" {{ ($queryParam['whatsapp_group'] ?? '') === $groupName ? 'selected' : '' }}>{{ $groupName }}</option>
+                        @endforeach
+                    </select>
+                </section>
+
+                <section class="filter-section">
                     <div class="filter-section__title">{{ translate('customer_filter_section_dates') }}</div>
                     <p class="filter-section__hint mb-2">{{ translate('customer_filter_joined_hint') }}</p>
                     <div class="row g-2">
@@ -1142,7 +1157,7 @@
 
                     $select.select2({
                         width: '100%',
-                        minimumResultsForSearch: Infinity,
+                        minimumResultsForSearch: $select.data('allow-search') ? 0 : Infinity,
                         dropdownParent: filterOffcanvas ? $(filterOffcanvas) : $('body')
                     });
                 });

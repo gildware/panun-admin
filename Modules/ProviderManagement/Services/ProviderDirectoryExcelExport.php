@@ -439,6 +439,11 @@ class ProviderDirectoryExcelExport
             }
         }
 
+        $whatsappGroup = trim((string) $request->input('whatsapp_group', 'all'));
+        if ($whatsappGroup !== '' && $whatsappGroup !== 'all') {
+            $shared['whatsapp_group'] = $whatsappGroup;
+        }
+
         $minBookings = (int) $request->input('min_bookings');
         if ($minBookings > 0) {
             $shared['min_bookings'] = $minBookings;
