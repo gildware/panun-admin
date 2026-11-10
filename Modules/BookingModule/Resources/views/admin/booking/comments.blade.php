@@ -63,6 +63,7 @@
                               action="{{ route('admin.booking.comments.store', $booking->id) }}"
                               id="bookingCommentForm"
                               class="lead-comment-compose staff-chat-compose-wrap position-relative mt-3"
+                              data-compose-plain="1"
                               enctype="multipart/form-data">
                             @csrf
                             <input type="hidden" name="redirect_web_page" value="comments">

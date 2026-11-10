@@ -286,6 +286,18 @@
         return readCompose(editable, range.endContainer, range.endOffset).length;
     }
 
+    // U+200B and friends survive String#trim in current JS engines, so empty
+    // contenteditable placeholders must not be treated as real typed text.
+    function stripComposeInvisibles(value) {
+        return String(value || "")
+            .replace(/[\u200b\u200c\u200d\u2060\ufeff]/g, "")
+            .replace(/\u00a0/g, " ");
+    }
+
+    function composeTextIsEmpty(value) {
+        return stripComposeInvisibles(value).trim() === "";
+    }
+
     function syncTextareaFromEditable(textarea, editable) {
         if (!textarea || !editable) {
             return;
@@ -293,10 +305,13 @@
         var fromEditable = serializeEditable(editable);
         // Keep typed text if the user somehow edited the backing textarea
         // (e.g. duplicate visible box) while the contenteditable stayed empty.
-        if (
-            String(fromEditable || "").trim() === ""
-            && String(textarea.value || "").trim() !== ""
-        ) {
+        // Tag inserts sync real content; plain typing must not be wiped by a
+        // zero-width placeholder in the empty editor.
+        if (composeTextIsEmpty(fromEditable) && !composeTextIsEmpty(textarea.value)) {
+            return;
+        }
+        if (composeTextIsEmpty(fromEditable)) {
+            textarea.value = "";
             return;
         }
         textarea.value = fromEditable;
@@ -541,7 +556,15 @@
         if (!textarea || !editable) {
             return;
         }
-        if (serializeEditable(editable) === textarea.value) {
+        var editableValue = serializeEditable(editable);
+        if (editableValue === textarea.value) {
+            return;
+        }
+        // Never blank a non-empty editor from an empty backing textarea.
+        // That wipe is why plain-text comments failed until a staff/provider/
+        // service tag forced a real sync.
+        if (composeTextIsEmpty(textarea.value) && !composeTextIsEmpty(editableValue)) {
+            textarea.value = editableValue;
             return;
         }
         var keepOffset = document.activeElement === editable ? caretOffset(editable) : null;
@@ -588,7 +611,12 @@
             !textarea
             || textarea.closest(".staff-chat-compose-editor")
             || textarea.classList.contains("staff-chat-compose-plain")
+            || (textarea.closest("form") && textarea.closest("form").getAttribute("data-compose-plain") === "1")
+            || textarea.closest("#bookingCommentForm, #leadCommentForm")
         ) {
+            // Booking/lead comments submit a normal textarea. Wrapping them in
+            // contenteditable made plain-text submits look empty until a tag
+            // was inserted and forced a sync.
             return;
         }
 
