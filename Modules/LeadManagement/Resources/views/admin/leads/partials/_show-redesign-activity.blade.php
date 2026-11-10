@@ -123,6 +123,9 @@
                                 </div>
                                 <div class="timeline-body">
                                     {{ $editorName }}: <span class="text-muted">{{ $change['old'] ?? '—' }}</span> → <strong>{{ $change['new'] ?? '—' }}</strong>
+                                    @if(!empty($change['reason']))
+                                        <div class="small text-muted mt-1">{{ translate('Reason') }}: {{ $change['reason'] }}</div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -346,7 +349,12 @@
                             <tr class="lead-change-history-row {{ $changeRowIndex % 2 === 1 ? 'lead-change-history-row--alt' : '' }}">
                                 <td>{{ translate($change['label'] ?? $fieldKey) }}</td>
                                 <td class="text-muted">{{ $change['old'] ?? '—' }}</td>
-                                <td>{{ $change['new'] ?? '—' }}</td>
+                                <td>
+                                    {{ $change['new'] ?? '—' }}
+                                    @if(!empty($change['reason']))
+                                        <div class="small text-muted mt-1">{{ translate('Reason') }}: {{ $change['reason'] }}</div>
+                                    @endif
+                                </td>
                                 <td class="text-nowrap">{{ $loggedAt }}</td>
                                 <td>{{ $editorName }}</td>
                             </tr>

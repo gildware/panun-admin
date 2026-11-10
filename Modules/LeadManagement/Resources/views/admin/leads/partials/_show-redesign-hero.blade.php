@@ -223,6 +223,7 @@
             @can('lead_add')
                 <a class="ld-btn ld-btn-outline" href="{{ route('admin.lead.create-for-phone', $lead->id) }}">{{ translate('New_lead_for_this_phone') }}</a>
             @endcan
+            @include('leadmanagement::admin.leads.partials._revert-to-unknown-button', ['lead' => $lead, 'inModal' => $inModal ?? false])
         </div>
     @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER && ($lead->isNonResponsive() || !empty($leadOpenStatus)))
         @if($lead->isNonResponsive())
@@ -252,6 +253,14 @@
             @can('lead_add')
                 <a class="ld-btn ld-btn-outline" href="{{ route('admin.lead.create-for-phone', $lead->id) }}">{{ translate('New_lead_for_this_phone') }}</a>
             @endcan
+            @include('leadmanagement::admin.leads.partials._revert-to-unknown-button', ['lead' => $lead, 'inModal' => $inModal ?? false])
+        </div>
+    @elseif($lead->lead_type !== \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)
+        <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top lead-hero__type-actions">
+            @can('lead_add')
+                <a class="ld-btn ld-btn-outline" href="{{ route('admin.lead.create-for-phone', $lead->id) }}">{{ translate('New_lead_for_this_phone') }}</a>
+            @endcan
+            @include('leadmanagement::admin.leads.partials._revert-to-unknown-button', ['lead' => $lead, 'inModal' => $inModal ?? false])
         </div>
     @endif
 </section>

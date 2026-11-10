@@ -1551,12 +1551,20 @@ class LeadController extends Controller
 
         $leadType = $request->input('lead_type');
         $typeHistoryChanges = [];
+        $revertReasonForLog = null;
 
-        if (!in_array($leadType, ['customer', 'provider', 'invalid', 'future_customer', 'future_provider'], true)) {
+        if (!in_array($leadType, ['customer', 'provider', 'invalid', 'future_customer', 'future_provider', 'unknown'], true)) {
             abort(400, 'Invalid lead type');
         }
 
-        if ($lead->lead_type === Lead::TYPE_UNKNOWN && ! $request->boolean('workflow_confirmed')) {
+        if ($leadType === Lead::TYPE_UNKNOWN) {
+            if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
+                toastr()->info(translate('Lead_is_already_unknown'));
+                return $this->redirectToLeadShow($request, $lead->id);
+            }
+            // Fall through: clear current type so the lead can be reclassified.
+            // Prior LeadTypeHistory rows are kept for audit.
+        } elseif ($lead->lead_type === Lead::TYPE_UNKNOWN && ! $request->boolean('workflow_confirmed')) {
             $gate = app(\Modules\AdminModule\Services\WorkflowGate::class)
                 ->checkLeadAction($lead, \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE);
             if (! $gate['allowed']) {
@@ -1568,7 +1576,24 @@ class LeadController extends Controller
             }
         }
 
-        if ($leadType === 'invalid') {
+        if ($leadType === 'unknown') {
+            $data = $request->validate([
+                'revert_reason' => 'required|string|max:1000',
+            ]);
+            $revertedFrom = (string) $lead->lead_type;
+            $revertReasonForLog = trim((string) $data['revert_reason']);
+            $unknownPayload = [
+                'revert_reason' => $revertReasonForLog,
+                'reverted_from' => $revertedFrom,
+            ];
+
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_UNKNOWN,
+                'data' => $unknownPayload,
+                'created_by' => Auth::id(),
+            ]);
+        } elseif ($leadType === 'invalid') {
             $data = $request->validate([
                 'invalid_reason_id' => 'required|exists:lead_invalid_reasons,id',
                 'invalid_reason_option_id' => 'nullable|integer',
@@ -1584,12 +1609,14 @@ class LeadController extends Controller
             );
             $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
 
-            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_INVALID, [], $data);
+            $existingInvalidData = $this->latestTypeHistoryData($lead->id, Lead::TYPE_INVALID);
+            $invalidPayload = array_merge($existingInvalidData, $data);
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_INVALID, $existingInvalidData, $invalidPayload);
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
                 'type' => 'invalid',
-                'data' => $data,
+                'data' => $invalidPayload,
                 'created_by' => Auth::id(),
             ]);
         } elseif ($leadType === 'future_customer') {
@@ -1609,12 +1636,18 @@ class LeadController extends Controller
             }
             unset($data['area_id']);
 
-            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_FUTURE_CUSTOMER, [], $data);
+            $existingFutureCustomerData = $this->latestTypeHistoryData($lead->id, Lead::TYPE_FUTURE_CUSTOMER);
+            $futureCustomerPayload = array_merge($existingFutureCustomerData, $data);
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(
+                Lead::TYPE_FUTURE_CUSTOMER,
+                $existingFutureCustomerData,
+                $futureCustomerPayload
+            );
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
                 'type' => 'future_customer',
-                'data' => $data,
+                'data' => $futureCustomerPayload,
                 'created_by' => Auth::id(),
             ]);
         } elseif ($leadType === 'future_provider') {
@@ -1633,12 +1666,18 @@ class LeadController extends Controller
             );
             $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
 
-            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_FUTURE_PROVIDER, [], $data);
+            $existingFutureProviderData = $this->latestTypeHistoryData($lead->id, Lead::TYPE_FUTURE_PROVIDER);
+            $futureProviderPayload = array_merge($existingFutureProviderData, $data);
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(
+                Lead::TYPE_FUTURE_PROVIDER,
+                $existingFutureProviderData,
+                $futureProviderPayload
+            );
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
                 'type' => 'future_provider',
-                'data' => $data,
+                'data' => $futureProviderPayload,
                 'created_by' => Auth::id(),
             ]);
         } elseif ($leadType === 'customer') {
@@ -1691,7 +1730,8 @@ class LeadController extends Controller
                 unset($data['cancellation_reason_id'], $data['cancellation_remarks'], $data['cancellation_reason_option_id']);
             } else {
                 if (empty($data['customer_lead_status_id'])) {
-                    $data['customer_lead_status_id'] = CustomerLeadStatus::defaultPendingStatusId();
+                    $data['customer_lead_status_id'] = $existingCustomerData['customer_lead_status_id']
+                        ?? CustomerLeadStatus::defaultPendingStatusId();
                 }
 
                 $resolvedCustomerStatus = !empty($data['customer_lead_status_id'])
@@ -1762,8 +1802,26 @@ class LeadController extends Controller
                 return redirect($url);
             }
 
-            $customerPayload = array_merge($data, ['booking_status' => 'pending']);
-            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_CUSTOMER, [], $customerPayload);
+            // Reclassify (e.g. after revert to unknown): keep prior customer fields
+            // such as booking_id / temporary provider, and overlay the submitted form.
+            if (empty($data['estimated_service_at']) && !empty($existingCustomerData['estimated_service_at'])) {
+                $data['estimated_service_at'] = $this->preserveUnparseableEstimatedServiceAt(
+                    $existingCustomerData['estimated_service_at']
+                ) ?? $data['estimated_service_at'];
+            }
+            $customerPayload = array_merge($existingCustomerData, $data);
+            $customerPayload['booking_status'] = $existingCustomerData['booking_status'] ?? 'pending';
+            $newCustomerStatus = !empty($data['customer_lead_status_id'])
+                ? CustomerLeadStatus::find($data['customer_lead_status_id'])
+                : null;
+            if (($newCustomerStatus?->base_type ?? null) !== 'cancel') {
+                unset($customerPayload['cancellation_reason_id'], $customerPayload['cancellation_remarks'], $customerPayload['cancellation_reason_option_id']);
+            }
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(
+                Lead::TYPE_CUSTOMER,
+                $existingCustomerData,
+                $customerPayload
+            );
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
@@ -1815,7 +1873,8 @@ class LeadController extends Controller
                 unset($data['provider_cancellation_reason_id'], $data['provider_cancellation_remarks'], $data['provider_cancellation_reason_option_id']);
             } else {
                 if (empty($data['provider_lead_status_id'])) {
-                    $data['provider_lead_status_id'] = ProviderLeadStatus::defaultPendingStatusId();
+                    $data['provider_lead_status_id'] = $existingProviderData['provider_lead_status_id']
+                        ?? ProviderLeadStatus::defaultPendingStatusId();
                 }
 
                 $resolvedProviderStatus = !empty($data['provider_lead_status_id'])
@@ -1880,12 +1939,24 @@ class LeadController extends Controller
                 return redirect($url);
             }
 
-            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_PROVIDER, [], $data);
+            // Reclassify after revert: keep prior provider fields and overlay the form.
+            $providerPayload = array_merge($existingProviderData, $data);
+            $newProviderStatus = !empty($data['provider_lead_status_id'])
+                ? ProviderLeadStatus::find($data['provider_lead_status_id'])
+                : null;
+            if (($newProviderStatus?->base_type ?? null) !== 'cancel') {
+                unset($providerPayload['provider_cancellation_reason_id'], $providerPayload['provider_cancellation_remarks'], $providerPayload['provider_cancellation_reason_option_id']);
+            }
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(
+                Lead::TYPE_PROVIDER,
+                $existingProviderData,
+                $providerPayload
+            );
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
                 'type' => 'provider',
-                'data' => $data,
+                'data' => $providerPayload,
                 'created_by' => Auth::id(),
             ]);
         }
@@ -1902,9 +1973,11 @@ class LeadController extends Controller
             $lead->non_responsive_at = null;
             $lead->non_responsive_by = null;
             $lead->non_responsive_remarks = null;
-            if ($this->leadTypeRequiresMandatoryFollowup($leadType) && $lead->next_followup_at === null) {
-                $lead->next_followup_at = app(LeadFollowupService::class)->defaultNextFollowupAt();
-            }
+        }
+        // Unknown / customer / provider need a pending follow-up; restore if missing
+        // (e.g. reverting from invalid / future, or reopening non-responsive).
+        if ($this->leadTypeRequiresMandatoryFollowup($leadType) && $lead->next_followup_at === null) {
+            $lead->next_followup_at = app(LeadFollowupService::class)->defaultNextFollowupAt();
         }
         $lead->lead_type = $leadType;
         $lead->save();
@@ -1921,6 +1994,10 @@ class LeadController extends Controller
                 'old' => $this->leadChangeDisplayValue('lead_type', $oldType),
                 'new' => $this->leadChangeDisplayValue('lead_type', $leadType),
             ];
+            if ($revertReasonForLog !== null && $revertReasonForLog !== '') {
+                // Keep reason on the same Lead Type row (not a separate history field).
+                $changes['lead_type']['reason'] = $revertReasonForLog;
+            }
         }
         if ($previousTemperature && $lead->lead_temperature === null) {
             $changes['lead_temperature'] = [
@@ -2153,6 +2230,13 @@ class LeadController extends Controller
             ->latest()
             ->first();
 
+        // Prefill mark-as forms after revert-to-unknown from the latest saved type details.
+        $customerTypeEditData = $this->latestTypeHistoryData($lead->id, Lead::TYPE_CUSTOMER);
+        $providerTypeEditData = $this->latestTypeHistoryData($lead->id, Lead::TYPE_PROVIDER);
+        $invalidTypeEditData = $this->latestTypeHistoryData($lead->id, Lead::TYPE_INVALID);
+        $futureCustomerTypeEditData = $this->latestTypeHistoryData($lead->id, Lead::TYPE_FUTURE_CUSTOMER);
+        $futureProviderTypeEditData = $this->latestTypeHistoryData($lead->id, Lead::TYPE_FUTURE_PROVIDER);
+
         $typeHistoryDisplay = $this->resolveTypeHistoryDisplay($typeHistory, $lead->lead_type, $lead->lead_temperature);
         $leadOpenStatus = $this->isLeadOpenByTypeHistory($lead, $typeHistory);
 
@@ -2320,6 +2404,11 @@ class LeadController extends Controller
             'zoneTreeOptions',
             'typeHistory',
             'typeHistoryDisplay',
+            'customerTypeEditData',
+            'providerTypeEditData',
+            'invalidTypeEditData',
+            'futureCustomerTypeEditData',
+            'futureProviderTypeEditData',
             'leadOpenStatus',
             'inModal',
             'leadBooking',
@@ -2772,6 +2861,19 @@ class LeadController extends Controller
         }
 
         return redirect($url);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function latestTypeHistoryData(int $leadId, string $type): array
+    {
+        $history = LeadTypeHistory::where('lead_id', $leadId)
+            ->where('type', $type)
+            ->latest()
+            ->first();
+
+        return ($history && is_array($history->data)) ? $history->data : [];
     }
 
     /**

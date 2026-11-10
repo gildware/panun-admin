@@ -311,6 +311,83 @@
                         </div>
                     </div>
 
+                    @if($lead->lead_type !== \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)
+                        @php
+                            $revertLossItems = [
+                                translate('Revert_loss_active_type'),
+                                translate('Revert_loss_type_panel'),
+                            ];
+                            if (!empty($lead->lead_temperature)) {
+                                $revertLossItems[] = translate('Revert_loss_temperature');
+                            }
+                            if ($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && $lead->isHuntingPublished()) {
+                                $revertLossItems[] = translate('Revert_loss_hunting');
+                            }
+                            if ($lead->isNonResponsive()) {
+                                $revertLossItems[] = translate('Revert_loss_non_responsive');
+                            }
+                            $revertKeepItems = [
+                                translate('Revert_keep_core'),
+                                translate('Revert_keep_type_details'),
+                                translate('Revert_keep_activity'),
+                            ];
+                        @endphp
+                        <div class="modal fade" id="leadRevertUnknownModal" tabindex="-1" aria-labelledby="leadRevertUnknownModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header border-0">
+                                        <h5 class="modal-title" id="leadRevertUnknownModalLabel">{{ translate('Revert_to_Unknown') }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                    </div>
+                                    <form method="POST" action="{{ route('admin.lead.type.update', $lead->id) }}">
+                                        @csrf
+                                        @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                                        <input type="hidden" name="lead_type" value="unknown">
+                                        <div class="modal-body pt-0">
+                                            <p class="text-muted small mb-3">{{ translate('Revert_to_Unknown_help') }}</p>
+
+                                            <div class="alert alert-warning py-2 px-3 mb-3">
+                                                <strong class="d-block mb-1">{{ translate('What_will_be_lost') }}</strong>
+                                                <ul class="mb-0 ps-3 small">
+                                                    @foreach($revertLossItems as $item)
+                                                        <li>{{ $item }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+
+                                            <div class="alert alert-success py-2 px-3 mb-3">
+                                                <strong class="d-block mb-1">{{ translate('What_will_be_kept') }}</strong>
+                                                <ul class="mb-0 ps-3 small">
+                                                    @foreach($revertKeepItems as $item)
+                                                        <li>{{ $item }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+
+                                            <div class="mb-0">
+                                                <label class="form-label" for="revert_reason">{{ translate('Revert_reason') }} *</label>
+                                                <textarea name="revert_reason"
+                                                          id="revert_reason"
+                                                          class="form-control @error('revert_reason') is-invalid @enderror"
+                                                          rows="3"
+                                                          maxlength="1000"
+                                                          required
+                                                          placeholder="{{ translate('Enter_revert_reason') }}">{{ old('revert_reason') }}</textarea>
+                                                @error('revert_reason')
+                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                                            <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                            <button type="submit" class="btn btn-warning">{{ translate('Revert_to_Unknown') }}</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     <div class="modal fade" id="leadInvalidModal" tabindex="-1" aria-labelledby="leadInvalidModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content">
@@ -328,13 +405,18 @@
                                             'reasons' => $invalidReasons,
                                             'reasonField' => 'invalid_reason_id',
                                             'optionField' => 'invalid_reason_option_id',
+                                            'selectedReasonId' => old('invalid_reason_id', $invalidTypeEditData['invalid_reason_id'] ?? ''),
+                                            'selectedOptionId' => old('invalid_reason_option_id', $invalidTypeEditData['invalid_reason_option_id'] ?? ''),
                                         ])
                                         <div class="mb-3">
-                                            @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'invalid-area-select'])
+                                            @include('leadmanagement::admin.leads.partials._area-select', [
+                                                'areaSelectId' => 'invalid-area-select',
+                                                'areaSelected' => old('area_id', $invalidTypeEditData['area_id'] ?? ''),
+                                            ])
                                         </div>
                                         <div class="mb-0">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
-                                            <textarea name="invalid_remarks" class="form-control" rows="3"></textarea>
+                                            <textarea name="invalid_remarks" class="form-control" rows="3">{{ old('invalid_remarks', $invalidTypeEditData['invalid_remarks'] ?? '') }}</textarea>
                                         </div>
                                     </div>
                                     <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
@@ -370,13 +452,18 @@
                                             'reasons' => $futureProviderReasons,
                                             'reasonField' => 'future_provider_reason_id',
                                             'optionField' => 'future_provider_reason_option_id',
+                                            'selectedReasonId' => old('future_provider_reason_id', $futureProviderTypeEditData['future_provider_reason_id'] ?? ''),
+                                            'selectedOptionId' => old('future_provider_reason_option_id', $futureProviderTypeEditData['future_provider_reason_option_id'] ?? ''),
                                         ])
                                         <div class="mb-3">
-                                            @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'future-provider-area-select'])
+                                            @include('leadmanagement::admin.leads.partials._area-select', [
+                                                'areaSelectId' => 'future-provider-area-select',
+                                                'areaSelected' => old('area_id', $futureProviderTypeEditData['area_id'] ?? ''),
+                                            ])
                                         </div>
                                         <div class="mb-0">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
-                                            <textarea name="future_provider_remarks" class="form-control" rows="3"></textarea>
+                                            <textarea name="future_provider_remarks" class="form-control" rows="3">{{ old('future_provider_remarks', $futureProviderTypeEditData['future_provider_remarks'] ?? '') }}</textarea>
                                         </div>
                                     </div>
                                     <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
@@ -405,10 +492,12 @@
                                             'selectClass' => 'form-select',
                                             'marginClass' => 'mb-3',
                                             'allowCustomOption' => true,
+                                            'selectedReasonId' => old('future_customer_reason_id', $futureCustomerTypeEditData['future_customer_reason_id'] ?? ''),
+                                            'selectedOptionId' => old('future_customer_reason_option_id', $futureCustomerTypeEditData['future_customer_reason_option_id'] ?? ''),
                                         ])
                                         <div class="mb-0">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
-                                            <textarea name="future_customer_remarks" class="form-control" rows="3"></textarea>
+                                            <textarea name="future_customer_remarks" class="form-control" rows="3">{{ old('future_customer_remarks', $futureCustomerTypeEditData['future_customer_remarks'] ?? '') }}</textarea>
                                         </div>
                                     </div>
                                     <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
@@ -427,7 +516,9 @@
                     </div>
 
                     @php
-                        $customerEditData = ($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && $typeHistory && is_array($typeHistory->data ?? null)) ? $typeHistory->data : [];
+                        $customerEditData = !empty($customerTypeEditData) && is_array($customerTypeEditData)
+                            ? $customerTypeEditData
+                            : (($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && $typeHistory && is_array($typeHistory->data ?? null)) ? $typeHistory->data : []);
                         $estAt = $customerEditData['estimated_service_at'] ?? null;
                         if ($estAt && is_string($estAt)) {
                             try {
@@ -572,7 +663,9 @@
                     </div>
 
                     @php
-                        $providerEditData = ($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER && $typeHistory && is_array($typeHistory->data ?? null)) ? $typeHistory->data : [];
+                        $providerEditData = !empty($providerTypeEditData) && is_array($providerTypeEditData)
+                            ? $providerTypeEditData
+                            : (($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER && $typeHistory && is_array($typeHistory->data ?? null)) ? $typeHistory->data : []);
                         $providerZoneIdsForEdit = [];
                         if (!empty($providerEditData['zone_ids']) && is_array($providerEditData['zone_ids'])) {
                             $providerZoneIdsForEdit = array_values(array_filter(array_map('strval', $providerEditData['zone_ids'])));
@@ -3588,6 +3681,15 @@
         @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER && $errors->hasAny(['customer_name', 'phone_number', 'contacted_through', 'status_id', 'handled_by', 'contacted_at', 'remarks', 'related_lead_id', 'booking_id', 'recording']))
             $(function () {
                 const modalEl = document.getElementById('addOutboundEnquiryModal');
+                if (modalEl && window.bootstrap?.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
+            });
+        @endif
+
+        @if($errors->has('revert_reason'))
+            $(function () {
+                const modalEl = document.getElementById('leadRevertUnknownModal');
                 if (modalEl && window.bootstrap?.Modal) {
                     bootstrap.Modal.getOrCreateInstance(modalEl).show();
                 }
