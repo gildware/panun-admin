@@ -587,6 +587,7 @@
                   action="{{ route('admin.lead.comments.store', $lead->id) }}"
                   id="leadCommentForm"
                   class="lead-comment-compose staff-chat-compose-wrap position-relative mt-2"
+                  data-compose-plain="1"
                   enctype="multipart/form-data">
                 @csrf
                 @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif

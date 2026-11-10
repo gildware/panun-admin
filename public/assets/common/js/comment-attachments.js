@@ -85,40 +85,56 @@
         }
     }
 
+    function stripComposeInvisibles(value) {
+        return String(value || '')
+            .replace(/[\u200b\u200c\u200d\u2060\ufeff]/g, '')
+            .replace(/\u00a0/g, ' ');
+    }
+
+    function composeTextIsEmpty(value) {
+        return stripComposeInvisibles(value).trim() === '';
+    }
+
     function editableText(editable) {
         if (!editable) {
             return '';
         }
+        var raw = '';
         if (typeof window.serializeStaffChatEditable === 'function') {
-            return String(window.serializeStaffChatEditable(editable) || '').replace(
-                /\u200b/g,
-                ''
-            );
+            raw = String(window.serializeStaffChatEditable(editable) || '');
         }
-        return String(editable.innerText || editable.textContent || '').replace(
-            /\u200b/g,
-            ''
-        );
+        if (composeTextIsEmpty(raw)) {
+            raw = String(editable.innerText || editable.textContent || '');
+        }
+        return stripComposeInvisibles(raw);
     }
 
     function readComposeBody(form) {
-        // Contenteditable is the visible field; always prefer it over the
-        // hidden backing textarea so submit does not see an empty body.
+        var body = form.querySelector(
+            'textarea[name="body"], textarea.staff-chat-message-input'
+        );
+        // Snapshot before sync — empty contenteditable placeholders (ZWSP)
+        // used to overwrite plain typed text when no staff/provider/service
+        // tag had forced a real editor sync.
+        var beforeSync = body ? stripComposeInvisibles(body.value) : '';
+        var editable = form.querySelector('.staff-chat-compose-editable');
+        var beforeEditable = editableText(editable);
+
         if (typeof window.syncStaffChatComposeForm === 'function') {
             window.syncStaffChatComposeForm(form);
         }
 
-        var body = form.querySelector(
-            'textarea[name="body"], textarea.staff-chat-message-input'
-        );
-        var fromTextarea = body ? String(body.value || '').replace(/\u200b/g, '') : '';
-        var editable = form.querySelector('.staff-chat-compose-editable');
+        var fromTextarea = body ? stripComposeInvisibles(body.value) : '';
         var fromEditable = editableText(editable);
 
-        var bodyValue =
-            fromEditable.trim() !== ''
-                ? fromEditable
-                : fromTextarea;
+        var candidates = [fromEditable, fromTextarea, beforeEditable, beforeSync];
+        var bodyValue = '';
+        for (var i = 0; i < candidates.length; i++) {
+            if (!composeTextIsEmpty(candidates[i])) {
+                bodyValue = candidates[i];
+                break;
+            }
+        }
 
         if (body && bodyValue !== body.value) {
             body.value = bodyValue;
@@ -128,7 +144,7 @@
             bodyValue = window.resolveStaffChatTags(bodyValue);
         }
 
-        return String(bodyValue || '').replace(/\u200b/g, '');
+        return stripComposeInvisibles(bodyValue);
     }
 
     function buildFormData(form, composeEl) {
