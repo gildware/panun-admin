@@ -201,8 +201,30 @@
         max-width: 100%;
     }
     .provider-add-edit-form-root .location_map_class {
-        height: 200px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        height: auto;
+        min-height: 0;
         position: relative;
+    }
+    /* Keep search above the map (do not overlay / bury under canvas). */
+    .provider-add-edit-form-root .location_map_class > #pac-input {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        z-index: 2;
+        width: 100% !important;
+        max-width: 100%;
+        height: 40px !important;
+        margin: 0 !important;
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .provider-add-edit-form-root .location_map_class > #location_map_canvas {
+        height: 220px;
+        min-height: 220px;
     }
     #create-provider-form.wizard > .content,
     #create-provider-form.wizard > .content > .body {
@@ -782,12 +804,11 @@
                         <div id="location_map_div" class="location_map_class">
                             <input
                                 id="pac-input"
-                                class="form-control w-auto mb-3"
-                                data-toggle="tooltip"
-                                data-placement="right"
-                                data-original-title="{{ translate('search_your_location_here') }}"
+                                class="form-control controls"
+                                title="{{ translate('search_your_location_here') }}"
                                 type="text"
-                                placeholder="{{ translate('search_here') }}"/>
+                                placeholder="{{ translate('search_here') }}"
+                                autocomplete="off"/>
                             <div id="location_map_canvas" class="overflow-hidden rounded canvas_class"></div>
                         </div>
                     </div>

@@ -1535,61 +1535,42 @@
                     });
 
                     const input = document.getElementById("pac-input");
-                    const searchBox = new google.maps.places.SearchBox(input);
-                    map.controls[google.maps.ControlPosition.TOP_CENTER].push(input);
-                    map.addListener("bounds_changed", () => {
-                        searchBox.setBounds(map.getBounds());
-                    });
-                    let markers = [];
-                    searchBox.addListener("places_changed", () => {
-                        const places = searchBox.getPlaces();
-
-                        if (places.length == 0) {
-                            return;
-                        }
-                        markers.forEach((marker) => {
-                            marker.setMap(null);
+                    if (input && google.maps.places && google.maps.places.SearchBox) {
+                        // Keep search above the map (same pattern as zone edit) so global
+                        // #pac-input absolute CSS cannot bury it under the canvas.
+                        const searchBox = new google.maps.places.SearchBox(input);
+                        map.addListener("bounds_changed", () => {
+                            searchBox.setBounds(map.getBounds());
                         });
-                        markers = [];
-                        const bounds = new google.maps.LatLngBounds();
-                        places.forEach((place) => {
-                            if (!place.geometry || !place.geometry.location) {
-                                console.log("Returned place contains no geometry");
+                        searchBox.addListener("places_changed", () => {
+                            const places = searchBox.getPlaces();
+                            const place = places && places.find(function (p) {
+                                return p.geometry && p.geometry.location;
+                            });
+                            if (!place) {
                                 return;
                             }
-                            var mrkr = new google.maps.Marker({
-                                map,
-                                title: place.name,
-                                position: place.geometry.location,
-                            });
-                            google.maps.event.addListener(mrkr, "click", function (event) {
-                                document.getElementById('latitude').value = this.position.lat();
-                                document.getElementById('longitude').value = this.position.lng();
-                                if (typeof jQuery !== "undefined") {
-                                    jQuery("#latitude, #longitude").trigger("change");
-                                }
-                            });
-
-                            markers.push(mrkr);
-
+                            const loc = place.geometry.location;
+                            marker.setPosition(loc);
                             if (place.geometry.viewport) {
-                                bounds.union(place.geometry.viewport);
+                                map.fitBounds(place.geometry.viewport);
                             } else {
-                                bounds.extend(place.geometry.location);
+                                map.setCenter(loc);
+                                map.setZoom(15);
                             }
-                        });
-                        map.fitBounds(bounds);
-                        if (places.length > 0 && places[0].geometry && places[0].geometry.location) {
-                            var loc0 = places[0].geometry.location;
-                            marker.setPosition(loc0);
-                            map.panTo(loc0);
-                            document.getElementById('latitude').value = loc0.lat();
-                            document.getElementById('longitude').value = loc0.lng();
+                            document.getElementById('latitude').value = loc.lat();
+                            document.getElementById('longitude').value = loc.lng();
+                            if (place.formatted_address) {
+                                var addressEl = document.getElementById('address');
+                                if (addressEl) {
+                                    addressEl.value = place.formatted_address;
+                                }
+                            }
                             if (typeof jQuery !== "undefined") {
                                 jQuery("#latitude, #longitude").trigger("change");
                             }
-                        }
-                    });
+                        });
+                    }
                 };
                 initAutocomplete();
             });
