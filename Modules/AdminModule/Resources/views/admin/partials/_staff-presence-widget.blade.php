@@ -8,35 +8,44 @@
         'offline' => $staffList->where('presence_status', 'offline')->count(),
     ];
 @endphp
-<div class="card dashboard-widget-staff-presence dashboard-collapsible-widget" id="staff-presence-widget">
-    <div class="card-header d-flex justify-content-between align-items-center gap-10 flex-wrap">
-        <h5 class="dashboard-widget-title mb-0">
-            <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">badge</span>
-            {{ translate('Employee_Status') }}
-            <span class="text-muted fs-13">({{ $staffList->count() }})</span>
-        </h5>
-        <div class="d-flex flex-wrap align-items-center gap-2">
+<div class="staff-presence-panel" id="staff-presence-widget">
+    <div class="staff-presence-panel__header">
+        <div class="staff-presence-panel__title">
+            <span class="material-symbols-outlined" aria-hidden="true">badge</span>
+            <span>{{ translate('Employee_Status') }}</span>
+            <span class="staff-presence-panel__count">{{ $staffList->count() }}</span>
+        </div>
+        <div class="staff-presence-panel__tools">
+            <div class="staff-presence-summary" id="staff-presence-summary">
+                <span class="staff-presence-chip staff-presence-chip--online">
+                    {{ translate('Online') }} <strong data-summary="online">{{ $summary['online'] }}</strong>
+                </span>
+                <span class="staff-presence-chip staff-presence-chip--busy">
+                    {{ translate('Busy') }} <strong data-summary="away">{{ $summary['away'] }}</strong>
+                </span>
+                <span class="staff-presence-chip staff-presence-chip--break">
+                    {{ translate('On_Break') }} <strong data-summary="on_break">{{ $summary['on_break'] }}</strong>
+                </span>
+                <span class="staff-presence-chip staff-presence-chip--offline">
+                    {{ translate('Offline') }} <strong data-summary="offline">{{ $summary['offline'] }}</strong>
+                </span>
+            </div>
             <button type="button"
-                    class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                    class="staff-presence-history-btn"
                     id="staff-presence-history-btn"
                     data-bs-toggle="modal"
                     data-bs-target="#staffPresenceHistoryModal">
-                <span class="material-symbols-outlined fs-16" aria-hidden="true">history</span>
+                <span class="material-symbols-outlined" aria-hidden="true">history</span>
                 {{ translate('View_History') }}
             </button>
-            <div class="d-flex flex-wrap gap-2 fs-12" id="staff-presence-summary">
-            <span class="badge bg-success">{{ translate('Online') }}: <span data-summary="online">{{ $summary['online'] }}</span></span>
-            <span class="badge bg-warning text-dark">{{ translate('Away') }}: <span data-summary="away">{{ $summary['away'] }}</span></span>
-            <span class="badge bg-info text-dark">{{ translate('On_Break') }}: <span data-summary="on_break">{{ $summary['on_break'] }}</span></span>
-            <span class="badge bg-secondary">{{ translate('Offline') }}: <span data-summary="offline">{{ $summary['offline'] }}</span></span>
-            </div>
         </div>
     </div>
-    <div class="card-body p-0">
+
+    <div class="staff-presence-panel__body">
         @if($staffList->isNotEmpty())
-            <div class="table-responsive px-3 overflow-auto">
-                <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
-                    <thead class="text-secondary border-bottom">
+            <div class="staff-presence-table-wrap">
+                <table class="staff-presence-table">
+                    <thead>
                         <tr>
                             <th class="staff-presence-employee-col">{{ translate('Employee') }}</th>
                             <th>{{ translate('Status') }}</th>
@@ -55,46 +64,44 @@
                         @foreach($staffList as $member)
                             <tr data-staff-id="{{ $member['id'] }}">
                                 <td class="staff-presence-employee-col">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="position-relative flex-shrink-0 staff-presence-avatar-wrap">
-                                            <img src="{{ $member['profile_image'] }}" alt="" class="avatar rounded-circle staff-presence-avatar" width="36" height="36">
-                                            <span class="position-absolute bottom-0 end-0 rounded-circle border border-white staff-presence-dot {{ $presenceService->statusDotClass($member['presence_status']) }}" style="width:10px;height:10px;"></span>
+                                    <div class="staff-presence-person">
+                                        <div class="staff-presence-avatar-wrap">
+                                            <img src="{{ $member['profile_image'] }}" alt="" class="staff-presence-avatar" width="28" height="28">
+                                            <span class="staff-presence-dot {{ $presenceService->statusDotClass($member['presence_status']) }}"></span>
                                         </div>
-                                        <div>
-                                            <div class="fw-medium">{{ $member['name'] }}</div>
-                                            <div class="small text-muted">{{ $member['email'] }}</div>
+                                        <div class="staff-presence-person__meta">
+                                            <div class="staff-presence-person__name">{{ $member['name'] }}</div>
+                                            <div class="staff-presence-person__email">{{ $member['email'] }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="badge rounded-pill staff-presence-badge {{ $presenceService->statusBadgeClass($member['presence_status']) }}">{{ $member['presence_label'] }}</span>
+                                    <span class="staff-presence-badge {{ $presenceService->statusBadgeClass($member['presence_status']) }}">{{ $member['presence_label'] }}</span>
                                 </td>
-                                <td class="staff-last-visited-page text-muted" title="{{ $member['last_visited_page'] ?? '' }}">
+                                <td class="staff-last-visited-page" title="{{ $member['last_visited_page'] ?? '' }}">
                                     {{ $member['last_visited_page_label'] }}
                                 </td>
-                                <td class="staff-last-seen text-muted">
+                                <td class="staff-last-seen">
                                     @if($member['last_seen_at'])
                                         {{ \Carbon\Carbon::parse($member['last_seen_at'])->diffForHumans() }}
                                     @else
                                         —
                                     @endif
                                 </td>
-                                <td class="staff-last-offline-today text-muted">{{ $member['last_offline_period_today'] }}</td>
-                                <td class="staff-total-offline-today text-muted">{{ $member['total_offline_today'] }}</td>
-                                <td class="staff-last-away-today text-muted">{{ $member['last_away_period_today'] }}</td>
-                                <td class="staff-total-away-today text-muted">{{ $member['total_away_today'] }}</td>
-                                <td class="staff-last-break-today text-muted">{{ $member['last_break_period_today'] }}</td>
-                                <td class="staff-total-break-today text-muted">{{ $member['total_break_today'] }}</td>
-                                <td class="staff-total-online-today text-muted">{{ $member['total_online_today'] }}</td>
+                                <td class="staff-last-offline-today">{{ $member['last_offline_period_today'] }}</td>
+                                <td class="staff-total-offline-today">{{ $member['total_offline_today'] }}</td>
+                                <td class="staff-last-away-today">{{ $member['last_away_period_today'] }}</td>
+                                <td class="staff-total-away-today">{{ $member['total_away_today'] }}</td>
+                                <td class="staff-last-break-today">{{ $member['last_break_period_today'] }}</td>
+                                <td class="staff-total-break-today">{{ $member['total_break_today'] }}</td>
+                                <td class="staff-total-online-today">{{ $member['total_online_today'] }}</td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
         @else
-            <div class="d-flex align-items-center justify-content-center p-4">
-                <span class="opacity-50">{{ translate('No_employees_found') }}</span>
-            </div>
+            <div class="staff-presence-empty">{{ translate('No_employees_found') }}</div>
         @endif
     </div>
 </div>
@@ -102,17 +109,19 @@
 <div class="modal fade" id="staffPresenceHistoryModal" tabindex="-1" aria-labelledby="staffPresenceHistoryModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="staffPresenceHistoryModalLabel">{{ translate('Employee_Status_History') }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
-            </div>
-            <div class="modal-body">
-                <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-                    <label for="staff-presence-history-date" class="form-label mb-0 fw-medium">{{ translate('Select_Date') }}</label>
-                    <select id="staff-presence-history-date" class="form-select form-select-sm w-auto" disabled>
-                        <option value="">{{ translate('Loading') }}...</option>
-                    </select>
+            <div class="modal-header py-2 staff-presence-history-header">
+                <h5 class="modal-title fs-6 mb-0" id="staffPresenceHistoryModalLabel">{{ translate('Employee_Status_History') }}</h5>
+                <div class="staff-presence-history-header__actions">
+                    <label for="staff-presence-history-date" class="visually-hidden">{{ translate('Select_Date') }}</label>
+                    <input type="date"
+                           id="staff-presence-history-date"
+                           class="form-control form-control-sm staff-presence-history-date"
+                           max="{{ now()->toDateString() }}"
+                           value="{{ now()->toDateString() }}">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                 </div>
+            </div>
+            <div class="modal-body pt-2">
                 <div id="staff-presence-history-empty" class="text-center text-muted py-4 d-none">
                     {{ translate('No_presence_history_available') }}
                 </div>
@@ -120,8 +129,8 @@
                     {{ translate('Loading') }}...
                 </div>
                 <div class="table-responsive overflow-auto d-none" id="staff-presence-history-table-wrap">
-                    <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
-                        <thead class="text-secondary border-bottom">
+                    <table class="staff-presence-table staff-presence-table--history">
+                        <thead>
                             <tr>
                                 <th class="staff-presence-employee-col">{{ translate('Employee') }}</th>
                                 <th>{{ translate('Last_Offline_Period_Today') }}</th>

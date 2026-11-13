@@ -67,11 +67,10 @@
             @include('adminmodule::layouts.partials._workspace-switcher')
         </div>
         <div class="top-utility-scroll">
-            @if(is_admin_employee())
             <div class="dropdown top-utility-item top-utility-presence">
                 <button type="button"
                         id="staff-header-status-pill"
-                        class="staff-header-status-pill staff-header-status-pill--utility dropdown-toggle border-0 rounded align-items-center d-inline-flex gap-1"
+                        class="staff-header-status-pill staff-header-status-pill--utility {{ $headerPresenceService->statusPillClass($currentHeaderPresence) }} dropdown-toggle border-0 rounded align-items-center d-inline-flex gap-1"
                         data-bs-toggle="dropdown"
                         data-bs-offset="0,6"
                         data-bs-popper-config='{"strategy":"fixed"}'
@@ -79,7 +78,7 @@
                         aria-expanded="false"
                         title="{{ translate('Your_Status') }}">
                     <span class="staff-status-dot"></span>
-                    <span id="staff-header-presence-label" class="d-none d-lg-inline">{{ $headerPresenceService->statusLabel($currentHeaderPresence) }}</span>
+                    <span id="staff-header-presence-label">{{ $headerPresenceService->statusLabel($currentHeaderPresence) }}</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end staff-presence-menu py-2">
                     <li class="px-3 pb-2 mb-1 border-bottom">
@@ -94,7 +93,7 @@
                     <li>
                         <button type="button" class="dropdown-item d-flex align-items-center gap-2 staff-presence-btn {{ $currentHeaderPresence === 'away' ? 'active' : '' }}" data-status="away">
                             <span class="rounded-circle bg-warning" style="width:8px;height:8px;"></span>
-                            {{ translate('Away') }}
+                            {{ translate('Busy') }}
                         </button>
                     </li>
                     <li>
@@ -105,7 +104,6 @@
                     </li>
                 </ul>
             </div>
-            @endif
 
             @if(can_impersonate_employees())
             @include('adminmodule::layouts.partials._view-as-employee-dropdown')

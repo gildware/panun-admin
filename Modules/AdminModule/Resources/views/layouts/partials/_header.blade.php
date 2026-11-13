@@ -47,9 +47,10 @@
         }
         .staff-header-status-pill {
             font-size: inherit;
-            font-weight: 600;
+            font-weight: 700;
             line-height: 1.2;
             white-space: nowrap;
+            border: 1px solid transparent !important;
         }
         .staff-header-status-pill::after {
             margin-inline-start: 0.35rem;
@@ -61,6 +62,26 @@
             flex-shrink: 0;
             background: currentColor;
             opacity: 0.95;
+        }
+        .staff-header-status-pill--online {
+            background: #ecfdf5 !important;
+            border-color: #86efac !important;
+            color: #047857 !important;
+        }
+        .staff-header-status-pill--busy {
+            background: #fffbeb !important;
+            border-color: #fcd34d !important;
+            color: #b45309 !important;
+        }
+        .staff-header-status-pill--break {
+            background: #ecfeff !important;
+            border-color: #67e8f9 !important;
+            color: #0e7490 !important;
+        }
+        .staff-header-status-pill--offline {
+            background: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #475569 !important;
         }
         .staff-presence-menu {
             min-width: 11rem;
@@ -150,7 +171,7 @@
                                     <li>
                                         <button type="button" class="dropdown-item d-flex align-items-center gap-2 staff-presence-btn {{ $currentHeaderPresence === 'away' ? 'active' : '' }}" data-status="away">
                                             <span class="rounded-circle bg-warning" style="width:8px;height:8px;"></span>
-                                            {{ translate('Away') }}
+                                            {{ translate('Busy') }}
                                         </button>
                                     </li>
                                     <li>

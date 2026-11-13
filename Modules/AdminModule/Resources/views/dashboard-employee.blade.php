@@ -5,6 +5,262 @@
 @push('css_or_js')
 <link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=2026101512">
 <link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=2026101512">
+<style>
+    .staff-presence-panel {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        border-top: 2px solid #43466e;
+        overflow: hidden;
+    }
+    .staff-presence-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 8px 12px;
+        background: #eef0f6;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .staff-presence-panel__title {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        font-size: 12px;
+        font-weight: 700;
+        color: #363856;
+        line-height: 1.2;
+    }
+    .staff-presence-panel__title .material-symbols-outlined {
+        font-size: 16px;
+        color: #43466e;
+    }
+    .staff-presence-panel__count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid #d7dae8;
+        color: #43466e;
+        font-size: 10px;
+        font-weight: 700;
+    }
+    .staff-presence-panel__tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+    .staff-presence-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    .staff-presence-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    .staff-presence-chip strong { font-weight: 700; }
+    .staff-presence-chip--online { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+    .staff-presence-chip--busy { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+    .staff-presence-chip--break { background: #ecfeff; border-color: #a5f3fc; color: #0e7490; }
+    .staff-presence-chip--offline { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+    .staff-presence-history-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border: 1px solid #d1d5db;
+        border-radius: 999px;
+        background: #fff;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    .staff-presence-history-btn:hover {
+        background: #f8fafc;
+        color: #111827;
+    }
+    .staff-presence-history-btn .material-symbols-outlined { font-size: 14px; }
+    .staff-presence-panel__body { padding: 0; }
+    .staff-presence-table-wrap {
+        max-height: 340px;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .staff-presence-table {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+        font-size: 11px;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+    .staff-presence-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 6px 10px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e5e7eb;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+    .staff-presence-table tbody td {
+        padding: 5px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #64748b;
+        vertical-align: middle;
+    }
+    .staff-presence-table tbody tr:last-child td { border-bottom: 0; }
+    .staff-presence-table tbody tr:hover td { background: #f8fafc; }
+    .staff-presence-employee-col {
+        min-width: 180px;
+        width: 180px;
+    }
+    .staff-presence-person {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+    }
+    .staff-presence-avatar-wrap {
+        position: relative;
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+    }
+    .staff-presence-avatar {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px;
+        min-height: 28px;
+        border-radius: 999px;
+        object-fit: cover;
+        display: block;
+    }
+    .staff-presence-dot {
+        position: absolute;
+        right: -1px;
+        bottom: -1px;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        border: 1.5px solid #fff;
+    }
+    .staff-presence-person__meta { min-width: 0; }
+    .staff-presence-person__name {
+        color: #1f2937;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .staff-presence-person__email {
+        color: #94a3b8;
+        font-size: 10px;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+    }
+    .staff-presence-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1.2;
+        color: inherit;
+    }
+    .staff-presence-badge--online,
+    .staff-presence-badge.bg-success {
+        background: #ecfdf5 !important;
+        border-color: #86efac;
+        color: #047857 !important;
+    }
+    .staff-presence-badge--busy,
+    .staff-presence-badge.bg-warning {
+        background: #fffbeb !important;
+        border-color: #fcd34d;
+        color: #b45309 !important;
+    }
+    .staff-presence-badge--break,
+    .staff-presence-badge.bg-info {
+        background: #ecfeff !important;
+        border-color: #67e8f9;
+        color: #0e7490 !important;
+    }
+    .staff-presence-badge--offline,
+    .staff-presence-badge.bg-secondary {
+        background: #f1f5f9 !important;
+        border-color: #cbd5e1;
+        color: #475569 !important;
+    }
+    .staff-presence-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 120px;
+        color: #94a3b8;
+        font-size: 12px;
+    }
+    #staffPresenceHistoryModal .staff-presence-table thead th {
+        position: static;
+    }
+    .staff-presence-history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .staff-presence-history-header__actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+    .staff-presence-history-date {
+        width: auto;
+        min-width: 9.5rem;
+        max-width: 12rem;
+        height: 1.85rem;
+        font-size: 12px;
+        font-weight: 600;
+        color: #334155;
+        padding: 0.15rem 0.45rem;
+        line-height: 1.2;
+        cursor: pointer;
+    }
+    .staff-presence-history-date::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.75;
+    }
+</style>
 @endpush
 
 @section('content')
@@ -96,6 +352,12 @@
                     'highlightEmployeeId' => $employeeData['highlight_employee_id'] ?? (string) ($employeeData['user']->id ?? ''),
                     'progressLayout' => 'employee',
                 ])
+            </div>
+        @endif
+
+        @if(! is_admin_employee())
+            <div class="mb-3 mt-2" id="section-employee-status">
+                @include('adminmodule::admin.partials._staff-presence-widget')
             </div>
         @endif
 
@@ -392,6 +654,194 @@
         }
 
         setDashboardScope(scopeValue);
+    })();
+
+    (function initStaffPresenceWidget() {
+        if (!document.getElementById('staff-presence-widget')) {
+            return;
+        }
+
+        var statusBadgeClass = {
+            online: 'staff-presence-badge--online',
+            away: 'staff-presence-badge--busy',
+            on_break: 'staff-presence-badge--break',
+            offline: 'staff-presence-badge--offline'
+        };
+        var statusDotClass = {
+            online: 'bg-success',
+            away: 'bg-warning',
+            on_break: 'bg-info',
+            offline: 'bg-secondary'
+        };
+
+        function refreshStaffPresenceWidget() {
+            $.getJSON('{{ route('admin.staff-presence.list') }}', function (response) {
+                if (!response.data || !response.data.staff) {
+                    return;
+                }
+                var summary = response.data.summary || {};
+                ['online', 'away', 'on_break', 'offline'].forEach(function (key) {
+                    var el = document.querySelector('[data-summary="' + key + '"]');
+                    if (el) {
+                        el.textContent = summary[key] || 0;
+                    }
+                });
+                response.data.staff.forEach(function (member) {
+                    var row = document.querySelector('#staff-presence-tbody tr[data-staff-id="' + member.id + '"]');
+                    if (!row) {
+                        return;
+                    }
+                    var badge = row.querySelector('.staff-presence-badge');
+                    if (badge) {
+                        badge.textContent = member.presence_label;
+                        badge.className = 'staff-presence-badge ' + (statusBadgeClass[member.presence_status] || 'staff-presence-badge--offline');
+                    }
+                    var dot = row.querySelector('.staff-presence-dot');
+                    if (dot) {
+                        dot.className = 'staff-presence-dot ' + (statusDotClass[member.presence_status] || 'bg-secondary');
+                    }
+                    var pageCell = row.querySelector('.staff-last-visited-page');
+                    if (pageCell) {
+                        pageCell.textContent = member.last_visited_page_label || '—';
+                        pageCell.setAttribute('title', member.last_visited_page || '');
+                    }
+                    var map = {
+                        '.staff-last-offline-today': member.last_offline_period_today,
+                        '.staff-total-offline-today': member.total_offline_today,
+                        '.staff-last-away-today': member.last_away_period_today,
+                        '.staff-total-away-today': member.total_away_today,
+                        '.staff-last-break-today': member.last_break_period_today,
+                        '.staff-total-break-today': member.total_break_today,
+                        '.staff-total-online-today': member.total_online_today
+                    };
+                    Object.keys(map).forEach(function (selector) {
+                        var cell = row.querySelector(selector);
+                        if (cell) {
+                            cell.textContent = map[selector] || '—';
+                        }
+                    });
+                });
+            });
+        }
+
+        refreshStaffPresenceWidget();
+        setInterval(refreshStaffPresenceWidget, 30000);
+
+        var staffPresenceHistoryReady = false;
+
+        function setStaffPresenceHistoryState(state) {
+            var empty = document.getElementById('staff-presence-history-empty');
+            var loading = document.getElementById('staff-presence-history-loading');
+            var table = document.getElementById('staff-presence-history-table-wrap');
+            if (empty) empty.classList.toggle('d-none', state !== 'empty');
+            if (loading) loading.classList.toggle('d-none', state !== 'loading');
+            if (table) table.classList.toggle('d-none', state !== 'table');
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function renderStaffPresenceHistoryRows(staff) {
+            var tbody = document.getElementById('staff-presence-history-tbody');
+            if (!tbody) {
+                return;
+            }
+            tbody.innerHTML = '';
+            (staff || []).forEach(function (member) {
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td class="staff-presence-employee-col"><div class="staff-presence-person">' +
+                        '<div class="staff-presence-avatar-wrap">' +
+                        '<img src="' + escapeHtml(member.profile_image || '') + '" alt="" class="staff-presence-avatar" width="28" height="28">' +
+                        '</div>' +
+                        '<div class="staff-presence-person__meta">' +
+                        '<div class="staff-presence-person__name">' + escapeHtml(member.name || '') + '</div>' +
+                        '<div class="staff-presence-person__email">' + escapeHtml(member.email || '') + '</div>' +
+                        '</div></div></td>' +
+                    '<td>' + escapeHtml(member.last_offline_period || '—') + '</td>' +
+                    '<td>' + escapeHtml(member.total_offline || '—') + '</td>' +
+                    '<td>' + escapeHtml(member.last_away_period || '—') + '</td>' +
+                    '<td>' + escapeHtml(member.total_away || '—') + '</td>' +
+                    '<td>' + escapeHtml(member.last_break_period || '—') + '</td>' +
+                    '<td>' + escapeHtml(member.total_break || '—') + '</td>' +
+                    '<td>' + escapeHtml(member.total_online || '—') + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function loadStaffPresenceHistory(date) {
+            if (!date) {
+                return;
+            }
+            setStaffPresenceHistoryState('loading');
+            $.getJSON('{{ route('admin.staff-presence.history') }}', { date: date }, function (response) {
+                if (!response.data || !response.data.staff) {
+                    setStaffPresenceHistoryState('empty');
+                    return;
+                }
+                renderStaffPresenceHistoryRows(response.data.staff);
+                setStaffPresenceHistoryState('table');
+            }).fail(function () {
+                setStaffPresenceHistoryState('empty');
+            });
+        }
+
+        function initStaffPresenceHistoryCalendar() {
+            var input = document.getElementById('staff-presence-history-date');
+            if (!input) {
+                return;
+            }
+
+            setStaffPresenceHistoryState('loading');
+
+            $.getJSON('{{ route('admin.staff-presence.history-dates') }}', function (response) {
+                var dates = (response.data && response.data.dates) ? response.data.dates : [];
+                var today = input.getAttribute('max') || new Date().toISOString().slice(0, 10);
+
+                if (!dates.length) {
+                    input.value = today;
+                    input.min = today;
+                    input.max = today;
+                    staffPresenceHistoryReady = true;
+                    setStaffPresenceHistoryState('empty');
+                    return;
+                }
+
+                var latest = dates[0].value;
+                var oldest = dates[dates.length - 1].value;
+                input.min = oldest;
+                input.max = today;
+                input.value = latest;
+                staffPresenceHistoryReady = true;
+                loadStaffPresenceHistory(latest);
+            }).fail(function () {
+                staffPresenceHistoryReady = true;
+                setStaffPresenceHistoryState('empty');
+            });
+        }
+
+        $('#staffPresenceHistoryModal').on('show.bs.modal', function () {
+            if (!staffPresenceHistoryReady) {
+                initStaffPresenceHistoryCalendar();
+            }
+        });
+
+        $('#staff-presence-history-date').on('change', function () {
+            loadStaffPresenceHistory(this.value);
+        });
+
+        $('#staff-presence-history-date').on('click focus', function () {
+            if (typeof this.showPicker === 'function') {
+                try {
+                    this.showPicker();
+                } catch (error) {}
+            }
+        });
     })();
 </script>
 @endpush
