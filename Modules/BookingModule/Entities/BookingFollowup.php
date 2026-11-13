@@ -2,8 +2,10 @@
 
 namespace Modules\BookingModule\Entities;
 
+use App\Support\StoragePathPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 use Modules\UserManagement\Entities\User;
 
 class BookingFollowup extends Model
@@ -132,6 +134,37 @@ class BookingFollowup extends Model
     public function hasTranscript(): bool
     {
         return ! empty($this->recording_transcript);
+    }
+
+    public function recordingDisk(): string
+    {
+        return $this->recording_disk ?: getDisk();
+    }
+
+    /**
+     * Resolve the stored audio object key.
+     *
+     * Manual booking uploads live under booking-followups/; Superfone-synced
+     * call recordings are stored under lead-followups/ and only the filename
+     * is copied onto the booking follow-up row.
+     */
+    public function recordingStoragePath(): ?string
+    {
+        if (! $this->hasRecording()) {
+            return null;
+        }
+
+        $relative = ltrim((string) $this->recording_path, '/');
+        $disk = Storage::disk($this->recordingDisk());
+
+        foreach (['booking-followups/', 'lead-followups/'] as $dir) {
+            $path = StoragePathPrefix::apply($dir.$relative);
+            if ($disk->exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     public function getRecordingUrlAttribute(): ?string

@@ -53,9 +53,12 @@ class StoredRecordingController extends Controller
     {
         abort_unless($followup->hasRecording(), 404);
 
+        $path = $followup->recordingStoragePath();
+        abort_unless($path !== null, 404);
+
         return SeekableRecordingResponse::fromDisk(
-            $followup->recording_disk ?: getDisk(),
-            StoragePathPrefix::apply('booking-followups/'.$followup->recording_path),
+            $followup->recordingDisk(),
+            $path,
             $followup->recording_mime,
             $followup->recording_original_name
         );

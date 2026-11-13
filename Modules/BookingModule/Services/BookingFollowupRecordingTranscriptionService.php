@@ -2,7 +2,6 @@
 
 namespace Modules\BookingModule\Services;
 
-use App\Support\StoragePathPrefix;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -54,10 +53,10 @@ class BookingFollowupRecordingTranscriptionService
      */
     private function loadRecording(BookingFollowup $followup): array
     {
-        $disk = $followup->recording_disk ?: getDisk();
-        $path = StoragePathPrefix::apply('booking-followups/'.$followup->recording_path);
+        $disk = $followup->recordingDisk();
+        $path = $followup->recordingStoragePath();
 
-        if (! Storage::disk($disk)->exists($path)) {
+        if ($path === null || ! Storage::disk($disk)->exists($path)) {
             throw new \RuntimeException(translate('Recording_file_not_found_in_storage'));
         }
 
