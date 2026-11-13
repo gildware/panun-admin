@@ -4,12 +4,15 @@ namespace Modules\AdminModule\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use Brian2694\Toastr\Facades\Toastr;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class SystemLogsController extends Controller
 {
+    private const DISPLAY_TIMEZONE = 'Asia/Kolkata';
+
     public function index(Request $request)
     {
         $this->authorizeAccess();
@@ -37,13 +40,15 @@ class SystemLogsController extends Controller
             return true;
         }));
 
+        $items = array_map(fn (string $line) => $this->parseLogLine($line), array_reverse($filtered));
+
         return view('adminmodule::admin.system-logs.index', [
             'logFilePath' => $path,
             'logFileExists' => $exists,
             'level' => $level,
             'q' => $q,
             'lines' => $lines,
-            'items' => array_reverse($filtered), // newest first (tail returns oldest->newest)
+            'items' => $items,
         ]);
     }
 
@@ -85,6 +90,46 @@ class SystemLogsController extends Controller
     {
         if (! Gate::allows('business_view') && ! Gate::allows('configuration_view') && ! Gate::allows('backup_view')) {
             abort(403);
+        }
+    }
+
+    /**
+     * @return array{time: string, level: string, message: string}
+     */
+    private function parseLogLine(string $line): array
+    {
+        $timeLabel = '—';
+        $levelLabel = '—';
+        $message = $line;
+
+        if (preg_match('/^\[(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:?\d{2})?)\]/', $line, $tm)) {
+            $timeLabel = $this->formatLogTimeIst($tm[1]);
+        }
+
+        if (preg_match('/\.\s*([A-Z]+)\s*:/', $line, $m)) {
+            $levelLabel = strtoupper($m[1]);
+        }
+
+        if (preg_match('/^\[[^\]]+\]\s*[^\.]+\.\s*[A-Z]+\s*:\s*(.*)$/s', $line, $msgMatch)) {
+            $message = $msgMatch[1] !== '' ? $msgMatch[1] : $line;
+        }
+
+        return [
+            'time' => $timeLabel,
+            'level' => $levelLabel,
+            'message' => $message,
+        ];
+    }
+
+    private function formatLogTimeIst(string $raw): string
+    {
+        try {
+            // Log timestamps follow app timezone unless an offset is present in the string.
+            $dt = Carbon::parse($raw, (string) config('app.timezone', 'UTC'));
+
+            return $dt->timezone(self::DISPLAY_TIMEZONE)->format('d M Y, h:i:s A');
+        } catch (\Throwable) {
+            return $raw;
         }
     }
 
