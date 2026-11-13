@@ -3068,6 +3068,14 @@ class BookingController extends Controller
         }
         $request->merge(['web_page' => $webPage]);
 
+        $repeatFlag = (int) ($this->booking->newQuery()->whereKey($id)->value('is_repeated') ?? 0);
+        if ($repeatFlag === 1) {
+            return redirect()->to(admin_booking_details_url($id, $webPage, array_filter(
+                $request->only(['activity', 'take']),
+                static fn ($value) => $value !== null && $value !== ''
+            )));
+        }
+
         if ($webPage === 'details') {
 
             $bookingQuery = $this->booking->with([
@@ -4618,12 +4626,12 @@ class BookingController extends Controller
             $redirectWebPage = 'details';
         }
 
-        $query = ['web_page' => $redirectWebPage];
+        $query = [];
         if ($redirectWebPage === 'details') {
             $query['activity'] = 'followup';
         }
 
-        $redirect = redirect()->route('admin.booking.details', array_merge([$booking->id], $query));
+        $redirect = redirect()->to(admin_booking_details_url($booking, $redirectWebPage, $query));
 
         if ($redirectWebPage === 'details') {
             return $redirect->withFragment('booking-activity');
@@ -4824,7 +4832,7 @@ class BookingController extends Controller
     protected function redirectAfterBookingCallLog(Request $request, Booking $booking): RedirectResponse
     {
         return redirect()
-            ->route('admin.booking.details', [$booking->id, 'web_page' => 'details', 'activity' => 'call'])
+            ->to(admin_booking_details_url($booking, 'details', ['activity' => 'call']))
             ->withFragment('booking-activity');
     }
 
@@ -4946,14 +4954,23 @@ class BookingController extends Controller
     {
         $this->authorize('booking_view');
         Validator::make($request->all(), [
-            'web_page' => 'required|in:details,service_log,payments,visits',
+            'web_page' => 'required|in:details,service_log,payments,visits,history,followups,comments',
         ]);
-        $webPage = $request->has('web_page') ? $request['web_page'] : 'business_setup';
+        $webPage = $request->has('web_page') ? $request['web_page'] : 'details';
+        if (! in_array($webPage, ['details', 'service_log', 'payments', 'visits', 'history', 'followups', 'comments'], true)) {
+            $webPage = 'details';
+        }
+
+        if (in_array($webPage, ['history', 'followups', 'comments'], true)) {
+            return $this->repeatDetailsActivitySubpage($id, $webPage);
+        }
 
         $booking = $this->booking->with(['repeat.detail.service','repeat.scheduleHistories','repeat.repeatHistories','repeat.extra_services','repeat.serviceman.user', 'detail.service' => function ($query) {
             $query->withTrashed();
         }, 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider',
-            'serviceman', 'status_histories.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments'])
+            'serviceman', 'status_histories.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
+            'comments.createdBy', 'comments.pinnedByUser', 'comments.attachments',
+            'change_logs.changedBy', 'followups.createdBy', 'service_address'])
             ->find($id);
         $canStopRepeatSeries = false;
         $canExtendRepeatSeries = false;
@@ -5169,12 +5186,196 @@ class BookingController extends Controller
         }
 
         if ($webPage == 'details') {
-            return view('bookingmodule::admin.booking.repeat-booking-details', array_merge(compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'canStopRepeatSeries', 'canExtendRepeatSeries', 'canEditSeriesDates'), $this->bookingConfigurationReasonVariables()));
+            $followupService = app(BookingFollowupService::class);
+            $nextScheduled = $followupService->nextScheduledFollowups($booking);
+            $nextFollowupCustomer = $nextScheduled['customer'];
+            $nextFollowupProvider = $nextScheduled['provider'];
+            $followupDetailMeta = $followupService->buildBookingFollowupDetailMeta(
+                $booking,
+                $nextFollowupCustomer,
+                $nextFollowupProvider
+            );
+            $customerName = booking_display_customer_name($booking, $customerAddress);
+            $customerPhone = booking_display_customer_phone($booking, $customerAddress);
+            $commentParser = app(\Modules\ChattingModule\Services\StaffChatMessageParser::class);
+            $sortedComments = $this->sortBookingCommentsForActivity($booking->comments);
+            $activityFollowups = $this->sortBookingFollowupsForActivity($booking->followups);
+            $followupDelayMeta = $followupService->buildFollowupDelayMeta($booking->followups);
+            $followupScheduleMinAt = now()->format('Y-m-d\TH:i');
+            $requiresMandatoryNextFollowup = $booking->requiresMandatoryNextFollowup();
+
+            return view('bookingmodule::admin.booking.repeat-booking-details', array_merge(compact(
+                'zoneCenter',
+                'currentZone',
+                'centerLat',
+                'centerLng',
+                'area',
+                'booking',
+                'servicemen',
+                'webPage',
+                'customerAddress',
+                'services',
+                'zones',
+                'category',
+                'subCategory',
+                'providers',
+                'sort_by',
+                'canStopRepeatSeries',
+                'canExtendRepeatSeries',
+                'canEditSeriesDates',
+                'nextFollowupCustomer',
+                'nextFollowupProvider',
+                'followupDetailMeta',
+                'customerName',
+                'customerPhone',
+                'sortedComments',
+                'commentParser',
+                'activityFollowups',
+                'followupDelayMeta',
+                'followupScheduleMinAt',
+                'requiresMandatoryNextFollowup'
+            ), $this->bookingConfigurationReasonVariables()));
 
         }
 
         Toastr::success(translate(ACCESS_DENIED['message']));
         return back();
+    }
+
+    /**
+     * History / followups / comments subpages for a repeat series booking.
+     */
+    protected function repeatDetailsActivitySubpage(string $id, string $webPage): Renderable|RedirectResponse
+    {
+        if ($webPage === 'history') {
+            $booking = $this->findBookingForAdmin($this->booking->with([
+                'change_logs.changedBy',
+                'customer',
+                'provider',
+                'service_address',
+                'booking_partial_payments',
+                'reopenEvents.actor',
+                'originatedFromBooking',
+                'spawnedFollowupBookings',
+                'reopenedByUser',
+                'reopenCaseResolvedByUser',
+            ]), $id);
+
+            if (! $booking || (int) ($booking->is_repeated ?? 0) !== 1) {
+                return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
+            }
+
+            return view('bookingmodule::admin.booking.history', compact('booking', 'webPage'));
+        }
+
+        if ($webPage === 'followups') {
+            $booking = $this->findBookingForAdmin(
+                $this->booking->with([
+                    'followups.createdBy',
+                    'customer',
+                    'provider',
+                    'service_address',
+                    'booking_partial_payments',
+                    'reopenEvents.actor',
+                    'originatedFromBooking',
+                    'spawnedFollowupBookings',
+                    'reopenedByUser',
+                    'reopenCaseResolvedByUser',
+                ]),
+                $id
+            );
+            if (! $booking || (int) ($booking->is_repeated ?? 0) !== 1) {
+                return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
+            }
+
+            $booking->setRelation('followups', $this->sortBookingFollowupsForActivity($booking->followups));
+            $followupService = app(BookingFollowupService::class);
+            $nextScheduled = $followupService->nextScheduledFollowups($booking);
+            $nextFollowupCustomer = $nextScheduled['customer'];
+            $nextFollowupProvider = $nextScheduled['provider'];
+            $followupDetailMeta = $followupService->buildBookingFollowupDetailMeta(
+                $booking,
+                $nextFollowupCustomer,
+                $nextFollowupProvider
+            );
+            $customerName = booking_display_customer_name($booking, $booking->service_address);
+            $customerPhone = booking_display_customer_phone($booking, $booking->service_address);
+            $requiresMandatoryNextFollowup = $booking->requiresMandatoryNextFollowup();
+            $followupDelayMeta = $followupService->buildFollowupDelayMeta($booking->followups);
+            $followupScheduleMinAt = now()->format('Y-m-d\TH:i');
+
+            return view('bookingmodule::admin.booking.followups', compact(
+                'booking',
+                'webPage',
+                'nextFollowupCustomer',
+                'nextFollowupProvider',
+                'followupDetailMeta',
+                'customerName',
+                'customerPhone',
+                'requiresMandatoryNextFollowup',
+                'followupDelayMeta',
+                'followupScheduleMinAt'
+            ));
+        }
+
+        $booking = $this->findBookingForAdmin($this->booking->with([
+            'comments.createdBy',
+            'comments.pinnedByUser',
+            'comments.attachments',
+            'customer',
+            'provider',
+            'service_address',
+            'booking_partial_payments',
+            'reopenEvents.actor',
+            'originatedFromBooking',
+            'spawnedFollowupBookings',
+            'reopenedByUser',
+            'reopenCaseResolvedByUser',
+        ]), $id);
+
+        if (! $booking || (int) ($booking->is_repeated ?? 0) !== 1) {
+            return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
+        }
+
+        $commentParser = app(\Modules\ChattingModule\Services\StaffChatMessageParser::class);
+        $sortedComments = $this->sortBookingCommentsForActivity($booking->comments);
+
+        return view('bookingmodule::admin.booking.comments', compact(
+            'booking',
+            'webPage',
+            'commentParser',
+            'sortedComments'
+        ));
+    }
+
+    protected function sortBookingCommentsForActivity($comments)
+    {
+        return collect($comments)->sort(function ($a, $b) {
+            if ((bool) $a->is_pinned !== (bool) $b->is_pinned) {
+                return $b->is_pinned <=> $a->is_pinned;
+            }
+            if ($a->is_pinned && $b->is_pinned) {
+                return ($b->pinned_at ?? $b->created_at) <=> ($a->pinned_at ?? $a->created_at);
+            }
+
+            return ($a->created_at ?? now()) <=> ($b->created_at ?? now());
+        })->values();
+    }
+
+    protected function sortBookingFollowupsForActivity($followups)
+    {
+        return collect($followups)->sort(function ($a, $b) {
+            $aScheduled = $a->status === 'scheduled';
+            $bScheduled = $b->status === 'scheduled';
+            if ($aScheduled !== $bScheduled) {
+                return $aScheduled ? -1 : 1;
+            }
+            if ($aScheduled) {
+                return $a->date <=> $b->date;
+            }
+
+            return $b->date <=> $a->date;
+        })->values();
     }
 
     /**

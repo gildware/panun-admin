@@ -271,7 +271,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'followups' ? 'active' : '' }}"
-                            href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'followups']) }}">{{ translate('Followups') }}</a>
+                            href="{{ admin_booking_details_url($booking, 'followups') }}">{{ translate('Followups') }}</a>
                     </li>
                 </ul>
 

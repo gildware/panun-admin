@@ -47,7 +47,7 @@
                 {{ translate('Call_Logs') }} <span class="count">{{ $callCount }}</span>
             </button>
         </div>
-        <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'followups']) }}" class="btn btn-demo-outline btn-sm">
+        <a href="{{ admin_booking_details_url($booking, 'followups') }}" class="btn btn-demo-outline btn-sm">
             <span class="material-icons">event</span>{{ translate('Add_Follow_up') }}
         </a>
     </div>
@@ -142,7 +142,7 @@
         </div>
         @if($changeCount > 20)
             <div class="text-end mt-2">
-                <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'history']) }}" class="fz-12">{{ translate('View_all') }} →</a>
+                <a href="{{ admin_booking_details_url($booking, 'history') }}" class="fz-12">{{ translate('View_all') }} →</a>
             </div>
         @endif
     </div>
