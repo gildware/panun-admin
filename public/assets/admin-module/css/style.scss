@@ -1453,9 +1453,9 @@ input:-webkit-autofill:active {
     padding: 0.125rem 0.3125rem;
 }
 
-.btn:focus,
+.btn:not(.btn-link):focus,
 .wizard .actions ul a:focus,
-.btn:hover,
+.btn:not(.btn-link):hover,
 .wizard .actions ul a:hover {
     color: var(--absolute-white) !important;
     background-color: var(--bs-primary);

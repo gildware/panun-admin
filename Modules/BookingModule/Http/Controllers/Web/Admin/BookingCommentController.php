@@ -147,6 +147,6 @@ class BookingCommentController extends Controller
         $webPage = in_array($webPage, ['details', 'comments'], true) ? $webPage : 'details';
         $hash = $webPage === 'comments' ? '#booking-comments' : '#booking-activity';
 
-        return route('admin.booking.details', [$bookingId, 'web_page' => $webPage]).$hash;
+        return admin_booking_details_url($bookingId, $webPage).$hash;
     }
 }
