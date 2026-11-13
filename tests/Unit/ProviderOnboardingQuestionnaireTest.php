@@ -58,6 +58,22 @@ class ProviderOnboardingQuestionnaireTest extends TestCase
         $this->assertSame('Electrician', $clean['main_expertise']);
     }
 
+    public function test_sanitize_strips_malformed_utf8_so_answers_can_json_encode(): void
+    {
+        // Invalid continuation byte sequence that previously blew up ProviderQuestionnaire saves.
+        $malformed = "Plumber\xB1".' Srinagar';
+
+        $clean = ProviderOnboardingQuestionnaire::sanitize([
+            'main_expertise' => $malformed,
+            'problems_other' => "cash\xC0\x80only",
+        ]);
+
+        $this->assertTrue(mb_check_encoding($clean['main_expertise'], 'UTF-8'));
+        $this->assertNotFalse(json_encode(['answers' => $clean], JSON_THROW_ON_ERROR));
+        $this->assertStringContainsString('Plumber', $clean['main_expertise']);
+        $this->assertStringContainsString('Srinagar', $clean['main_expertise']);
+    }
+
     public function test_format_and_answered_count(): void
     {
         $answers = ProviderOnboardingQuestionnaire::sanitize([

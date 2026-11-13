@@ -495,12 +495,43 @@ class ProviderOnboardingQuestionnaire
 
     private static function cleanString(mixed $value, int $max): string
     {
-        $text = trim(strip_tags((string) $value));
+        $text = trim(strip_tags(self::toValidUtf8((string) $value)));
         if ($text === '') {
             return '';
         }
 
-        return mb_substr($text, 0, $max);
+        return mb_substr($text, 0, $max, 'UTF-8');
+    }
+
+    /**
+     * Strip / repair bytes that would make json_encode() fail (Malformed UTF-8).
+     */
+    public static function toValidUtf8(string $text): string
+    {
+        if ($text === '') {
+            return '';
+        }
+
+        // Drop nulls / control chars that sometimes arrive from mobile keyboards.
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $text) ?? '';
+
+        if (mb_check_encoding($text, 'UTF-8')) {
+            return $text;
+        }
+
+        if (function_exists('iconv')) {
+            $converted = @iconv('UTF-8', 'UTF-8//IGNORE', $text);
+            if (is_string($converted) && $converted !== '') {
+                return $converted;
+            }
+            if ($converted === '') {
+                return '';
+            }
+        }
+
+        $substituted = @mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+
+        return is_string($substituted) ? $substituted : '';
     }
 
     private static function period(mixed $value): string
