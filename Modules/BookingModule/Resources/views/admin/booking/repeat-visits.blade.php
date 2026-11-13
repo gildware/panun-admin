@@ -3,7 +3,7 @@
 @section('title', translate('Visits'))
 
 @push('css_or_js')
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}?v=2026082414">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}?v=2026111314">
     @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
 @endpush
 

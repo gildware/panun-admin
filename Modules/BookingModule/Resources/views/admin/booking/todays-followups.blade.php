@@ -142,7 +142,7 @@
                                                     <td>{{ $key + $followups->firstItem() }}</td>
                                                     <td>
                                                         @if($followup->booking)
-                                                            <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}" class="text-primary text-decoration-none">{{ $followup->booking->readable_id }}</a>
+                                                            <a href="{{ admin_booking_details_url($followup->booking ?? $followup->booking_id, 'followups') }}" class="text-primary text-decoration-none">{{ $followup->booking->readable_id }}</a>
                                                         @else
                                                             —
                                                         @endif
@@ -199,7 +199,7 @@
                                                     </td>
                                                     <td class="text-end">
                                                         @if($followup->booking)
-                                                            <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}" class="btn btn-sm btn--primary">{{ translate('View') }}</a>
+                                                            <a href="{{ admin_booking_details_url($followup->booking ?? $followup->booking_id, 'followups') }}" class="btn btn-sm btn--primary">{{ translate('View') }}</a>
                                                         @endif
                                                     </td>
                                                 </tr>

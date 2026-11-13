@@ -22,19 +22,12 @@
                 @endphp
                 <div class="col-12 booking-detail-v2 booking-detail-v2--{{ $__detailStatusClass }}">
                     <div class="booking-detail-v2__wrap">
-                        @include('bookingmodule::admin.booking.partials._booking-detail-compact-topbar', ['booking' => $booking])
-                        @include('bookingmodule::admin.booking.partials._booking-detail-pipeline', ['booking' => $booking])
-                        @include('bookingmodule::admin.booking.partials._booking-detail-subpage-header', ['booking' => $booking])
-
-                        @include('bookingmodule::admin.booking.partials.details._special-financial-settlement-banner', ['booking' => $booking])
-
-                        <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-3 booking-detail-nav-wrap">
-                            @include('bookingmodule::admin.booking.partials._booking-detail-nav-tabs', [
-                                'booking' => $booking,
-                                'webPage' => $webPage,
-                                'commentCount' => $sortedComments->count(),
-                            ])
-                        </div>
+                        @include('bookingmodule::admin.booking.partials._booking-detail-subpage-chrome', [
+                            'booking' => $booking,
+                            'webPage' => $webPage,
+                            'commentCount' => $sortedComments->count(),
+                            'sortedComments' => $sortedComments,
+                        ])
 
                         <div class="card booking-subpage-panel" id="booking-comments">
                 <div class="card-header">

@@ -124,8 +124,17 @@ class SystemLogsController extends Controller
     private function formatLogTimeIst(string $raw): string
     {
         try {
-            // Log timestamps follow app timezone unless an offset is present in the string.
-            $dt = Carbon::parse($raw, (string) config('app.timezone', 'UTC'));
+            // Offset/Z present → absolute instant; convert to IST.
+            if (preg_match('/(?:[Zz]|[+-]\d{2}:?\d{2})$/', trim($raw))) {
+                return Carbon::parse($raw)->timezone(self::DISPLAY_TIMEZONE)->format('d M Y, h:i:s A');
+            }
+
+            // Naive Laravel log times use PHP's runtime timezone. Business settings call
+            // date_default_timezone_set() (often Asia/Kolkata) without updating app.timezone,
+            // so config('app.timezone') can still be UTC while logs are already IST.
+            $writeTz = date_default_timezone_get()
+                ?: (string) config('timezone', config('app.timezone', 'UTC'));
+            $dt = Carbon::parse($raw, $writeTz);
 
             return $dt->timezone(self::DISPLAY_TIMEZONE)->format('d M Y, h:i:s A');
         } catch (\Throwable) {

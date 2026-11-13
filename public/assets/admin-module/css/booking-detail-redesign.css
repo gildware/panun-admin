@@ -1995,11 +1995,20 @@
     grid-template-columns: 1fr;
   }
 }
-.booking-detail-v2 .js-repeat-visit-toggle.btn-link {
-  color: var(--bk-accent);
+.booking-detail-v2 .js-repeat-visit-toggle.btn-link,
+.booking-detail-v2 .js-repeat-visit-toggle.btn-link:hover,
+.booking-detail-v2 .js-repeat-visit-toggle.btn-link:focus,
+.booking-detail-v2 .js-repeat-visit-toggle.btn-link:focus-visible,
+.booking-detail-v2 .js-repeat-visit-toggle.btn-link:active {
+  /* Beat global .btn:hover { color: white !important } so IDs stay readable. */
+  color: var(--bk-accent) !important;
+  background-color: transparent !important;
   text-decoration: none;
 }
-.booking-detail-v2 .js-repeat-visit-toggle.btn-link:hover {
+.booking-detail-v2 .js-repeat-visit-toggle.btn-link:hover,
+.booking-detail-v2 .js-repeat-visit-toggle.btn-link:focus,
+.booking-detail-v2 .js-repeat-visit-toggle.btn-link:focus-visible {
+  color: var(--bk-accent-dark) !important;
   text-decoration: underline;
 }
 #serviceUpdateModal--visit,

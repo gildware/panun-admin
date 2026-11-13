@@ -2136,6 +2136,30 @@ if (! function_exists('repeat_admin_detail_chrome_vars')) {
     }
 }
 
+if (! function_exists('admin_booking_details_url')) {
+    /**
+     * Admin booking details URL for regular or repeat series bookings.
+     *
+     * @param  Booking|string  $booking  Booking model or id
+     * @param  array<string, mixed>  $query  Extra query params (activity, take, …). web_page is set from $webPage.
+     */
+    function admin_booking_details_url($booking, string $webPage = 'details', array $query = []): string
+    {
+        if ($booking instanceof Booking) {
+            $id = (string) $booking->id;
+            $isRepeated = (int) ($booking->is_repeated ?? 0) === 1;
+        } else {
+            $id = (string) $booking;
+            $isRepeated = (int) (Booking::query()->whereKey($id)->value('is_repeated') ?? 0) === 1;
+        }
+
+        $params = array_merge([$id], array_merge($query, ['web_page' => $webPage]));
+        $route = $isRepeated ? 'admin.booking.repeat_details' : 'admin.booking.details';
+
+        return route($route, $params);
+    }
+}
+
 if (! function_exists('booking_admin_status_tags_for_api')) {
     /**
      * Admin booking list tags for provider mobile API.

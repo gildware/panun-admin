@@ -5,7 +5,10 @@
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}?v=2026082414">
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}?v={{ @filemtime(public_path('assets/chatting-module/css/staff-chat-entity-badges.css')) ?: time() }}">
     @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
+    @include('bookingmodule::admin.booking.partials._booking-comments-styles')
+    @include('bookingmodule::admin.booking.partials._booking-followup-styles')
 @endpush
 
 @section('content')
@@ -157,6 +160,12 @@
                         @endif
 
             <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4 booking-detail-nav-wrap">
+                @include('bookingmodule::admin.booking.partials._repeat-booking-tabs', [
+                    'booking' => $booking,
+                    'webPage' => $webPage ?? 'details',
+                    'sortedComments' => $sortedComments ?? collect(),
+                ])
+
                 @php
                     $max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0;
                 @endphp
@@ -181,6 +190,11 @@
                 @endif
 
             </div>
+
+            @include('bookingmodule::admin.booking.partials._booking-followup-alerts', [
+                'booking' => $booking,
+                'followupDetailMeta' => $followupDetailMeta ?? null,
+            ])
 
             <div class="booking-overview-trio mb-3">
                 <div class="booking-overview-trio__cell">
@@ -755,6 +769,18 @@
                     </div>
                 </div>
             </section>
+
+            @include('bookingmodule::admin.booking.partials._booking-activity-panel', [
+                'booking' => $booking,
+                'sortedComments' => $sortedComments ?? collect(),
+                'commentParser' => $commentParser ?? null,
+                'activityFollowups' => $activityFollowups ?? collect(),
+                'followupDelayMeta' => $followupDelayMeta ?? [],
+                'followupScheduleMinAt' => $followupScheduleMinAt ?? now()->format('Y-m-d\TH:i'),
+                'requiresMandatoryNextFollowup' => $requiresMandatoryNextFollowup ?? $booking->requiresMandatoryNextFollowup(),
+                'customerName' => $customerName ?? null,
+                'customerPhone' => $customerPhone ?? null,
+            ])
                     </div>
                 </div>
             </div>
