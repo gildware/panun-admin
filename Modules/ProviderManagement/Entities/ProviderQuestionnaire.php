@@ -24,6 +24,14 @@ class ProviderQuestionnaire extends Model
         'answers' => 'array',
     ];
 
+    /**
+     * Never fail saves on malformed UTF-8 from mobile clients — substitute invalid bytes.
+     */
+    protected function getJsonCastFlags($key)
+    {
+        return parent::getJsonCastFlags($key) | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE;
+    }
+
     public function provider(): BelongsTo
     {
         return $this->belongsTo(Provider::class, 'provider_id');

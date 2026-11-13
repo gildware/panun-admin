@@ -83,26 +83,17 @@
                                         <table class="table table-hover align-middle">
                                             <thead>
                                             <tr>
-                                                <th style="width: 180px;">{{ translate('Time') }}</th>
+                                                <th style="width: 220px;">{{ translate('Time') }} <span class="text-muted fw-normal">(IST)</span></th>
                                                 <th style="width: 120px;">{{ translate('Level') }}</th>
                                                 <th>{{ translate('Message') }}</th>
                                             </tr>
                                             </thead>
                                             <tbody>
-                                            @foreach($items as $line)
+                                            @foreach($items as $item)
                                                 @php
-                                                    $levelLabel = '—';
-                                                    $timeLabel = '—';
-                                                    if (preg_match('/^\[(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:?\d{2})?)\]/', $line, $tm)) {
-                                                        $timeLabel = $tm[1];
-                                                    }
-                                                    if (preg_match('/\.\s*([A-Z]+)\s*:/', $line, $m)) {
-                                                        $levelLabel = strtoupper($m[1]);
-                                                    }
-                                                    $message = $line;
-                                                    if (preg_match('/^\[[^\]]+\]\s*[^\.]+\.\s*[A-Z]+\s*:\s*(.*)$/s', $line, $msgMatch)) {
-                                                        $message = $msgMatch[1] !== '' ? $msgMatch[1] : $line;
-                                                    }
+                                                    $levelLabel = $item['level'] ?? '—';
+                                                    $timeLabel = $item['time'] ?? '—';
+                                                    $message = $item['message'] ?? '';
                                                 @endphp
                                                 <tr>
                                                     <td class="text-nowrap small text-muted">{{ $timeLabel }}</td>

@@ -77,12 +77,18 @@ class ProviderQuestionnaireService
             }
             if (is_array($value)) {
                 $out[$key] = array_values(array_filter(array_map(static function ($item) {
-                    return is_scalar($item) ? substr(trim(strip_tags((string) $item)), 0, 100) : '';
+                    if (! is_scalar($item)) {
+                        return '';
+                    }
+                    $text = trim(strip_tags(ProviderOnboardingQuestionnaire::toValidUtf8((string) $item)));
+
+                    return $text === '' ? '' : mb_substr($text, 0, 100, 'UTF-8');
                 }, $value), static fn ($v) => $v !== ''));
                 continue;
             }
             if (is_scalar($value)) {
-                $out[$key] = substr(trim(strip_tags((string) $value)), 0, 255);
+                $text = trim(strip_tags(ProviderOnboardingQuestionnaire::toValidUtf8((string) $value)));
+                $out[$key] = $text === '' ? '' : mb_substr($text, 0, 255, 'UTF-8');
             }
         }
 
