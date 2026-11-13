@@ -1863,13 +1863,19 @@ body.nav-top.admin-pins-editing .top-nav-pin-btn {
 
 .staff-header-status-pill--utility {
     font-size: 0.6875rem;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1;
     white-space: nowrap;
     height: 1.75rem;
-    padding: 0 0.5rem;
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.92);
+    padding: 0 0.55rem;
+    border: 1px solid transparent !important;
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.staff-header-status-pill--utility #staff-header-presence-label {
+    display: inline !important;
+    color: inherit;
 }
 
 .staff-header-status-pill--utility .staff-status-dot {
@@ -1880,31 +1886,60 @@ body.nav-top.admin-pins-editing .top-nav-pin-btn {
     background: currentColor;
 }
 
+.staff-header-status-pill--utility.staff-header-status-pill--online,
+.staff-header-status-pill--utility[data-presence-status="online"] {
+    background: #ecfdf5;
+    border-color: #86efac !important;
+    color: #047857;
+}
+.staff-header-status-pill--utility.staff-header-status-pill--online .staff-status-dot,
 .staff-header-status-pill--utility[data-presence-status="online"] .staff-status-dot {
-    background-color: #22c55e;
+    background-color: #16a34a;
 }
 
+.staff-header-status-pill--utility.staff-header-status-pill--busy,
+.staff-header-status-pill--utility[data-presence-status="away"] {
+    background: #fffbeb;
+    border-color: #fcd34d !important;
+    color: #b45309;
+}
+.staff-header-status-pill--utility.staff-header-status-pill--busy .staff-status-dot,
 .staff-header-status-pill--utility[data-presence-status="away"] .staff-status-dot {
-    background-color: #f59e0b;
+    background-color: #d97706;
 }
 
+.staff-header-status-pill--utility.staff-header-status-pill--break,
+.staff-header-status-pill--utility[data-presence-status="on_break"] {
+    background: #ecfeff;
+    border-color: #67e8f9 !important;
+    color: #0e7490;
+}
+.staff-header-status-pill--utility.staff-header-status-pill--break .staff-status-dot,
 .staff-header-status-pill--utility[data-presence-status="on_break"] .staff-status-dot {
-    background-color: #38bdf8;
+    background-color: #0891b2;
 }
 
+.staff-header-status-pill--utility.staff-header-status-pill--offline,
+.staff-header-status-pill--utility[data-presence-status="offline"] {
+    background: #f1f5f9;
+    border-color: #cbd5e1 !important;
+    color: #475569;
+}
+.staff-header-status-pill--utility.staff-header-status-pill--offline .staff-status-dot,
 .staff-header-status-pill--utility[data-presence-status="offline"] .staff-status-dot {
-    background-color: #94a3b8;
+    background-color: #64748b;
 }
 
 .staff-header-status-pill--utility::after {
     margin-inline-start: 0.2rem;
     font-size: 0.625rem;
+    color: inherit;
+    opacity: 0.75;
 }
 
 .staff-header-status-pill--utility:hover,
 .staff-header-status-pill--utility.show {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
+    filter: brightness(0.97);
 }
 
 @media only screen and (max-width: 1280px) {
@@ -1914,10 +1949,6 @@ body.nav-top.admin-pins-editing .top-nav-pin-btn {
 
     .top-utility-brand-text {
         max-width: 7rem;
-    }
-
-    #staff-header-presence-label {
-        display: none !important;
     }
 }
 

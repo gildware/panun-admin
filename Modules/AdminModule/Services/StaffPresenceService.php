@@ -396,7 +396,7 @@ class StaffPresenceService
     {
         return match ($status) {
             self::STATUS_ONLINE => translate('Online'),
-            self::STATUS_AWAY => translate('Away'),
+            self::STATUS_AWAY => translate('Busy'),
             self::STATUS_ON_BREAK => translate('On_Break'),
             default => translate('Offline'),
         };
@@ -405,20 +405,20 @@ class StaffPresenceService
     public function statusBadgeClass(string $status): string
     {
         return match ($status) {
-            self::STATUS_ONLINE => 'bg-success',
-            self::STATUS_AWAY => 'bg-warning text-dark',
-            self::STATUS_ON_BREAK => 'bg-info text-dark',
-            default => 'bg-secondary',
+            self::STATUS_ONLINE => 'staff-presence-badge--online',
+            self::STATUS_AWAY => 'staff-presence-badge--busy',
+            self::STATUS_ON_BREAK => 'staff-presence-badge--break',
+            default => 'staff-presence-badge--offline',
         };
     }
 
     public function statusPillClass(string $status): string
     {
         return match ($status) {
-            self::STATUS_ONLINE => 'bg-success text-white',
-            self::STATUS_AWAY => 'bg-warning text-dark',
-            self::STATUS_ON_BREAK => 'bg-info text-dark',
-            default => 'bg-secondary text-white',
+            self::STATUS_ONLINE => 'staff-header-status-pill--online',
+            self::STATUS_AWAY => 'staff-header-status-pill--busy',
+            self::STATUS_ON_BREAK => 'staff-header-status-pill--break',
+            default => 'staff-header-status-pill--offline',
         };
     }
 

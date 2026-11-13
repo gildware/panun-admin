@@ -616,11 +616,11 @@
 
     window.pkStaffPresencePillClass = function (status) {
         return ({
-            online: 'bg-success text-white',
-            away: 'bg-warning text-dark',
-            on_break: 'bg-info text-dark',
-            offline: 'bg-secondary text-white',
-        })[status] || 'bg-secondary text-white';
+            online: 'staff-header-status-pill--online',
+            away: 'staff-header-status-pill--busy',
+            on_break: 'staff-header-status-pill--break',
+            offline: 'staff-header-status-pill--offline',
+        })[status] || 'staff-header-status-pill--offline';
     };
 
     window.pkUpdateStaffPresenceUI = function (data) {
@@ -632,18 +632,13 @@
         var pillEl = document.getElementById('staff-header-status-pill');
         if (pillEl) {
             var isUtility = document.body.classList.contains('nav-top');
+            var statusClass = window.pkStaffPresencePillClass(data.presence_status);
             if (isUtility) {
-                pillEl.className = 'staff-header-status-pill staff-header-status-pill--utility dropdown-toggle border-0 rounded align-items-center d-inline-flex gap-1';
+                pillEl.className = 'staff-header-status-pill staff-header-status-pill--utility ' + statusClass + ' dropdown-toggle border-0 rounded align-items-center d-inline-flex gap-1';
                 pillEl.setAttribute('data-presence-status', data.presence_status || '');
-                if (labelEl) {
-                    labelEl.classList.add('d-none', 'd-lg-inline');
-                }
             } else {
-                pillEl.className = 'staff-header-status-pill dropdown-toggle border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 ' + window.pkStaffPresencePillClass(data.presence_status);
+                pillEl.className = 'staff-header-status-pill ' + statusClass + ' dropdown-toggle border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1';
                 pillEl.setAttribute('data-presence-status', data.presence_status || '');
-                if (labelEl) {
-                    labelEl.classList.add('d-none', 'd-md-block');
-                }
             }
         }
         document.querySelectorAll('.staff-presence-btn').forEach(function (btn) {
