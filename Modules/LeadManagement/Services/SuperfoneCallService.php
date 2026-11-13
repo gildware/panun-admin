@@ -253,7 +253,9 @@ class SuperfoneCallService
             $call->save();
             $this->logRecording($call, $response->status(), 'success', null, $durationMs);
             $logged = true;
-            $this->syncFollowup($call->fresh());
+            $fresh = $call->fresh() ?? $call;
+            $this->syncFollowup($fresh);
+            $this->syncBookingFollowup($fresh);
         } catch (\Throwable $exception) {
             Log::warning('Superfone recording download failed', [
                 'cdr_uuid' => $call->cdr_uuid,
@@ -1313,6 +1315,13 @@ class SuperfoneCallService
             'called_provider_id' => $call->provider_id,
             'recording_summary' => $call->summary_text,
         ];
+
+        if ($call->hasRecording()) {
+            $attributes['recording_path'] = $call->recording_path;
+            $attributes['recording_disk'] = $call->recordingDisk();
+            $attributes['recording_mime'] = $call->recording_mime;
+            $attributes['recording_original_name'] = $call->recording_original_name;
+        }
 
         try {
             $followup = $call->booking_followup_id
