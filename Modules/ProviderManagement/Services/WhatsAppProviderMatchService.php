@@ -3,10 +3,14 @@
 namespace Modules\ProviderManagement\Services;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\PartyAlternatePhone;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderRegistrationDraft;
+use Modules\ProviderManagement\Entities\WhatsAppProviderGroup;
+use Modules\ProviderManagement\Entities\WhatsAppProviderGroupContact;
 use Modules\WhatsAppModule\Entities\ProviderLead as WhatsAppProviderLead;
 use Throwable;
 
@@ -29,6 +33,95 @@ class WhatsAppProviderMatchService
     public function sourcePath(): string
     {
         return dirname(__DIR__).'/Data/whatsapp_provider_numbers.json';
+    }
+
+    public function usesDatabase(): bool
+    {
+        try {
+            return Schema::hasTable('whatsapp_provider_groups')
+                && Schema::hasTable('whatsapp_provider_group_contacts');
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Import groups from a JSON file (bundled seed or recovered live backup).
+     *
+     * @return array{ok: bool, message: string, groups: int, contacts: int}
+     */
+    public function importFromJsonFile(string $path, bool $replaceExisting = false): array
+    {
+        if (! $this->usesDatabase()) {
+            return ['ok' => false, 'message' => 'WhatsApp_group_tables_missing', 'groups' => 0, 'contacts' => 0];
+        }
+
+        if (! is_file($path)) {
+            return ['ok' => false, 'message' => 'WhatsApp_group_import_file_not_found', 'groups' => 0, 'contacts' => 0];
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+        if (! is_array($decoded)) {
+            return ['ok' => false, 'message' => 'WhatsApp_group_import_file_invalid', 'groups' => 0, 'contacts' => 0];
+        }
+
+        $parsed = $this->parseJsonPayload($decoded);
+        if ($parsed['groups'] === []) {
+            return ['ok' => false, 'message' => 'WhatsApp_group_import_file_empty', 'groups' => 0, 'contacts' => 0];
+        }
+
+        $contactCount = 0;
+        foreach ($parsed['groups'] as $contacts) {
+            $contactCount += count($contacts);
+        }
+
+        try {
+            DB::transaction(function () use ($parsed, $replaceExisting) {
+                if ($replaceExisting) {
+                    WhatsAppProviderGroupContact::query()->delete();
+                    WhatsAppProviderGroup::query()->delete();
+                }
+
+                $existing = WhatsAppProviderGroup::query()->get()->keyBy(
+                    fn (WhatsAppProviderGroup $group) => $this->normalizeGroupName($group->name)
+                );
+
+                $sort = (int) (WhatsAppProviderGroup::query()->max('sort_order') ?? -1) + 1;
+                foreach ($parsed['groups'] as $groupName => $contacts) {
+                    $key = $this->normalizeGroupName($groupName);
+                    $color = $parsed['colors'][$groupName] ?? null;
+                    $model = $existing->get($key);
+
+                    if ($model) {
+                        if ($color !== null) {
+                            $model->color = $color;
+                        }
+                        $model->save();
+                        $this->syncGroupContacts($model, $contacts);
+                        continue;
+                    }
+
+                    $model = WhatsAppProviderGroup::query()->create([
+                        'name' => $groupName,
+                        'color' => $color ?? $this->nextUniqueColor(
+                            WhatsAppProviderGroup::query()->pluck('color', 'name')->all()
+                        ),
+                        'sort_order' => $sort++,
+                    ]);
+                    $existing->put($key, $model);
+                    $this->syncGroupContacts($model, $contacts);
+                }
+            });
+        } catch (Throwable) {
+            return ['ok' => false, 'message' => 'Failed_to_save_WhatsApp_group', 'groups' => 0, 'contacts' => 0];
+        }
+
+        return [
+            'ok' => true,
+            'message' => 'WhatsApp_groups_imported_successfully',
+            'groups' => count($parsed['groups']),
+            'contacts' => $contactCount,
+        ];
     }
 
     /**
@@ -498,31 +591,60 @@ class WhatsAppProviderMatchService
             return ['ok' => false, 'message' => 'No_valid_phone_numbers_found_in_input', 'group' => $groupName, 'count' => 0];
         }
 
-        $source = $this->loadSourceData();
-        $groups = $source['groups'];
-        $colors = $source['colors'];
+        if (! $this->usesDatabase()) {
+            return ['ok' => false, 'message' => 'WhatsApp_group_tables_missing', 'group' => $groupName, 'count' => count($contacts)];
+        }
+
         $originalName = $originalName !== null ? $this->normalizeGroupName($originalName) : null;
 
-        if ($originalName !== null && $originalName !== '' && $originalName !== $groupName) {
-            if (isset($groups[$groupName])) {
+        try {
+            DB::transaction(function () use ($groupName, $contacts, $originalName) {
+                $existingByName = WhatsAppProviderGroup::query()->get()->keyBy(
+                    fn (WhatsAppProviderGroup $group) => $this->normalizeGroupName($group->name)
+                );
+
+                $model = null;
+                if ($originalName !== null && $originalName !== '') {
+                    $model = $existingByName->get($originalName);
+                }
+                if (! $model) {
+                    $model = $existingByName->get($groupName);
+                }
+
+                if ($originalName !== null && $originalName !== '' && $originalName !== $groupName) {
+                    $conflict = $existingByName->get($groupName);
+                    if ($conflict && (! $model || $conflict->id !== $model->id)) {
+                        throw new \RuntimeException('WhatsApp_group_name_already_exists');
+                    }
+                }
+
+                if ($model) {
+                    $model->name = $groupName;
+                    if (! $this->normalizeColor($model->color)) {
+                        $model->color = $this->nextUniqueColor(
+                            WhatsAppProviderGroup::query()->pluck('color', 'name')->all()
+                        );
+                    }
+                    $model->save();
+                } else {
+                    $model = WhatsAppProviderGroup::query()->create([
+                        'name' => $groupName,
+                        'color' => $this->nextUniqueColor(
+                            WhatsAppProviderGroup::query()->pluck('color', 'name')->all()
+                        ),
+                        'sort_order' => (int) (WhatsAppProviderGroup::query()->max('sort_order') ?? -1) + 1,
+                    ]);
+                }
+
+                $this->syncGroupContacts($model, $contacts);
+            });
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'WhatsApp_group_name_already_exists') {
                 return ['ok' => false, 'message' => 'WhatsApp_group_name_already_exists', 'group' => $groupName, 'count' => count($contacts)];
             }
-            if (isset($groups[$originalName])) {
-                unset($groups[$originalName]);
-            }
-            if (isset($colors[$originalName])) {
-                $colors[$groupName] = $colors[$originalName];
-                unset($colors[$originalName]);
-            }
-        }
 
-        if (! isset($colors[$groupName])) {
-            $colors[$groupName] = $this->nextUniqueColor($colors);
-        }
-
-        $groups[$groupName] = $contacts;
-
-        if (! $this->writeSourceData($groups, $colors)) {
+            return ['ok' => false, 'message' => 'Failed_to_save_WhatsApp_group', 'group' => $groupName, 'count' => count($contacts)];
+        } catch (Throwable) {
             return ['ok' => false, 'message' => 'Failed_to_save_WhatsApp_group', 'group' => $groupName, 'count' => count($contacts)];
         }
 
@@ -544,16 +666,21 @@ class WhatsAppProviderMatchService
             return ['ok' => false, 'message' => 'WhatsApp_group_name_required', 'group' => ''];
         }
 
-        $source = $this->loadSourceData();
-        $groups = $source['groups'];
-        $colors = $source['colors'];
-        if (! isset($groups[$groupName])) {
+        if (! $this->usesDatabase()) {
+            return ['ok' => false, 'message' => 'WhatsApp_group_tables_missing', 'group' => $groupName];
+        }
+
+        $model = WhatsAppProviderGroup::query()->get()->first(
+            fn (WhatsAppProviderGroup $group) => $this->normalizeGroupName($group->name) === $groupName
+        );
+
+        if (! $model) {
             return ['ok' => false, 'message' => 'WhatsApp_group_not_found', 'group' => $groupName];
         }
 
-        unset($groups[$groupName], $colors[$groupName]);
-
-        if (! $this->writeSourceData($groups, $colors)) {
+        try {
+            $model->delete();
+        } catch (Throwable) {
             return ['ok' => false, 'message' => 'Failed_to_save_WhatsApp_group', 'group' => $groupName];
         }
 
@@ -573,6 +700,61 @@ class WhatsAppProviderMatchService
      */
     private function loadSourceData(): array
     {
+        if ($this->usesDatabase()) {
+            $rows = WhatsAppProviderGroup::query()
+                ->with('contacts')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
+
+            if ($rows->isEmpty()) {
+                // Bootstrap once from bundled JSON if DB tables exist but are empty.
+                $path = $this->sourcePath();
+                if (is_file($path)) {
+                    $this->importFromJsonFile($path, false);
+                    $rows = WhatsAppProviderGroup::query()
+                        ->with('contacts')
+                        ->orderBy('sort_order')
+                        ->orderBy('name')
+                        ->get();
+                }
+            }
+
+            $groups = [];
+            $colors = [];
+            foreach ($rows as $group) {
+                $name = (string) $group->name;
+                $groups[$name] = $group->contacts
+                    ->map(static fn (WhatsAppProviderGroupContact $contact) => [
+                        'phone' => (string) $contact->phone,
+                        'name' => (string) ($contact->name ?? ''),
+                    ])
+                    ->values()
+                    ->all();
+                $color = $this->normalizeColor($group->color) ?? $this->fallbackColorForGroup($name);
+                $colors[$name] = $color;
+                if ($this->normalizeColor($group->color) === null) {
+                    $group->color = $color;
+                    $group->save();
+                }
+            }
+
+            return ['groups' => $groups, 'colors' => $colors];
+        }
+
+        return $this->loadJsonSourceData();
+    }
+
+    /**
+     * Legacy JSON fallback (pre-migration / local without migrate).
+     *
+     * @return array{
+     *   groups: array<string, list<array{phone: string, name: string}>>,
+     *   colors: array<string, string>
+     * }
+     */
+    private function loadJsonSourceData(): array
+    {
         $path = $this->sourcePath();
         if (! is_file($path)) {
             return ['groups' => [], 'colors' => []];
@@ -583,12 +765,23 @@ class WhatsAppProviderMatchService
             return ['groups' => [], 'colors' => []];
         }
 
+        return $this->parseJsonPayload($decoded);
+    }
+
+    /**
+     * @param  array<mixed>  $decoded
+     * @return array{
+     *   groups: array<string, list<array{phone: string, name: string}>>,
+     *   colors: array<string, string>
+     * }
+     */
+    private function parseJsonPayload(array $decoded): array
+    {
         $groups = [];
         $colors = [];
-        $needsPersist = false;
 
         foreach ($decoded as $category => $value) {
-            $groupName = (string) $category;
+            $groupName = $this->normalizeGroupName((string) $category);
             if ($groupName === '' || $groupName === '_meta') {
                 continue;
             }
@@ -611,61 +804,42 @@ class WhatsAppProviderMatchService
             $groups[$groupName] = $this->parseContacts($contactsRaw);
             if ($color !== null) {
                 $colors[$groupName] = $color;
-            } else {
-                $needsPersist = true;
             }
         }
 
         foreach ($groups as $groupName => $_) {
             if (! isset($colors[$groupName])) {
                 $colors[$groupName] = $this->nextUniqueColor($colors);
-                $needsPersist = true;
             }
-        }
-
-        if ($needsPersist) {
-            $this->writeSourceData($groups, $colors);
         }
 
         return ['groups' => $groups, 'colors' => $colors];
     }
 
     /**
-     * @param  array<string, list<array{phone: string, name: string}>>  $groups
-     * @param  array<string, string>  $colors
+     * @param  list<array{phone: string, name: string}>  $contacts
      */
-    private function writeSourceData(array $groups, array $colors): bool
+    private function syncGroupContacts(WhatsAppProviderGroup $group, array $contacts): void
     {
-        $path = $this->sourcePath();
-        $dir = dirname($path);
-        if (! is_dir($dir) && ! mkdir($dir, 0755, true) && ! is_dir($dir)) {
-            return false;
-        }
+        WhatsAppProviderGroupContact::query()->where('group_id', $group->id)->delete();
 
-        $payload = [];
-        foreach ($groups as $groupName => $contacts) {
-            $rows = [];
-            foreach ($contacts as $contact) {
-                $row = ['phone' => $contact['phone']];
-                if (($contact['name'] ?? '') !== '') {
-                    $row['name'] = $contact['name'];
-                }
-                $rows[] = $row;
-            }
-            $color = $colors[$groupName] ?? $this->nextUniqueColor($colors);
-            $colors[$groupName] = $color;
-            $payload[$groupName] = [
-                'color' => $color,
-                'contacts' => $rows,
+        $rows = [];
+        $now = now();
+        foreach (array_values($contacts) as $index => $contact) {
+            $rows[] = [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'group_id' => $group->id,
+                'phone' => $contact['phone'],
+                'name' => ($contact['name'] ?? '') !== '' ? $contact['name'] : null,
+                'sort_order' => $index,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
 
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($json === false) {
-            return false;
+        foreach (array_chunk($rows, 100) as $chunk) {
+            WhatsAppProviderGroupContact::query()->insert($chunk);
         }
-
-        return file_put_contents($path, $json."\n") !== false;
     }
 
     /**
