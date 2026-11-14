@@ -166,6 +166,8 @@
         name: 'asc'
     };
 
+    var STORAGE_KEY = 'open-work-filters-v1';
+
     var state = {
         type: 'all',
         leadType: '',
@@ -175,6 +177,119 @@
         sortBy: 'followup',
         sortDir: 'asc'
     };
+
+    function normalizeType(val) {
+        return (val === 'lead' || val === 'booking' || val === 'all') ? val : 'all';
+    }
+
+    function normalizeLeadType(val) {
+        return (val === 'unknown' || val === 'customer' || val === 'provider') ? val : '';
+    }
+
+    function normalizeBookingStatus(val) {
+        val = String(val || '');
+        return ['pending', 'accepted', 'ongoing', 'on_hold'].indexOf(val) !== -1 ? val : '';
+    }
+
+    function normalizeSortBy(val) {
+        return sortDirLabels[val] ? val : 'followup';
+    }
+
+    function normalizeSortDir(val) {
+        return val === 'desc' ? 'desc' : 'asc';
+    }
+
+    function readPersistedState() {
+        var fromUrl = {};
+        try {
+            var params = new URLSearchParams(window.location.search || '');
+            ['type', 'lead_type', 'booking_status', 'employee', 'q', 'sort_by', 'sort_dir'].forEach(function (key) {
+                if (params.has(key)) fromUrl[key] = params.get(key);
+            });
+        } catch (e) {}
+
+        var fromStore = {};
+        try {
+            fromStore = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
+        } catch (e) {
+            fromStore = {};
+        }
+
+        var raw = Object.assign({}, fromStore, fromUrl);
+        state.type = normalizeType(raw.type);
+        state.leadType = state.type === 'lead' ? normalizeLeadType(raw.lead_type || raw.leadType) : '';
+        state.bookingStatus = state.type === 'booking' ? normalizeBookingStatus(raw.booking_status || raw.bookingStatus) : '';
+        state.employee = String(raw.employee || '');
+        if (state.employee === '__all__') state.employee = '';
+        state.q = String(raw.q || '').trim();
+        state.sortBy = normalizeSortBy(raw.sort_by || raw.sortBy);
+        if (raw.sort_dir != null || raw.sortDir != null) {
+            state.sortDir = normalizeSortDir(raw.sort_dir || raw.sortDir);
+        } else {
+            state.sortDir = defaultSortDir[state.sortBy] || 'asc';
+        }
+    }
+
+    function persistState() {
+        var payload = {
+            type: state.type,
+            lead_type: state.leadType,
+            booking_status: state.bookingStatus,
+            employee: state.employee,
+            q: state.q,
+            sort_by: state.sortBy,
+            sort_dir: state.sortDir
+        };
+
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch (e) {}
+
+        try {
+            var params = new URLSearchParams();
+            if (state.type && state.type !== 'all') params.set('type', state.type);
+            if (state.leadType) params.set('lead_type', state.leadType);
+            if (state.bookingStatus) params.set('booking_status', state.bookingStatus);
+            if (state.employee) params.set('employee', state.employee);
+            if (state.q) params.set('q', state.q);
+            if (state.sortBy && state.sortBy !== 'followup') params.set('sort_by', state.sortBy);
+            if (state.sortDir && !(state.sortBy === 'followup' && state.sortDir === 'asc')) {
+                params.set('sort_dir', state.sortDir);
+            }
+            var qs = params.toString();
+            var next = window.location.pathname + (qs ? '?' + qs : '');
+            if (next !== window.location.pathname + window.location.search) {
+                window.history.replaceState({}, '', next);
+            }
+        } catch (e) {}
+    }
+
+    function applyStateToControls() {
+        root.querySelectorAll('.ow-seg__btn[data-filter]').forEach(function (btn) {
+            btn.classList.toggle('active', (btn.getAttribute('data-filter') || '') === state.type);
+        });
+
+        var search = document.getElementById('ow-search');
+        if (search) search.value = state.q || '';
+
+        var sortBySelect = document.getElementById('ow-sort-by');
+        if (sortBySelect) sortBySelect.value = state.sortBy || 'followup';
+
+        var sortDirSelect = document.getElementById('ow-sort-dir');
+        if (sortDirSelect) sortDirSelect.value = state.sortDir || 'asc';
+
+        var bookingSel = document.getElementById('ow-booking-status');
+        if (bookingSel) bookingSel.value = state.bookingStatus || '';
+
+        var empSelect = document.getElementById('ow-employee');
+        if (empSelect) {
+            var empVal = state.employee || '__all__';
+            empSelect.value = empVal;
+            if (window.jQuery && jQuery(empSelect).data('select2')) {
+                jQuery(empSelect).val(empVal).trigger('change.select2');
+            }
+        }
+    }
 
     function formatAge(h) {
         h = parseInt(h, 10) || 0;
@@ -441,6 +556,7 @@
     }
 
     function render() {
+        persistState();
         updateCounts();
         var list = filtered();
         var main = document.getElementById('ow-main');
@@ -539,13 +655,14 @@
         });
     }
 
+    function normalizeEmployeeValue(val) {
+        val = val || '';
+        if (!val || val === '__all__') return '';
+        return val;
+    }
+
     var empSelect = document.getElementById('ow-employee');
     if (empSelect) {
-        function normalizeEmployeeValue(val) {
-            val = val || '';
-            if (!val || val === '__all__') return '';
-            return val;
-        }
         function onEmployeeChange() {
             state.employee = normalizeEmployeeValue(empSelect.value);
             render();
@@ -563,7 +680,6 @@
             });
             $emp.on('change', onEmployeeChange);
         }
-        state.employee = normalizeEmployeeValue(empSelect.value);
     }
 
     document.getElementById('ow-search').addEventListener('input', function (e) {
@@ -580,6 +696,8 @@
         }
     });
 
+    readPersistedState();
+    applyStateToControls();
     updateSortDirLabels(false);
     syncSubfilterVisibility();
     render();
