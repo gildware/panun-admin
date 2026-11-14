@@ -21,7 +21,9 @@ class OpenWorkController extends Controller
 
         return view('adminmodule::admin.open-work.index', [
             'items' => $payload['items'],
+            'employees' => $payload['employees'],
             'stats' => $payload['stats'],
+            'employeeScope' => $payload['employee_scope'],
         ]);
     }
 }
