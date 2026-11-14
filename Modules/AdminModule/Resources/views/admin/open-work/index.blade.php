@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-status-colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111424">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111425">
 @endpush
 
 @section('content')
@@ -132,13 +132,18 @@
     } catch (e) {
         items = [];
     }
+    items = items.filter(function (it) {
+        return it && (it.type === 'lead' || it.type === 'hunt' || it.type === 'booking');
+    });
 
     var typeLabels = {
         lead: @json(translate('Lead')),
         booking: @json(translate('Booking')),
-        task: @json(translate('Task')),
         hunt: @json(translate('Hunt'))
     };
+    var readMoreLabel = @json(translate('Read_more'));
+    var showLessLabel = @json(translate('Show_less'));
+    var commentPreviewLimit = 120;
 
     var sortDirLabels = {
         followup: {
@@ -366,6 +371,31 @@
         }).join('') + '</div>';
     }
 
+    function commentPreview(text, limit) {
+        if (text.length <= limit) return text;
+        var cut = text.slice(0, limit);
+        var soft = cut.replace(/\s+\S*$/, '');
+        return (soft.length >= Math.floor(limit * 0.6) ? soft : cut).trim();
+    }
+
+    function commentHtml(raw) {
+        var text = String(raw || '').trim();
+        if (!text) return '—';
+        if (text.length <= commentPreviewLimit) {
+            return '<div class="ow-comment__body">' + escapeHtml(text) + '</div>';
+        }
+        var preview = commentPreview(text, commentPreviewLimit);
+        return '<div class="ow-comment__wrap">'
+            + '<div class="ow-comment__body">'
+            + '<span class="ow-comment__short">' + escapeHtml(preview) + '…</span>'
+            + '<span class="ow-comment__full" hidden>' + escapeHtml(text) + '</span>'
+            + '</div>'
+            + '<button type="button" class="ow-comment__more" aria-expanded="false">'
+            + escapeHtml(readMoreLabel)
+            + '</button>'
+            + '</div>';
+    }
+
     function isLeadish(it) {
         return it.type === 'lead' || it.type === 'hunt';
     }
@@ -548,7 +578,7 @@
             + '<td class="ow-col-next ow-next">' + escapeHtml(it.next_step || '—')
             + (it.next_hint ? '<small>' + escapeHtml(it.next_hint) + '</small>' : '')
             + '</td>'
-            + '<td class="ow-col-comment ow-comment">' + escapeHtml(it.last_comment || '—') + '</td>'
+            + '<td class="ow-col-comment ow-comment">' + commentHtml(it.last_comment) + '</td>'
             + '<td class="ow-col-handled">' + lastHandledHtml(it) + '</td>'
             + '<td class="ow-col-age ow-age ' + ageClass(it) + '">' + formatAge(it.age_hours) + (it.is_overdue ? ' · ' + @json(translate('overdue')) : '') + '</td>'
             + '<td class="ow-col-owner ow-owner ' + (it.owner_id === 'unassigned' ? 'unassigned' : '') + '">' + escapeHtml(it.owner_label) + '</td>'
@@ -688,6 +718,29 @@
     });
 
     document.getElementById('ow-main').addEventListener('click', function (e) {
+        var moreBtn = e.target.closest('.ow-comment__more');
+        if (moreBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            var wrap = moreBtn.closest('.ow-comment__wrap');
+            if (!wrap) return;
+            var shortEl = wrap.querySelector('.ow-comment__short');
+            var fullEl = wrap.querySelector('.ow-comment__full');
+            var expanded = moreBtn.getAttribute('aria-expanded') === 'true';
+            if (expanded) {
+                if (shortEl) shortEl.hidden = false;
+                if (fullEl) fullEl.hidden = true;
+                moreBtn.setAttribute('aria-expanded', 'false');
+                moreBtn.textContent = readMoreLabel;
+            } else {
+                if (shortEl) shortEl.hidden = true;
+                if (fullEl) fullEl.hidden = false;
+                moreBtn.setAttribute('aria-expanded', 'true');
+                moreBtn.textContent = showLessLabel;
+            }
+            return;
+        }
+
         var row = e.target.closest('tr.ow-row');
         if (!row) return;
         var url = row.getAttribute('data-url');
