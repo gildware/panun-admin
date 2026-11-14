@@ -4,6 +4,7 @@
     @include('adminmodule::layouts.partials.top-nav.group-calls')
     @include('adminmodule::layouts.partials.top-nav.group-hunting-board')
     @include('adminmodule::layouts.partials.top-nav.group-admin-bookings')
+    @include('adminmodule::layouts.partials.top-nav.group-open-work')
     @include('adminmodule::layouts.partials.top-nav.group-employee-task-board')
     @include('adminmodule::layouts.partials.top-nav.group-employee-progress-report')
     @include('adminmodule::layouts.partials.top-nav.group-admin-customers')

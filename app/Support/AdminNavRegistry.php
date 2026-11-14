@@ -41,6 +41,7 @@ class AdminNavRegistry
             self::callsItems(),
             self::huntingBoardItems(),
             self::bookingsItems(),
+            self::openWorkItems(),
             self::taskBoardItems(),
             self::peopleItems(),
             self::progressItems(),
@@ -204,7 +205,7 @@ class AdminNavRegistry
         $match = self::match($request);
         $groupKey = $match['group_key'] ?? null;
 
-        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress' || $groupKey === 'hunting_board' || $groupKey === 'people' || $groupKey === 'accounts_pay') {
+        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress' || $groupKey === 'hunting_board' || $groupKey === 'open_work' || $groupKey === 'people' || $groupKey === 'accounts_pay') {
             return self::$cachedGroupSubmenu = null;
         }
 
@@ -539,6 +540,17 @@ class AdminNavRegistry
         }
 
         return $items;
+    }
+
+    private static function openWorkItems(): array
+    {
+        $group = translate('Open_Work');
+
+        return [
+            self::entry('open_work', $group, null, translate('Open_Work'), route('admin.open-work.index'), [
+                'admin/open-work*',
+            ], ['admin.open-work.index']),
+        ];
     }
 
     private static function taskBoardItems(): array

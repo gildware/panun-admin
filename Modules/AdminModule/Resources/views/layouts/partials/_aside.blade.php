@@ -466,6 +466,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     </ul>
                 </li>
                 <li>
+                    <a href="{{ route('admin.open-work.index') }}"
+                       class="{{ request()->is('admin/open-work*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="Open Work">pending_actions</span>
+                        <span class="link-title">{{ translate('Open_Work') }}</span>
+                    </a>
+                </li>
+                <li>
                     <a href="{{ route('admin.my-progress', ['tab' => 'monthly']) }}"
                        class="{{ request()->routeIs('admin.my-progress') ? 'active-menu' : '' }}">
                         <span class="material-icons" title="Progress">assessment</span>

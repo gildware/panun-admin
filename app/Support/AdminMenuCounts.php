@@ -176,9 +176,9 @@ final class AdminMenuCounts
                 return 0;
             }
 
+            // Web bookings have no own status — pending = open linked lead, or orphan (no lead).
             $withoutLead = WebBooking::query()
                 ->whereNull('lead_id')
-                ->where('status', WebBooking::STATUS_PENDING_REVIEW)
                 ->count();
 
             $leadIds = WebBooking::query()

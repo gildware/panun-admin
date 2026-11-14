@@ -678,6 +678,9 @@ class LeadOtherPhoneLinkService
         if ($source->next_followup_at) {
             if (! $target->next_followup_at || $source->next_followup_at->lt($target->next_followup_at)) {
                 $target->next_followup_at = $source->next_followup_at;
+                if (! empty($source->next_followup_reason)) {
+                    $target->next_followup_reason = $source->next_followup_reason;
+                }
             }
         }
 

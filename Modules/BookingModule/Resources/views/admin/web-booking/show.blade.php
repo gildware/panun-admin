@@ -57,14 +57,9 @@
                                 <div class="col-md-6">
                                     <div class="text-muted small">{{ translate('Lead_Status') }}</div>
                                     @if($booking->lead && $leadMeta)
-                                        <div class="d-flex flex-wrap align-items-center gap-2">
-                                            <span class="badge" style="background-color: {{ $leadMeta['status_color'] }}; color: #fff;">
-                                                {{ $leadMeta['status_name'] }}
-                                            </span>
-                                            <span class="badge rounded-pill {{ $leadMeta['open_badge_class'] }}">
-                                                {{ $leadMeta['open_label'] }}
-                                            </span>
-                                        </div>
+                                        <span class="badge rounded-pill {{ $leadMeta['open_badge_class'] }}">
+                                            {{ $leadMeta['open_label'] }}
+                                        </span>
                                     @else
                                         <div class="fw-semibold">—</div>
                                     @endif

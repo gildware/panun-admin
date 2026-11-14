@@ -106,11 +106,31 @@ class LeadFollowupService
         }
 
         $lead->next_followup_at = null;
+        $lead->next_followup_reason = null;
         if ($lead->exists) {
             $lead->save();
         }
 
         return true;
+    }
+
+    /**
+     * Persist the upcoming follow-up time + what needs to be done on that touch.
+     */
+    public function setPendingFollowup(Lead $lead, Carbon|string|null $nextAt, ?string $reason = null): void
+    {
+        if ($nextAt === null) {
+            $lead->next_followup_at = null;
+            $lead->next_followup_reason = null;
+        } else {
+            $lead->next_followup_at = $nextAt instanceof Carbon ? $nextAt : Carbon::parse($nextAt);
+            $trimmed = trim((string) $reason);
+            $lead->next_followup_reason = $trimmed !== '' ? $trimmed : null;
+        }
+
+        if ($lead->exists) {
+            $lead->save();
+        }
     }
 
     /**

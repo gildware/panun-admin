@@ -67,13 +67,24 @@
                                   placeholder="{{ translate('Add_remarks_from_follow_up') }}"></textarea>
                     </div>
 
-                    <div class="mb-0" id="lead-edit-followup-next-group">
+                    <div class="mb-3" id="lead-edit-followup-next-group">
                         <label class="form-label">{{ translate('Next_Follow_up_Date') }}</label>
                         <input type="datetime-local"
                                name="next_followup_at"
                                id="lead-edit-followup-next"
                                class="form-control js-followup-future-only"
                                min="{{ now()->format('Y-m-d\TH:i') }}">
+                    </div>
+                    <div class="mb-0" id="lead-edit-followup-next-reason-group">
+                        <label class="form-label">{{ translate('What_needs_to_be_done') }}</label>
+                        <textarea name="next_followup_reason"
+                                  id="lead-edit-followup-next-reason"
+                                  class="form-control"
+                                  rows="2"
+                                  placeholder="{{ translate('What_to_do_on_next_follow_up_placeholder') }}"></textarea>
+                        @error('next_followup_reason')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
+                        @enderror
                     </div>
                 </div>
                 <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">

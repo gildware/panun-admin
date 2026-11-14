@@ -123,6 +123,7 @@
                                         <th>{{ translate('Urgency') }}</th>
                                         <th>{{ translate('Handled_By') }}</th>
                                         <th>{{ translate('Followup_On') }}</th>
+                                        <th>{{ translate('What_needs_to_be_done') }}</th>
                                         <th class="text-end">{{ translate('Action') }}</th>
                                     </tr>
                                 </thead>
@@ -176,6 +177,9 @@
                                                     @endif
                                                     <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                 @endif
+                                            </td>
+                                            <td class="small" style="max-width: 220px;">
+                                                {{ $lead->next_followup_reason ? \Illuminate\Support\Str::limit($lead->next_followup_reason, 100) : '—' }}
                                             </td>
                                             <td class="text-end">
                                                 <a href="{{ route('admin.lead.show', $lead->id) }}" class="btn btn-sm btn--primary">

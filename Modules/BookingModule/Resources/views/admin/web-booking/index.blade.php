@@ -32,13 +32,6 @@
             line-height: 1.2;
             padding: 0.2rem 0.45rem;
         }
-        .wb-status-badges {
-            display: flex;
-            flex-wrap: nowrap;
-            align-items: center;
-            gap: 0.25rem;
-            white-space: nowrap;
-        }
     </style>
     <div class="main-content">
         <div class="container-fluid">
@@ -117,14 +110,9 @@
                                             <td>{{ $booking->area ?: '—' }}</td>
                                             <td>
                                                 @if($booking->lead && $leadMeta)
-                                                    <div class="wb-status-badges">
-                                                        <span class="badge" style="background-color: {{ $leadMeta['status_color'] }}; color: #fff;">
-                                                            {{ $leadMeta['status_name'] }}
-                                                        </span>
-                                                        <span class="badge rounded-pill {{ $leadMeta['open_badge_class'] }}">
-                                                            {{ $leadMeta['open_label'] }}
-                                                        </span>
-                                                    </div>
+                                                    <span class="badge rounded-pill {{ $leadMeta['open_badge_class'] }}">
+                                                        {{ $leadMeta['open_label'] }}
+                                                    </span>
                                                 @else
                                                     —
                                                 @endif

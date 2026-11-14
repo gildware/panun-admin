@@ -1061,7 +1061,7 @@
                                                     <option value="low" {{ old('urgency') === 'low' ? 'selected' : '' }}>{{ translate('Low') }}</option>
                                                 </select>
                                             </div>
-                                            <div class="mb-0" id="next-followup-group">
+                                            <div class="mb-3" id="next-followup-group">
                                                 <label class="form-label" id="next-followup-label">
                                                     {{ translate('Next_Follow_up_Date') }} <span class="text-danger">*</span>
                                                 </label>
@@ -1073,6 +1073,20 @@
                                                        min="{{ $followupScheduleMinAt }}"
                                                        data-default="{{ $lead->next_followup_at?->format('Y-m-d\TH:i') ?? \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i') }}"
                                                        value="{{ old('next_followup_at', $lead->next_followup_at?->format('Y-m-d\TH:i') ?? \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i')) }}">
+                                            </div>
+                                            <div class="mb-0" id="next-followup-reason-group">
+                                                <label class="form-label" id="next-followup-reason-label">
+                                                    {{ translate('What_needs_to_be_done') }} <span class="text-danger">*</span>
+                                                </label>
+                                                <textarea name="next_followup_reason"
+                                                          id="next-followup-reason-input"
+                                                          class="form-control"
+                                                          rows="2"
+                                                          required
+                                                          placeholder="{{ translate('What_to_do_on_next_follow_up_placeholder') }}">{{ old('next_followup_reason', $lead->next_followup_reason) }}</textarea>
+                                                @error('next_followup_reason')
+                                                <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
                                             </div>
                                         </div>
                                         @endif
