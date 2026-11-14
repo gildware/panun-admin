@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-status-colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111419">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111420">
 @endpush
 
 @section('content')
