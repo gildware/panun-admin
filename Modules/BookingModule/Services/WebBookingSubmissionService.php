@@ -36,7 +36,6 @@ class WebBookingSubmissionService
                 'area' => $payload['area'],
                 'details' => $payload['message'],
                 'preferred_date' => $payload['preferred_date'] ?? null,
-                'status' => WebBooking::STATUS_PENDING_REVIEW,
                 'lead_id' => $lead?->id,
             ]);
 
@@ -115,7 +114,10 @@ class WebBookingSubmissionService
         LeadTypeHistory::create([
             'lead_id' => $lead->id,
             'type' => Lead::TYPE_CUSTOMER,
-            'data' => $this->customerHistoryData($payload),
+            'data' => array_merge([
+                'customer_lead_status_id' => CustomerLeadStatus::defaultPendingStatusId(),
+                'booking_status' => 'pending',
+            ], $this->customerHistoryData($payload)),
             'created_by' => null,
         ]);
 
@@ -135,11 +137,14 @@ class WebBookingSubmissionService
             ->latest()
             ->first();
 
+        $existing = ($history && is_array($history->data)) ? $history->data : [];
+        // Intake fields update; lead pipeline status stays owned by the lead (never reset here).
         $data = array_merge(
-            ($history && is_array($history->data)) ? $history->data : [
+            [
                 'customer_lead_status_id' => CustomerLeadStatus::defaultPendingStatusId(),
                 'booking_status' => 'pending',
             ],
+            $existing,
             $this->customerHistoryData($payload),
         );
 
@@ -156,14 +161,14 @@ class WebBookingSubmissionService
     }
 
     /**
+     * Service/area intake only — does not set customer lead status (owned by the lead).
+     *
      * @param  array{service:string,area:string,message:string,preferred_date?:string|null}  $payload
      * @return array<string, mixed>
      */
     protected function customerHistoryData(array $payload): array
     {
         return array_filter([
-            'customer_lead_status_id' => CustomerLeadStatus::defaultPendingStatusId(),
-            'booking_status' => 'pending',
             'service_description' => trim($payload['message']),
             'service_category_name' => trim($payload['service']),
             'area_text' => trim($payload['area']),

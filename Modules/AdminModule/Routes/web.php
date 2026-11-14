@@ -24,6 +24,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\AdminPinnedNavController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\NotificationController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\StaffPresenceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\ProcessGuideController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\OpenWorkController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\WorkflowStepController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\ImpersonationController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\MarketingHubController;
@@ -71,6 +72,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::get('my-progress/ranking/employee', [EmployeeProgressReportController::class, 'employeeRankingReport'])->name('my-progress.ranking-employee');
     Route::get('my-progress/ranking', [EmployeeProgressReportController::class, 'rankingReport'])->name('my-progress.ranking');
     Route::get('my-progress/rank-metric', [EmployeeProgressReportController::class, 'rankMetricDetail'])->name('my-progress.rank-metric');
+
+    Route::get('open-work', [OpenWorkController::class, 'index'])->name('open-work.index');
 
     Route::get('workflow/stuck', [WorkflowStepController::class, 'stuckIndex'])->middleware(['can:lead_view'])->name('workflow.stuck');
     Route::post('workflow/steps/toggle', [WorkflowStepController::class, 'toggle'])->name('workflow.steps.toggle');

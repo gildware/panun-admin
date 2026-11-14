@@ -67,6 +67,7 @@ class LeadFollowup extends Model
         'transcribed_at',
         'urgency',
         'next_followup_at',
+        'next_followup_reason',
         'created_by',
     ];
 

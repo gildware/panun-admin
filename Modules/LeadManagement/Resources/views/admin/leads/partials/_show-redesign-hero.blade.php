@@ -337,6 +337,9 @@
                     — {{ translate('due') }} {{ $lead->next_followup_at->format('d M Y, h:i A') }}.
                     {{ translate('Please_take_action') }}
                 @endif
+                @if(!empty($lead->next_followup_reason))
+                    <div class="mt-1 small">{{ translate('What_needs_to_be_done') }}: {{ $lead->next_followup_reason }}</div>
+                @endif
             </div>
         </div>
         <button type="button"

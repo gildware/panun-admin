@@ -2078,6 +2078,7 @@ class LeadController extends Controller
             $lead->non_responsive_by = Auth::id() ? (string) Auth::id() : null;
             $lead->non_responsive_remarks = $remarks !== '' ? $remarks : null;
             $lead->next_followup_at = null;
+            $lead->next_followup_reason = null;
             $lead->save();
 
             if ($lead->lead_type === Lead::TYPE_CUSTOMER && $lead->isHuntingPublished()) {
@@ -3199,9 +3200,16 @@ class LeadController extends Controller
                 'date',
                 'after:now',
             ],
+            'next_followup_reason' => [
+                Rule::requiredIf(fn () => filled($request->input('next_followup_at'))),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
             'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+            'next_followup_reason.required' => translate('Next_follow_up_reason_is_required'),
             'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
             'remarks.required' => translate('Follow_up_remarks_required'),
         ]);
@@ -3234,6 +3242,11 @@ class LeadController extends Controller
             ];
         }
 
+        $nextReason = isset($validated['next_followup_reason'])
+            ? trim((string) $validated['next_followup_reason'])
+            : null;
+        $nextReason = $nextReason !== '' ? $nextReason : null;
+
         LeadFollowup::create(array_merge([
             'lead_id' => $lead->id,
             'followup_at' => $validated['followup_at'],
@@ -3243,17 +3256,16 @@ class LeadController extends Controller
             'followup_status' => LeadFollowup::STATUS_TAKEN,
             'urgency' => $validated['urgency'] ?? LeadFollowup::URGENCY_MEDIUM,
             'next_followup_at' => $validated['next_followup_at'] ?? null,
+            'next_followup_reason' => $nextReason,
             'created_by' => Auth::id(),
         ], $recordingData));
 
         $followupService = app(LeadFollowupService::class);
         $nextAt = $validated['next_followup_at'] ?? null;
         if ($nextAt !== null) {
-            $lead->next_followup_at = $nextAt;
-            $lead->save();
+            $followupService->setPendingFollowup($lead, $nextAt, $nextReason);
         } elseif ($requiresNext) {
-            $lead->next_followup_at = $followupService->defaultNextFollowupAt();
-            $lead->save();
+            $followupService->setPendingFollowup($lead, $followupService->defaultNextFollowupAt(), $nextReason);
         }
 
         toastr()->success(translate('Follow_up_added_successfully'));
@@ -3272,10 +3284,22 @@ class LeadController extends Controller
                 'date',
                 'after:now',
             ],
+            'next_followup_reason' => [
+                Rule::requiredIf(fn () => filled($request->input('next_followup_at'))),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
             'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+            'next_followup_reason.required' => translate('Next_follow_up_reason_is_required'),
         ]);
+
+        $nextReason = isset($validated['next_followup_reason'])
+            ? trim((string) $validated['next_followup_reason'])
+            : null;
+        $nextReason = $nextReason !== '' ? $nextReason : null;
 
         LeadFollowup::create([
             'lead_id' => $lead->id,
@@ -3285,17 +3309,16 @@ class LeadController extends Controller
             'followup_status' => LeadFollowup::STATUS_RESCHEDULE,
             'urgency' => $validated['urgency'] ?? LeadFollowup::URGENCY_MEDIUM,
             'next_followup_at' => $validated['next_followup_at'] ?? null,
+            'next_followup_reason' => $nextReason,
             'created_by' => Auth::id(),
         ]);
 
         $followupService = app(LeadFollowupService::class);
         $nextAt = $validated['next_followup_at'] ?? null;
         if ($nextAt !== null) {
-            $lead->next_followup_at = $nextAt;
-            $lead->save();
+            $followupService->setPendingFollowup($lead, $nextAt, $nextReason);
         } elseif ($requiresNext) {
-            $lead->next_followup_at = $followupService->defaultNextFollowupAt();
-            $lead->save();
+            $followupService->setPendingFollowup($lead, $followupService->defaultNextFollowupAt(), $nextReason);
         }
 
         toastr()->success(translate('Follow_up_rescheduled_successfully'));
@@ -3319,7 +3342,20 @@ class LeadController extends Controller
             'contact_channel' => ['nullable', 'in:'.implode(',', LeadFollowup::CONTACT_CHANNELS)],
             'urgency' => ['nullable', 'in:'.implode(',', LeadFollowup::URGENCIES)],
             'next_followup_at' => ['nullable', 'date', $this->leadFollowupFutureDateRule()],
+            'next_followup_reason' => [
+                Rule::requiredIf(fn () => filled($request->input('next_followup_at'))),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ], [
+            'next_followup_reason.required' => translate('Next_follow_up_reason_is_required'),
         ]);
+
+        $nextReason = array_key_exists('next_followup_reason', $validated)
+            ? trim((string) ($validated['next_followup_reason'] ?? ''))
+            : null;
+        $nextReason = $nextReason !== '' ? $nextReason : null;
 
         $payload = [
             'due_followup_at' => $validated['date'],
@@ -3331,13 +3367,23 @@ class LeadController extends Controller
             $payload['followup_at'] = null;
             $payload['contact_channel'] = null;
             $payload['next_followup_at'] = $validated['next_followup_at'] ?? $followup->next_followup_at;
+            $payload['next_followup_reason'] = $nextReason ?? $followup->next_followup_reason;
         } else {
             $payload['followup_at'] = $validated['followup_at'] ?? $followup->followup_at;
             $payload['contact_channel'] = $validated['contact_channel'] ?? $followup->contact_channel;
             $payload['next_followup_at'] = $validated['next_followup_at'] ?? null;
+            $payload['next_followup_reason'] = $payload['next_followup_at'] ? $nextReason : null;
         }
 
         $followup->update($payload);
+
+        if (! empty($payload['next_followup_at'])) {
+            app(LeadFollowupService::class)->setPendingFollowup(
+                $lead,
+                $payload['next_followup_at'],
+                $payload['next_followup_reason'] ?? null
+            );
+        }
 
         toastr()->success(translate('Follow_up_updated_successfully'));
 

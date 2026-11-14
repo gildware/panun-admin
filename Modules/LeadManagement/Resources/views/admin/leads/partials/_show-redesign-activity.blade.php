@@ -33,7 +33,12 @@
                             <span class="timeline-title">{{ !empty($pendingFollowupIsOverdue) ? translate('Missed_Follow_up') : (!empty($followupNeedsAttention) ? translate('Follow_up_due') : translate('Scheduled')) }}</span>
                             <span class="timeline-time">{{ translate('due') }} {{ $lead->next_followup_at?->format('d M Y, h:i A') }}</span>
                         </div>
-                        <div class="timeline-body">{{ translate('Please_take_action') }}</div>
+                        <div class="timeline-body">
+                            {{ translate('Please_take_action') }}
+                            @if(!empty($lead->next_followup_reason))
+                                <div class="mt-1">{{ translate('What_needs_to_be_done') }}: {{ $lead->next_followup_reason }}</div>
+                            @endif
+                        </div>
                     </div>
                 </div>
             @endif
@@ -73,6 +78,9 @@
                             {{ translate('Taken_By') }}: {{ $fuName }}
                             @if($followup->next_followup_at)
                                 · {{ translate('Next_Follow_up_Date') }}: {{ $followup->next_followup_at->format('d M Y, h:i A') }}
+                            @endif
+                            @if(!empty($followup->next_followup_reason))
+                                <div class="mt-1">{{ translate('What_needs_to_be_done') }}: {{ $followup->next_followup_reason }}</div>
                             @endif
                         </div>
                         <div class="timeline-meta">
@@ -284,7 +292,8 @@
                                                 data-channel="{{ $followup->contact_channel }}"
                                                 data-urgency="{{ $followup->urgency ?: 'medium' }}"
                                                 data-remarks="{{ $followup->remarks }}"
-                                                data-next-at="{{ $followup->next_followup_at?->format('Y-m-d\TH:i') }}">
+                                                data-next-at="{{ $followup->next_followup_at?->format('Y-m-d\TH:i') }}"
+                                                data-next-reason="{{ $followup->next_followup_reason }}">
                                             <span class="material-icons" aria-hidden="true">edit</span>
                                         </button>
                                         <button type="button"

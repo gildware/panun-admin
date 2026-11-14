@@ -137,6 +137,7 @@ class Lead extends Model
         'initial_call_recording_summary',
         'initial_call_recording_transcribed_at',
         'next_followup_at',
+        'next_followup_reason',
         'non_responsive_at',
         'non_responsive_by',
         'non_responsive_remarks',

@@ -65,6 +65,7 @@
             $('#lead-edit-followup-urgency').val(payload.urgency || 'medium');
             $('#lead-edit-followup-remarks').val(payload.remarks || '');
             $('#lead-edit-followup-next').val(payload.nextAt || '');
+            $('#lead-edit-followup-next-reason').val(payload.nextReason || '');
             toggleEditFollowupFields(payload.status || '{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN }}');
             applyEditFollowupFutureMin();
 
@@ -107,6 +108,7 @@
                 urgency: $btn.data('urgency'),
                 remarks: $btn.data('remarks'),
                 nextAt: $btn.data('next-at'),
+                nextReason: $btn.data('next-reason'),
             };
         }
 

@@ -16,7 +16,6 @@ return new class extends Migration {
             $table->string('area')->nullable();
             $table->text('details')->nullable();
             $table->string('preferred_date')->nullable();
-            $table->string('status', 50)->default('PENDING_REVIEW')->index();
             $table->unsignedBigInteger('lead_id')->nullable()->index();
             $table->timestamps();
         });
