@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-status-colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111425">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111427">
 @endpush
 
 @section('content')
@@ -547,11 +547,11 @@
             + '<col class="ow-col-pri">'
             + '<col class="ow-col-type">'
             + '<col class="ow-col-work">'
-            + '<col class="ow-col-next">'
-            + '<col class="ow-col-comment">'
             + '<col class="ow-col-handled">'
             + '<col class="ow-col-age">'
             + '<col class="ow-col-owner">'
+            + '<col class="ow-col-next">'
+            + '<col class="ow-col-comment">'
             + '</colgroup>';
     }
 
@@ -560,11 +560,11 @@
             + '<th class="ow-col-pri">{{ translate('Pri') }}</th>'
             + '<th class="ow-col-type">{{ translate('Type') }}</th>'
             + '<th class="ow-col-work">{{ translate('Work') }}</th>'
-            + '<th class="ow-col-next">{{ translate('Next_follow_up') }}</th>'
-            + '<th class="ow-col-comment">{{ translate('Last_comment') }}</th>'
             + '<th class="ow-col-handled">{{ translate('Last_handled_by') }}</th>'
             + '<th class="ow-col-age">{{ translate('Open_for') }}</th>'
             + '<th class="ow-col-owner">{{ translate('Owner') }}</th>'
+            + '<th class="ow-col-next">{{ translate('Next_follow_up') }}</th>'
+            + '<th class="ow-col-comment">{{ translate('Last_comment') }}</th>'
             + '</tr></thead>';
     }
 
@@ -575,13 +575,13 @@
             + '<td class="ow-col-work"><div class="ow-what"><span class="name">' + escapeHtml(it.name) + '</span><span class="id">' + escapeHtml(it.ref) + '</span>'
             + detailsHtml(it.details)
             + '</div></td>'
+            + '<td class="ow-col-handled">' + lastHandledHtml(it) + '</td>'
+            + '<td class="ow-col-age ow-age ' + ageClass(it) + '">' + formatAge(it.age_hours) + (it.is_overdue ? ' · ' + @json(translate('overdue')) : '') + '</td>'
+            + '<td class="ow-col-owner ow-owner ' + (it.owner_id === 'unassigned' ? 'unassigned' : '') + '">' + escapeHtml(it.owner_label) + '</td>'
             + '<td class="ow-col-next ow-next">' + escapeHtml(it.next_step || '—')
             + (it.next_hint ? '<small>' + escapeHtml(it.next_hint) + '</small>' : '')
             + '</td>'
             + '<td class="ow-col-comment ow-comment">' + commentHtml(it.last_comment) + '</td>'
-            + '<td class="ow-col-handled">' + lastHandledHtml(it) + '</td>'
-            + '<td class="ow-col-age ow-age ' + ageClass(it) + '">' + formatAge(it.age_hours) + (it.is_overdue ? ' · ' + @json(translate('overdue')) : '') + '</td>'
-            + '<td class="ow-col-owner ow-owner ' + (it.owner_id === 'unassigned' ? 'unassigned' : '') + '">' + escapeHtml(it.owner_label) + '</td>'
             + '</tr>';
     }
 
