@@ -340,14 +340,14 @@
   font-size: 12px;
 }
 
-.open-work col.ow-col-pri { width: 36px; }
-.open-work col.ow-col-type { width: 52px; }
-.open-work col.ow-col-work { width: 13%; }
-.open-work col.ow-col-next { width: 26%; }
-.open-work col.ow-col-comment { width: 30%; }
-.open-work col.ow-col-handled { width: 9%; }
-.open-work col.ow-col-age { width: 68px; }
-.open-work col.ow-col-owner { width: 8%; }
+.open-work col.ow-col-pri { width: 42px; }
+.open-work col.ow-col-type { width: 58px; }
+.open-work col.ow-col-work { width: 16%; }
+.open-work col.ow-col-handled { width: 11%; }
+.open-work col.ow-col-age { width: 104px; }
+.open-work col.ow-col-owner { width: 10%; }
+.open-work col.ow-col-next { width: 24%; }
+.open-work col.ow-col-comment { width: 26%; }
 
 .open-work th {
   text-align: left;
@@ -357,30 +357,33 @@
   letter-spacing: .04em;
   color: var(--ow-muted);
   background: var(--ow-brand-soft);
-  padding: 6px 5px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--ow-border);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .open-work td {
-  padding: 6px 5px;
+  padding: 6px 8px;
   border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
+  vertical-align: top;
+  overflow: hidden;
 }
 
 .open-work th.ow-col-pri,
 .open-work td.ow-col-pri,
 .open-work th.ow-col-type,
-.open-work td.ow-col-type,
-.open-work th.ow-col-age,
-.open-work td.ow-col-age {
-  padding-left: 4px;
-  padding-right: 4px;
+.open-work td.ow-col-type {
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .open-work .ow-col-pri,
 .open-work .ow-col-type,
-.open-work .ow-col-age {
+.open-work .ow-col-age,
+.open-work .ow-col-owner,
+.open-work .ow-col-handled {
   white-space: nowrap;
 }
 
@@ -435,7 +438,7 @@
 .open-work .ow-status-chip {
   display: inline-flex;
   align-items: center;
-  max-width: 110px;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -527,16 +530,18 @@
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: normal;
+  max-width: 100%;
 }
 
 .open-work .ow-comment {
   line-height: 1.35;
   color: var(--ow-muted);
   font-size: 11px;
-  overflow: visible;
+  overflow: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: normal;
+  max-width: 100%;
 }
 
 .open-work .ow-comment__wrap {
@@ -606,8 +611,11 @@
 .open-work .ow-age {
   font-weight: 650;
   font-size: 11px;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.25;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .open-work .ow-age.bad { color: var(--ow-hot); }

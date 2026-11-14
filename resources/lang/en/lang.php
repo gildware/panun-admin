@@ -11908,4 +11908,6 @@ _Message' => 'Customer notification for provider bid offer
   'overdue' => 'Overdue',
   'Last_handled_by' => 'Last handled by',
   'Counts' => 'Counts',
+  'Read_more' => 'Read more',
+  'Show_less' => 'Show less',
 );
