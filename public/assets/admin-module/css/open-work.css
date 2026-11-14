@@ -340,14 +340,14 @@
   font-size: 12px;
 }
 
-.open-work col.ow-col-pri { width: 44px; }
-.open-work col.ow-col-type { width: 72px; }
-.open-work col.ow-col-work { width: 20%; }
-.open-work col.ow-col-next { width: 16%; }
-.open-work col.ow-col-comment { width: 20%; }
-.open-work col.ow-col-handled { width: 13%; }
-.open-work col.ow-col-age { width: 88px; }
-.open-work col.ow-col-owner { width: 11%; }
+.open-work col.ow-col-pri { width: 36px; }
+.open-work col.ow-col-type { width: 52px; }
+.open-work col.ow-col-work { width: 13%; }
+.open-work col.ow-col-next { width: 26%; }
+.open-work col.ow-col-comment { width: 30%; }
+.open-work col.ow-col-handled { width: 9%; }
+.open-work col.ow-col-age { width: 68px; }
+.open-work col.ow-col-owner { width: 8%; }
 
 .open-work th {
   text-align: left;
@@ -357,15 +357,25 @@
   letter-spacing: .04em;
   color: var(--ow-muted);
   background: var(--ow-brand-soft);
-  padding: 6px 6px;
+  padding: 6px 5px;
   border-bottom: 1px solid var(--ow-border);
   white-space: nowrap;
 }
 
 .open-work td {
-  padding: 6px 6px;
+  padding: 6px 5px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
+}
+
+.open-work th.ow-col-pri,
+.open-work td.ow-col-pri,
+.open-work th.ow-col-type,
+.open-work td.ow-col-type,
+.open-work th.ow-col-age,
+.open-work td.ow-col-age {
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 .open-work .ow-col-pri,
@@ -425,7 +435,7 @@
 .open-work .ow-status-chip {
   display: inline-flex;
   align-items: center;
-  max-width: 160px;
+  max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -527,6 +537,37 @@
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: normal;
+}
+
+.open-work .ow-comment__wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.open-work .ow-comment__body {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.open-work .ow-comment__more {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  color: var(--ow-brand);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.open-work .ow-comment__more:hover {
+  color: var(--ow-brand-dark);
 }
 
 .open-work .ow-handled {

@@ -58,7 +58,6 @@ class OpenWorkService
         $this->mergeHuntingLeads($byKey, $today, $now, $namesById);
         $this->mergeUnassignedLeads($byKey, $today, $now, $namesById);
         $this->mergeActiveBookings($byKey, $today, $now, $namesById);
-        $this->mergePendingTasks($byKey, $today, $now, $namesById);
 
         $items = array_values($byKey);
 
@@ -876,7 +875,7 @@ class OpenWorkService
             if (isset($map[$id])) {
                 continue;
             }
-            $map[$id] = $this->clip($this->plainCommentBody((string) ($row->body ?? '')), 140);
+            $map[$id] = $this->plainCommentBody((string) ($row->body ?? ''));
         }
 
         return $map;
