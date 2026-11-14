@@ -88,6 +88,8 @@ try {
             'admin-module/css/top-nav.css',
             'admin-module/css/lead-detail-redesign.css',
             'admin-module/css/booking-list-compact.css',
+            'admin-module/css/booking-status-colors.css',
+            'admin-module/css/open-work.css',
             'admin-module/css/style.css',
             'admin-module/css/custom.css',
             'chatting-module/css/staff-chat-entity-badges.css',
