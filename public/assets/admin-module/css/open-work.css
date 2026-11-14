@@ -59,12 +59,28 @@
   width: auto;
 }
 
-.open-work .ow-field--counts {
-  flex: 0 1 auto;
-  max-width: 100%;
+.open-work .ow-seg__n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, .12);
+  color: var(--ow-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
 }
 
-.open-work .ow-counts {
+.open-work .ow-seg__btn.active .ow-seg__n {
+  background: var(--ow-brand-soft);
+  color: var(--ow-brand-dark);
+}
+
+.open-work .ow-type-chips {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
@@ -72,63 +88,50 @@
   min-height: 34px;
 }
 
-.open-work .ow-count {
+.open-work .ow-type-chip {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   height: 34px;
   padding: 0 10px;
-  border: 1px solid var(--ow-border);
+  border: 1px solid #bfdbfe;
   border-radius: 8px;
-  background: var(--ow-surface);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ow-text);
-  white-space: nowrap;
-}
-
-.open-work .ow-count strong {
-  font-weight: 700;
-  color: var(--ow-brand-dark);
-}
-
-.open-work .ow-count--lead {
   background: #eff6ff;
-  border-color: #bfdbfe;
   color: #1e3a8a;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
 }
 
-.open-work .ow-count--lead strong {
-  color: #1d4ed8;
+.open-work .ow-type-chip:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
 }
 
-.open-work .ow-count--booking {
-  background: #ecfeff;
-  border-color: #a5f3fc;
-  color: #155e75;
+.open-work .ow-type-chip.active {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #fff;
 }
 
-.open-work .ow-count--booking strong {
-  color: #0e7490;
-}
-
-.open-work .ow-count__parts {
+.open-work .ow-type-chip__n {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 2px;
-  padding-left: 6px;
-  border-left: 1px solid rgba(30, 58, 138, .18);
-  font-size: 11px;
-  font-weight: 600;
-  color: #334155;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .55);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
 }
 
-.open-work .ow-count__parts span {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, .72);
+.open-work .ow-type-chip.active .ow-type-chip__n {
+  background: rgba(255, 255, 255, .22);
 }
 
 .open-work .ow-field--employee {

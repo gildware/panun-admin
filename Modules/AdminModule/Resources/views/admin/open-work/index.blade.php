@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-status-colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111421">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111422">
 @endpush
 
 @section('content')
@@ -54,25 +54,21 @@
             <div class="ow-field ow-field--type">
                 <span class="ow-field__label">{{ translate('Type') }}</span>
                 <div class="ow-seg" role="group" aria-label="{{ translate('Type') }}">
-                    <button type="button" class="ow-seg__btn active" data-filter="all">{{ translate('All') }}</button>
-                    <button type="button" class="ow-seg__btn" data-filter="lead">{{ translate('Leads') }}</button>
-                    <button type="button" class="ow-seg__btn" data-filter="booking">{{ translate('Bookings') }}</button>
+                    <button type="button" class="ow-seg__btn active" data-filter="all">
+                        {{ translate('All') }} <span class="ow-seg__n" data-count="all">0</span>
+                    </button>
+                    <button type="button" class="ow-seg__btn" data-filter="lead">
+                        {{ translate('Leads') }} <span class="ow-seg__n" data-count="lead">0</span>
+                    </button>
+                    <button type="button" class="ow-seg__btn" data-filter="booking">
+                        {{ translate('Bookings') }} <span class="ow-seg__n" data-count="booking">0</span>
+                    </button>
                 </div>
             </div>
 
-            <div class="ow-field ow-field--counts">
-                <span class="ow-field__label">{{ translate('Counts') }}</span>
-                <div class="ow-counts" id="ow-counts" aria-live="polite"></div>
-            </div>
-
             <div class="ow-field ow-field--lead" id="ow-lead-type-field" hidden>
-                <label class="ow-field__label" for="ow-lead-type">{{ translate('Lead_type') }}</label>
-                <select id="ow-lead-type" class="ow-control" aria-label="{{ translate('Lead_type') }}" disabled>
-                    <option value="" selected>{{ translate('All') }}</option>
-                    <option value="unknown">{{ translate('Unknown') }}</option>
-                    <option value="customer">{{ translate('Customer') }}</option>
-                    <option value="provider">{{ translate('Provider') }}</option>
-                </select>
+                <span class="ow-field__label">{{ translate('Lead_type') }}</span>
+                <div class="ow-type-chips" id="ow-lead-type-chips" role="group" aria-label="{{ translate('Lead_type') }}"></div>
             </div>
 
             <div class="ow-field ow-field--booking" id="ow-booking-status-field" hidden>
@@ -330,14 +326,12 @@
     }
 
     function updateCounts() {
-        var el = document.getElementById('ow-counts');
-        if (!el) return;
-
         var leads = 0;
         var unknown = 0;
         var customer = 0;
         var provider = 0;
         var bookings = 0;
+        var other = 0;
 
         items.forEach(function (it) {
             if (!matchesEmployeeAndSearch(it)) return;
@@ -349,21 +343,35 @@
                 else if (lt === 'unknown') unknown++;
             } else if (it.type === 'booking') {
                 bookings++;
+            } else {
+                other++;
             }
         });
 
-        el.innerHTML =
-            '<span class="ow-count ow-count--lead">'
-            + '<strong>{{ translate('Lead') }}</strong> ' + leads
-            + '<span class="ow-count__parts">'
-            + '<span>{{ translate('Unknown') }} ' + unknown + '</span>'
-            + '<span>{{ translate('Customer') }} ' + customer + '</span>'
-            + '<span>{{ translate('Provider') }} ' + provider + '</span>'
-            + '</span>'
-            + '</span>'
-            + '<span class="ow-count ow-count--booking">'
-            + '<strong>{{ translate('Booking') }}</strong> ' + bookings
-            + '</span>';
+        var all = leads + bookings + other;
+        var setN = function (key, n) {
+            root.querySelectorAll('.ow-seg__n[data-count="' + key + '"]').forEach(function (node) {
+                node.textContent = String(n);
+            });
+        };
+        setN('all', all);
+        setN('lead', leads);
+        setN('booking', bookings);
+
+        var chips = document.getElementById('ow-lead-type-chips');
+        if (chips) {
+            var parts = [
+                { key: 'unknown', label: @json(translate('Unknown')), n: unknown },
+                { key: 'customer', label: @json(translate('Customer')), n: customer },
+                { key: 'provider', label: @json(translate('Provider')), n: provider }
+            ];
+            chips.innerHTML = parts.map(function (p) {
+                var active = state.leadType === p.key ? ' active' : '';
+                return '<button type="button" class="ow-type-chip' + active + '" data-lead-type="' + p.key + '">'
+                    + escapeHtml(p.label) + ' <span class="ow-type-chip__n">' + p.n + '</span>'
+                    + '</button>';
+            }).join('');
+        }
     }
 
     function filtered() {
@@ -450,7 +458,6 @@
     function syncSubfilterVisibility() {
         var leadField = document.getElementById('ow-lead-type-field');
         var bookingField = document.getElementById('ow-booking-status-field');
-        var leadSel = document.getElementById('ow-lead-type');
         var bookingSel = document.getElementById('ow-booking-status');
 
         var showLead = state.type === 'lead';
@@ -458,10 +465,8 @@
 
         if (leadField) {
             leadField.hidden = !showLead;
-            if (leadSel) leadSel.disabled = !showLead;
             if (!showLead) {
                 state.leadType = '';
-                if (leadSel) leadSel.value = '';
             }
         }
         if (bookingField) {
@@ -501,10 +506,13 @@
         });
     });
 
-    var leadTypeSelect = document.getElementById('ow-lead-type');
-    if (leadTypeSelect) {
-        leadTypeSelect.addEventListener('change', function () {
-            state.leadType = leadTypeSelect.value || '';
+    var leadTypeChips = document.getElementById('ow-lead-type-chips');
+    if (leadTypeChips) {
+        leadTypeChips.addEventListener('click', function (e) {
+            var btn = e.target.closest('.ow-type-chip[data-lead-type]');
+            if (!btn) return;
+            var value = btn.getAttribute('data-lead-type') || '';
+            state.leadType = state.leadType === value ? '' : value;
             render();
         });
     }
