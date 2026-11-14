@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-status-colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111420">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111421">
 @endpush
 
 @section('content')
@@ -58,6 +58,11 @@
                     <button type="button" class="ow-seg__btn" data-filter="lead">{{ translate('Leads') }}</button>
                     <button type="button" class="ow-seg__btn" data-filter="booking">{{ translate('Bookings') }}</button>
                 </div>
+            </div>
+
+            <div class="ow-field ow-field--counts">
+                <span class="ow-field__label">{{ translate('Counts') }}</span>
+                <div class="ow-counts" id="ow-counts" aria-live="polite"></div>
             </div>
 
             <div class="ow-field ow-field--lead" id="ow-lead-type-field" hidden>
@@ -305,25 +310,67 @@
         }
     }
 
+    function matchesEmployeeAndSearch(it) {
+        if (state.employee === 'unassigned') {
+            if (it.owner_id !== 'unassigned') return false;
+        } else if (state.employee === '__assigned__') {
+            if (it.owner_id === 'unassigned') return false;
+        } else if (state.employee) {
+            if (it.owner_id !== state.employee) return false;
+        }
+        if (state.q) {
+            var q = state.q.toLowerCase();
+            var detailText = Array.isArray(it.details)
+                ? it.details.map(detailLabel).join(' ')
+                : '';
+            var hay = (it.name + ' ' + it.ref + ' ' + (it.status || '') + ' ' + detailText + ' ' + (it.next_step || '') + ' ' + (it.last_comment || '') + ' ' + (it.last_handled_by || '')).toLowerCase();
+            if (hay.indexOf(q) === -1) return false;
+        }
+        return true;
+    }
+
+    function updateCounts() {
+        var el = document.getElementById('ow-counts');
+        if (!el) return;
+
+        var leads = 0;
+        var unknown = 0;
+        var customer = 0;
+        var provider = 0;
+        var bookings = 0;
+
+        items.forEach(function (it) {
+            if (!matchesEmployeeAndSearch(it)) return;
+            if (isLeadish(it)) {
+                leads++;
+                var lt = String(it.lead_type || 'unknown');
+                if (lt === 'customer') customer++;
+                else if (lt === 'provider') provider++;
+                else if (lt === 'unknown') unknown++;
+            } else if (it.type === 'booking') {
+                bookings++;
+            }
+        });
+
+        el.innerHTML =
+            '<span class="ow-count ow-count--lead">'
+            + '<strong>{{ translate('Lead') }}</strong> ' + leads
+            + '<span class="ow-count__parts">'
+            + '<span>{{ translate('Unknown') }} ' + unknown + '</span>'
+            + '<span>{{ translate('Customer') }} ' + customer + '</span>'
+            + '<span>{{ translate('Provider') }} ' + provider + '</span>'
+            + '</span>'
+            + '</span>'
+            + '<span class="ow-count ow-count--booking">'
+            + '<strong>{{ translate('Booking') }}</strong> ' + bookings
+            + '</span>';
+    }
+
     function filtered() {
         var list = items.filter(function (it) {
             if (!matchesType(it)) return false;
             if (!matchesSubFilters(it)) return false;
-            if (state.employee === 'unassigned') {
-                if (it.owner_id !== 'unassigned') return false;
-            } else if (state.employee === '__assigned__') {
-                if (it.owner_id === 'unassigned') return false;
-            } else if (state.employee) {
-                if (it.owner_id !== state.employee) return false;
-            }
-            if (state.q) {
-                var q = state.q.toLowerCase();
-                var detailText = Array.isArray(it.details)
-                    ? it.details.map(detailLabel).join(' ')
-                    : '';
-                var hay = (it.name + ' ' + it.ref + ' ' + (it.status || '') + ' ' + detailText + ' ' + (it.next_step || '') + ' ' + (it.last_comment || '') + ' ' + (it.last_handled_by || '')).toLowerCase();
-                if (hay.indexOf(q) === -1) return false;
-            }
+            if (!matchesEmployeeAndSearch(it)) return false;
             return true;
         });
 
@@ -388,6 +435,7 @@
     }
 
     function render() {
+        updateCounts();
         var list = filtered();
         var main = document.getElementById('ow-main');
         if (!list.length) {
