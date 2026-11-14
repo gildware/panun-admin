@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-status-colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111422">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111423">
 @endpush
 
 @section('content')
@@ -53,22 +53,20 @@
 
             <div class="ow-field ow-field--type">
                 <span class="ow-field__label">{{ translate('Type') }}</span>
-                <div class="ow-seg" role="group" aria-label="{{ translate('Type') }}">
-                    <button type="button" class="ow-seg__btn active" data-filter="all">
-                        {{ translate('All') }} <span class="ow-seg__n" data-count="all">0</span>
-                    </button>
-                    <button type="button" class="ow-seg__btn" data-filter="lead">
-                        {{ translate('Leads') }} <span class="ow-seg__n" data-count="lead">0</span>
-                    </button>
-                    <button type="button" class="ow-seg__btn" data-filter="booking">
-                        {{ translate('Bookings') }} <span class="ow-seg__n" data-count="booking">0</span>
-                    </button>
+                <div class="ow-type-row">
+                    <div class="ow-seg" role="group" aria-label="{{ translate('Type') }}">
+                        <button type="button" class="ow-seg__btn active" data-filter="all">
+                            {{ translate('All') }} <span class="ow-seg__n" data-count="all">0</span>
+                        </button>
+                        <button type="button" class="ow-seg__btn" data-filter="lead">
+                            {{ translate('Leads') }} <span class="ow-seg__n" data-count="lead">0</span>
+                        </button>
+                        <button type="button" class="ow-seg__btn" data-filter="booking">
+                            {{ translate('Bookings') }} <span class="ow-seg__n" data-count="booking">0</span>
+                        </button>
+                    </div>
+                    <div class="ow-type-chips" id="ow-lead-type-chips" role="group" aria-label="{{ translate('Lead_type') }}" hidden></div>
                 </div>
-            </div>
-
-            <div class="ow-field ow-field--lead" id="ow-lead-type-field" hidden>
-                <span class="ow-field__label">{{ translate('Lead_type') }}</span>
-                <div class="ow-type-chips" id="ow-lead-type-chips" role="group" aria-label="{{ translate('Lead_type') }}"></div>
             </div>
 
             <div class="ow-field ow-field--booking" id="ow-booking-status-field" hidden>
@@ -367,7 +365,7 @@
             ];
             chips.innerHTML = parts.map(function (p) {
                 var active = state.leadType === p.key ? ' active' : '';
-                return '<button type="button" class="ow-type-chip' + active + '" data-lead-type="' + p.key + '">'
+                return '<button type="button" class="ow-type-chip ow-type-chip--' + p.key + active + '" data-lead-type="' + p.key + '">'
                     + escapeHtml(p.label) + ' <span class="ow-type-chip__n">' + p.n + '</span>'
                     + '</button>';
             }).join('');
@@ -456,15 +454,15 @@
     }
 
     function syncSubfilterVisibility() {
-        var leadField = document.getElementById('ow-lead-type-field');
+        var leadChips = document.getElementById('ow-lead-type-chips');
         var bookingField = document.getElementById('ow-booking-status-field');
         var bookingSel = document.getElementById('ow-booking-status');
 
         var showLead = state.type === 'lead';
         var showBooking = state.type === 'booking';
 
-        if (leadField) {
-            leadField.hidden = !showLead;
+        if (leadChips) {
+            leadChips.hidden = !showLead;
             if (!showLead) {
                 state.leadType = '';
             }

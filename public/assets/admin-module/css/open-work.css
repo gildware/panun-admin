@@ -59,6 +59,14 @@
   width: auto;
 }
 
+.open-work .ow-type-row {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-height: 34px;
+}
+
 .open-work .ow-seg__n {
   display: inline-flex;
   align-items: center;
@@ -83,9 +91,9 @@
 .open-work .ow-type-chips {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  min-height: 34px;
+  flex-shrink: 0;
 }
 
 .open-work .ow-type-chip {
@@ -94,25 +102,53 @@
   gap: 5px;
   height: 34px;
   padding: 0 10px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: #eff6ff;
-  color: #1e3a8a;
   font-size: 12px;
   font-weight: 650;
   cursor: pointer;
   white-space: nowrap;
-  transition: background .12s ease, border-color .12s ease, color .12s ease;
+  flex-shrink: 0;
+  transition: background .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
 }
 
-.open-work .ow-type-chip:hover {
-  border-color: #93c5fd;
-  background: #dbeafe;
+.open-work .ow-type-chip--unknown {
+  background: #cff4fc;
+  border-color: #9eeaf9;
+  color: #055160;
 }
 
-.open-work .ow-type-chip.active {
-  border-color: #1d4ed8;
-  background: #1d4ed8;
+.open-work .ow-type-chip--customer {
+  background: #d1e7dd;
+  border-color: #a3cfbb;
+  color: #0f5132;
+}
+
+.open-work .ow-type-chip--provider {
+  background: rgba(37, 39, 77, 0.1);
+  border-color: #c5c9df;
+  color: #25274d;
+}
+
+.open-work .ow-type-chip--unknown:hover { background: #b6effb; }
+.open-work .ow-type-chip--customer:hover { background: #badbcc; }
+.open-work .ow-type-chip--provider:hover { background: rgba(37, 39, 77, 0.16); }
+
+.open-work .ow-type-chip--unknown.active {
+  background: #0dcaf0;
+  border-color: #0aa2c0;
+  color: #053b45;
+}
+
+.open-work .ow-type-chip--customer.active {
+  background: #198754;
+  border-color: #146c43;
+  color: #fff;
+}
+
+.open-work .ow-type-chip--provider.active {
+  background: #25274d;
+  border-color: #1a1c38;
   color: #fff;
 }
 
@@ -131,7 +167,7 @@
 }
 
 .open-work .ow-type-chip.active .ow-type-chip__n {
-  background: rgba(255, 255, 255, .22);
+  background: rgba(255, 255, 255, .28);
 }
 
 .open-work .ow-field--employee {
