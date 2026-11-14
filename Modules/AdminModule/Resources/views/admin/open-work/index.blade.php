@@ -4,7 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-status-colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111424">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/open-work.css') }}?v=2026111423">
 @endpush
 
 @section('content')
@@ -81,6 +81,22 @@
             </div>
 
             <div class="ow-toolbar__right">
+                @unless($employeeScope)
+                    <div class="ow-field ow-field--employee">
+                        <label class="ow-field__label" for="ow-employee">{{ translate('Owner') }}</label>
+                        <select id="ow-employee"
+                                class="js-select ow-employee-select ow-control"
+                                aria-label="{{ translate('Owner') }}">
+                            <option value="__all__" selected>{{ translate('All_assigned_and_unassigned') }}</option>
+                            <option value="__assigned__">{{ translate('All_assigned') }}</option>
+                            <option value="unassigned">{{ translate('Unassigned') }}</option>
+                            @foreach($employees as $employee)
+                                <option value="{{ $employee['id'] }}">{{ $employee['name'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endunless
+
                 <div class="ow-field ow-field--sort">
                     <label class="ow-field__label" for="ow-sort-by">{{ translate('Sort_by') }}</label>
                     <div class="ow-sort-pair">
@@ -150,12 +166,13 @@
         name: 'asc'
     };
 
-    var STORAGE_KEY = 'open-work-filters-v2';
+    var STORAGE_KEY = 'open-work-filters-v1';
 
     var state = {
         type: 'all',
         leadType: '',
         bookingStatus: '',
+        employee: '',
         q: '',
         sortBy: 'followup',
         sortDir: 'asc'
@@ -186,7 +203,7 @@
         var fromUrl = {};
         try {
             var params = new URLSearchParams(window.location.search || '');
-            ['type', 'lead_type', 'booking_status', 'q', 'sort_by', 'sort_dir'].forEach(function (key) {
+            ['type', 'lead_type', 'booking_status', 'employee', 'q', 'sort_by', 'sort_dir'].forEach(function (key) {
                 if (params.has(key)) fromUrl[key] = params.get(key);
             });
         } catch (e) {}
@@ -202,6 +219,8 @@
         state.type = normalizeType(raw.type);
         state.leadType = state.type === 'lead' ? normalizeLeadType(raw.lead_type || raw.leadType) : '';
         state.bookingStatus = state.type === 'booking' ? normalizeBookingStatus(raw.booking_status || raw.bookingStatus) : '';
+        state.employee = String(raw.employee || '');
+        if (state.employee === '__all__') state.employee = '';
         state.q = String(raw.q || '').trim();
         state.sortBy = normalizeSortBy(raw.sort_by || raw.sortBy);
         if (raw.sort_dir != null || raw.sortDir != null) {
@@ -216,6 +235,7 @@
             type: state.type,
             lead_type: state.leadType,
             booking_status: state.bookingStatus,
+            employee: state.employee,
             q: state.q,
             sort_by: state.sortBy,
             sort_dir: state.sortDir
@@ -230,6 +250,7 @@
             if (state.type && state.type !== 'all') params.set('type', state.type);
             if (state.leadType) params.set('lead_type', state.leadType);
             if (state.bookingStatus) params.set('booking_status', state.bookingStatus);
+            if (state.employee) params.set('employee', state.employee);
             if (state.q) params.set('q', state.q);
             if (state.sortBy && state.sortBy !== 'followup') params.set('sort_by', state.sortBy);
             if (state.sortDir && !(state.sortBy === 'followup' && state.sortDir === 'asc')) {
@@ -259,6 +280,15 @@
 
         var bookingSel = document.getElementById('ow-booking-status');
         if (bookingSel) bookingSel.value = state.bookingStatus || '';
+
+        var empSelect = document.getElementById('ow-employee');
+        if (empSelect) {
+            var empVal = state.employee || '__all__';
+            empSelect.value = empVal;
+            if (window.jQuery && jQuery(empSelect).data('select2')) {
+                jQuery(empSelect).val(empVal).trigger('change.select2');
+            }
+        }
     }
 
     function formatAge(h) {
@@ -389,14 +419,23 @@
         }
     }
 
-    function matchesSearch(it) {
-        if (!state.q) return true;
-        var q = state.q.toLowerCase();
-        var detailText = Array.isArray(it.details)
-            ? it.details.map(detailLabel).join(' ')
-            : '';
-        var hay = (it.name + ' ' + it.ref + ' ' + (it.status || '') + ' ' + detailText + ' ' + (it.next_step || '') + ' ' + (it.last_comment || '') + ' ' + (it.last_handled_by || '') + ' ' + (it.owner_label || '')).toLowerCase();
-        return hay.indexOf(q) !== -1;
+    function matchesEmployeeAndSearch(it) {
+        if (state.employee === 'unassigned') {
+            if (it.owner_id !== 'unassigned') return false;
+        } else if (state.employee === '__assigned__') {
+            if (it.owner_id === 'unassigned') return false;
+        } else if (state.employee) {
+            if (it.owner_id !== state.employee) return false;
+        }
+        if (state.q) {
+            var q = state.q.toLowerCase();
+            var detailText = Array.isArray(it.details)
+                ? it.details.map(detailLabel).join(' ')
+                : '';
+            var hay = (it.name + ' ' + it.ref + ' ' + (it.status || '') + ' ' + detailText + ' ' + (it.next_step || '') + ' ' + (it.last_comment || '') + ' ' + (it.last_handled_by || '')).toLowerCase();
+            if (hay.indexOf(q) === -1) return false;
+        }
+        return true;
     }
 
     function updateCounts() {
@@ -408,7 +447,7 @@
         var other = 0;
 
         items.forEach(function (it) {
-            if (!matchesSearch(it)) return;
+            if (!matchesEmployeeAndSearch(it)) return;
             if (isLeadish(it)) {
                 leads++;
                 var lt = String(it.lead_type || 'unknown');
@@ -452,7 +491,7 @@
         var list = items.filter(function (it) {
             if (!matchesType(it)) return false;
             if (!matchesSubFilters(it)) return false;
-            if (!matchesSearch(it)) return false;
+            if (!matchesEmployeeAndSearch(it)) return false;
             return true;
         });
 
@@ -614,6 +653,33 @@
             state.sortDir = sortDirSelect.value || 'asc';
             render();
         });
+    }
+
+    function normalizeEmployeeValue(val) {
+        val = val || '';
+        if (!val || val === '__all__') return '';
+        return val;
+    }
+
+    var empSelect = document.getElementById('ow-employee');
+    if (empSelect) {
+        function onEmployeeChange() {
+            state.employee = normalizeEmployeeValue(empSelect.value);
+            render();
+        }
+        empSelect.addEventListener('change', onEmployeeChange);
+
+        if (window.jQuery && jQuery.fn.select2) {
+            var $emp = jQuery(empSelect);
+            if ($emp.hasClass('select2-hidden-accessible')) {
+                $emp.select2('destroy');
+            }
+            $emp.select2({
+                width: '100%',
+                minimumResultsForSearch: 0
+            });
+            $emp.on('change', onEmployeeChange);
+        }
     }
 
     document.getElementById('ow-search').addEventListener('input', function (e) {
