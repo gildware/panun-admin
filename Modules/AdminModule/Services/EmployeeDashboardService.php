@@ -1894,6 +1894,7 @@ class EmployeeDashboardService
     private function followupAccuracyStats(string $userId): array
     {
         $today = Carbon::today();
+        $now = Carbon::now();
 
         $bookingDueQuery = BookingFollowup::query()
             ->where('status', 'scheduled')
@@ -1903,7 +1904,7 @@ class EmployeeDashboardService
                     ->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
             });
 
-        $bookingMissed = (clone $bookingDueQuery)->whereDate('date', '<', $today)->count();
+        $bookingMissed = (clone $bookingDueQuery)->where('date', '<', $now)->count();
         $bookingDue = (clone $bookingDueQuery)->count();
 
         $leadDueQuery = Lead::query()
@@ -1912,7 +1913,7 @@ class EmployeeDashboardService
             ->whereDate('next_followup_at', '<=', $today);
         $this->leadOpenStatus->restrictQueryToOpenLeads($leadDueQuery);
 
-        $leadMissed = (clone $leadDueQuery)->whereDate('next_followup_at', '<', $today)->count();
+        $leadMissed = (clone $leadDueQuery)->where('next_followup_at', '<', $now)->count();
         $leadDue = (clone $leadDueQuery)->count();
 
         return [
@@ -3496,7 +3497,7 @@ class EmployeeDashboardService
             'datetime_display' => $this->formatListDateTime($datetime),
             'urgency' => $urgency,
             'urgency_label' => translate(ucfirst($urgency)),
-            'is_overdue' => $datetime !== null && $datetime->lt($today->copy()->startOfDay()),
+            'is_overdue' => $datetime !== null && $datetime->isPast(),
         ];
     }
 
@@ -3524,7 +3525,7 @@ class EmployeeDashboardService
             'datetime_display' => $this->formatListDateTime($datetime),
             'urgency' => $urgency,
             'urgency_label' => translate(ucfirst($urgency)),
-            'is_overdue' => $datetime !== null && $datetime->lt($today->copy()->startOfDay()),
+            'is_overdue' => $datetime !== null && $datetime->isPast(),
         ];
     }
 
@@ -3671,7 +3672,7 @@ class EmployeeDashboardService
         $base = Lead::query()
             ->where('handled_by', $userId)
             ->whereNotNull('next_followup_at')
-            ->whereDate('next_followup_at', '<', $today);
+            ->where('next_followup_at', '<', Carbon::now());
         $this->leadOpenStatus->restrictQueryToOpenLeads($base);
 
         $leads = (clone $base)
@@ -3694,7 +3695,7 @@ class EmployeeDashboardService
         $today = Carbon::today();
         $base = BookingFollowup::query()
             ->where('status', 'scheduled')
-            ->whereDate('date', '<', $today)
+            ->where('date', '<', Carbon::now())
             ->whereHas('booking', function ($q) use ($userId) {
                 $q->where('assignee_id', $userId)
                     ->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
@@ -3720,7 +3721,8 @@ class EmployeeDashboardService
         $base = Lead::query()
             ->where('handled_by', $userId)
             ->whereNotNull('next_followup_at')
-            ->whereDate('next_followup_at', $today);
+            ->whereDate('next_followup_at', $today)
+            ->where('next_followup_at', '>=', Carbon::now());
         $this->leadOpenStatus->restrictQueryToOpenLeads($base);
 
         $leads = (clone $base)
@@ -3743,6 +3745,7 @@ class EmployeeDashboardService
         $base = BookingFollowup::query()
             ->where('status', 'scheduled')
             ->whereDate('date', $today)
+            ->where('date', '>=', Carbon::now())
             ->whereHas('booking', function ($q) use ($userId) {
                 $q->where('assignee_id', $userId)
                     ->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
