@@ -9,6 +9,7 @@ class LeadFollowupReminderNotifier
     public function __construct(
         private readonly LeadOpenStatusService $openStatusService,
         private readonly LeadFollowupService $followupService,
+        private readonly LeadChangeLogService $changeLogs,
     ) {
     }
 
@@ -33,11 +34,16 @@ class LeadFollowupReminderNotifier
                         continue;
                     }
 
-                    if (! Lead::assigneeIsHuman($lead->handled_by ?? null)) {
+                    if (! $this->followupService->leadTypeRequiresMandatoryFollowup((string) $lead->lead_type)) {
                         continue;
                     }
 
-                    if (! $this->followupService->leadTypeRequiresMandatoryFollowup((string) $lead->lead_type)) {
+                    $dueAt = $lead->next_followup_at;
+                    if ($dueAt && $this->followupService->pendingFollowupIsOverdue($dueAt)) {
+                        $this->changeLogs->recordFollowupMissed((int) $lead->id, $dueAt);
+                    }
+
+                    if (! Lead::assigneeIsHuman($lead->handled_by ?? null)) {
                         continue;
                     }
 

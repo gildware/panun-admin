@@ -3,7 +3,9 @@
 namespace Tests\Unit;
 
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Tests\TestCase;
 
@@ -145,5 +147,37 @@ class LeadFollowupServiceTest extends TestCase
         $due = $this->service->dueFollowupAtForCallSync($lead, $takenAt, true);
 
         $this->assertTrue($due->equalTo($next));
+    }
+
+    public function test_reschedule_after_due_is_marked_missed(): void
+    {
+        $lead = new Lead([
+            'date_time_of_lead_received' => Carbon::parse('2026-11-17 21:19:48'),
+        ]);
+
+        $reschedule = new LeadFollowup([
+            'followup_status' => LeadFollowup::STATUS_RESCHEDULE,
+            'due_followup_at' => Carbon::parse('2026-11-18 10:00:00'),
+            'next_followup_at' => Carbon::parse('2026-11-19 12:00:00'),
+        ]);
+        $reschedule->id = 9466;
+        $reschedule->created_at = Carbon::parse('2026-11-18 10:02:32');
+
+        $early = new LeadFollowup([
+            'followup_status' => LeadFollowup::STATUS_RESCHEDULE,
+            'due_followup_at' => Carbon::parse('2026-11-18 10:00:00'),
+            'next_followup_at' => Carbon::parse('2026-11-18 11:00:00'),
+        ]);
+        $early->id = 1;
+        $early->created_at = Carbon::parse('2026-11-18 09:30:00');
+
+        $meta = $this->service->buildFollowupDelayMeta($lead, new Collection([$reschedule, $early]));
+
+        $this->assertFalse($meta[9466]['on_time']);
+        $this->assertSame(3, $meta[9466]['delay_minutes']);
+        $this->assertNull($meta[9466]['early_label']);
+        $this->assertTrue($meta[1]['on_time']);
+        $this->assertSame(30, $meta[1]['early_minutes']);
+        $this->assertNotEmpty($meta[1]['early_label']);
     }
 }

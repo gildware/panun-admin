@@ -44,6 +44,7 @@
                         <button type="button"
                                 class="btn btn-sm btn-link text-danger lead-comment-delete-btn p-0"
                                 data-url="{{ route('admin.lead.comments.destroy', $comment->id) }}"
+                                data-label="{{ $commentParser->plainPreview($comment->body ?? '', 120) }}"
                                 title="{{ translate('Delete') }}">
                             <span class="material-icons">delete_outline</span>
                         </button>

@@ -84,8 +84,13 @@
                             @endif
                         </div>
                         <div class="timeline-meta">
+                            @if($followup->isRescheduled() && ($delayMeta['on_time'] ?? null) === false)
+                                <span class="chip chip--danger" title="{{ translate('Delayed_by') }} {{ $delayMeta['delay_label'] }}">{{ translate('Missed_Follow_up') }}</span>
+                            @endif
                             @if($delayMeta && $dueAt && ! $followup->isRescheduled())
-                                @if($delayMeta['on_time'])
+                                @if(! empty($delayMeta['early_label']))
+                                    <span class="chip chip--info">{{ translate('Taken_before') }} {{ $delayMeta['early_label'] }}</span>
+                                @elseif($delayMeta['on_time'])
                                     <span class="chip chip--success">{{ translate('On_time') }}</span>
                                 @else
                                     <span class="chip chip--danger">{{ translate('Delayed_by') }} {{ $delayMeta['delay_label'] }}</span>
@@ -248,12 +253,18 @@
                         <tr class="lead-followup-row {{ $loop->even ? 'lead-followup-row--alt' : '' }}">
                             <td class="text-nowrap">{{ $dueAt?->format('j M, g:i A') ?? '—' }}</td>
                             <td class="text-nowrap">{{ $followup->followup_at?->format('j M, g:i A') ?? ($followup->isRescheduled() ? $followup->created_at?->format('j M, g:i A') : '—') }}</td>
-                            <td class="text-nowrap">
-                                @if($delayMeta && $dueAt && ! $followup->isRescheduled())
-                                    @if($delayMeta['on_time'])
+                            <td class="lead-followup-delay-cell">
+                                @php $rescheduleWasMissed = $followup->isRescheduled() && ($delayMeta['on_time'] ?? null) === false; @endphp
+                                @if($rescheduleWasMissed)
+                                    <span class="chip chip--danger" title="{{ translate('Delayed_by') }} {{ $delayMeta['delay_label'] }}">{{ translate('Missed_Follow_up') }}</span>
+                                    <span class="chip chip--info">{{ translate('Rescheduled') }}</span>
+                                @elseif($delayMeta && $dueAt && ! $followup->isRescheduled())
+                                    @if(! empty($delayMeta['early_label']))
+                                        <span class="chip chip--info">{{ translate('Taken_before') }} {{ $delayMeta['early_label'] }}</span>
+                                    @elseif($delayMeta['on_time'])
                                         <span class="chip chip--success">{{ translate('On_time') }}</span>
                                     @else
-                                        <span class="chip chip--danger" title="{{ translate('Delayed_by') }} {{ $delayMeta['delay_label'] }}">{{ $delayMeta['delay_label'] }}</span>
+                                        <span class="chip chip--danger" title="{{ translate('Delayed_by') }} {{ $delayMeta['delay_label'] }}">{{ translate('Delayed_by') }} {{ $delayMeta['delay_label'] }}</span>
                                     @endif
                                 @elseif($followup->isRescheduled())
                                     <span class="chip chip--info">{{ translate('Rescheduled') }}</span>
@@ -267,7 +278,12 @@
                                     <span title="{{ $fuName ?: $fuUser->email }}">{{ $fuName ?: $fuUser->email }}</span>
                                 @else — @endif
                             </td>
-                            <td><span class="chip chip--{{ $followup->isRescheduled() ? 'info' : 'success' }}">{{ $followup->followupStatusLabel() }}</span></td>
+                            <td>
+                                @if($followup->isRescheduled() && ($delayMeta['on_time'] ?? null) === false)
+                                    <span class="chip chip--danger">{{ translate('Missed_Follow_up') }}</span>
+                                @endif
+                                <span class="chip chip--{{ $followup->isRescheduled() ? 'info' : 'success' }}">{{ $followup->followupStatusLabel() }}</span>
+                            </td>
                             <td class="text-nowrap">{{ $followup->contactChannelLabel() ?? '—' }}</td>
                             <td class="text-end text-nowrap">
                                 @can('lead_update')

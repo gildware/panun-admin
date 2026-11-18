@@ -1109,6 +1109,7 @@
 
                     @include('leadmanagement::admin.leads.partials._lead-edit-followup-modal')
                     @include('leadmanagement::admin.leads.partials._lead-followup-delete-modal')
+                    @include('leadmanagement::admin.leads.partials._lead-comment-delete-modal')
                     @include('leadmanagement::admin.leads.partials._other-phone-link-modal')
 
                     @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
@@ -3887,13 +3888,31 @@
                 });
             });
 
+            var pendingCommentDeleteUrl = '';
+            var commentDeleteModalEl = document.getElementById('deleteLeadCommentModal');
+            var commentDeleteLabelEl = document.getElementById('deleteLeadCommentModalItem');
+            var commentDeleteConfirmBtn = document.getElementById('deleteLeadCommentConfirmBtn');
+
             document.querySelectorAll('.lead-comment-delete-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    if (!confirm(@json(translate('Are_you_sure')))) return;
                     var url = btn.getAttribute('data-url');
-                    if (!url) return;
-                    btn.disabled = true;
-                    fetch(url, {
+                    if (!url || !commentDeleteModalEl || typeof bootstrap === 'undefined') return;
+                    pendingCommentDeleteUrl = url;
+                    if (commentDeleteLabelEl) {
+                        commentDeleteLabelEl.textContent = btn.getAttribute('data-label') || '';
+                    }
+                    if (commentDeleteConfirmBtn) {
+                        commentDeleteConfirmBtn.disabled = false;
+                    }
+                    bootstrap.Modal.getOrCreateInstance(commentDeleteModalEl).show();
+                });
+            });
+
+            if (commentDeleteConfirmBtn) {
+                commentDeleteConfirmBtn.addEventListener('click', function () {
+                    if (!pendingCommentDeleteUrl) return;
+                    commentDeleteConfirmBtn.disabled = true;
+                    fetch(pendingCommentDeleteUrl, {
                         method: 'DELETE',
                         headers: {
                             'X-CSRF-TOKEN': csrfToken(),
@@ -3907,11 +3926,14 @@
                         })
                         .then(function () { window.location.reload(); })
                         .catch(function () {
-                            btn.disabled = false;
+                            commentDeleteConfirmBtn.disabled = false;
+                            if (commentDeleteModalEl && typeof bootstrap !== 'undefined') {
+                                bootstrap.Modal.getOrCreateInstance(commentDeleteModalEl).hide();
+                            }
                             if (typeof toastr !== 'undefined') toastr.error(@json(translate('Failed_to_update')));
                         });
                 });
-            });
+            }
 
             var commentsWrap = document.getElementById('leadCommentsListWrap');
             if (commentsWrap) {
