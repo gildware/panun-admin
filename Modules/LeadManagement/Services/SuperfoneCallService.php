@@ -1426,6 +1426,12 @@ class SuperfoneCallService
             ]));
             $call->lead_followup_id = $followup->id;
             $call->save();
+
+            $changeLogs = app(LeadChangeLogService::class);
+            $dueAt = $followup->due_followup_at;
+            $actor = $call->employee_user_id ? (string) $call->employee_user_id : null;
+            $changeLogs->recordFollowupMissedIfPast((int) $lead->id, $dueAt, $takenAt, $actor);
+            $changeLogs->recordFollowupTaken((int) $lead->id, $dueAt, $takenAt, null, $actor);
         } else {
             if ($this->remarksAreManaged($followup->remarks)) {
                 $attributes['remarks'] = $remarks;

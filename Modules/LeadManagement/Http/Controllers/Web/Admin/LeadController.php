@@ -3260,6 +3260,16 @@ class LeadController extends Controller
             'created_by' => Auth::id(),
         ], $recordingData));
 
+        $changeLogs = app(LeadChangeLogService::class);
+        $dueAt = $lead->next_followup_at;
+        $changeLogs->recordFollowupMissedIfPast((int) $lead->id, $dueAt, $validated['followup_at']);
+        $changeLogs->recordFollowupTaken(
+            (int) $lead->id,
+            $dueAt,
+            $validated['followup_at'],
+            $validated['remarks'] ?? null
+        );
+
         $followupService = app(LeadFollowupService::class);
         $nextAt = $validated['next_followup_at'] ?? null;
         if ($nextAt !== null) {
@@ -3314,11 +3324,20 @@ class LeadController extends Controller
         ]);
 
         $followupService = app(LeadFollowupService::class);
+        $dueAt = $lead->next_followup_at;
         $nextAt = $validated['next_followup_at'] ?? null;
+        if ($nextAt === null && $requiresNext) {
+            $nextAt = $followupService->defaultNextFollowupAt();
+        }
+
+        $changeLogs = app(LeadChangeLogService::class);
+        $changeLogs->recordFollowupMissedIfPast((int) $lead->id, $dueAt, now());
+        if ($nextAt !== null) {
+            $changeLogs->recordFollowupRescheduled((int) $lead->id, $dueAt, $nextAt, $nextReason);
+        }
+
         if ($nextAt !== null) {
             $followupService->setPendingFollowup($lead, $nextAt, $nextReason);
-        } elseif ($requiresNext) {
-            $followupService->setPendingFollowup($lead, $followupService->defaultNextFollowupAt(), $nextReason);
         }
 
         toastr()->success(translate('Follow_up_rescheduled_successfully'));
@@ -3357,6 +3376,10 @@ class LeadController extends Controller
             : null;
         $nextReason = $nextReason !== '' ? $nextReason : null;
 
+        $previousDue = $followup->due_followup_at;
+        $previousTaken = $followup->followup_at;
+        $previousNext = $followup->next_followup_at;
+
         $payload = [
             'due_followup_at' => $validated['date'],
             'remarks' => $validated['remarks'] ?? null,
@@ -3376,6 +3399,27 @@ class LeadController extends Controller
         }
 
         $followup->update($payload);
+
+        $changeLogs = app(LeadChangeLogService::class);
+        if ($followup->isRescheduled()) {
+            if ($this->followupTimesDiffer($previousNext, $payload['next_followup_at'] ?? null)) {
+                $changeLogs->recordFollowupMissedIfPast((int) $lead->id, $previousNext, now());
+                $changeLogs->recordFollowupRescheduled(
+                    (int) $lead->id,
+                    $previousNext ?? $previousDue,
+                    $payload['next_followup_at'] ?? null,
+                    $payload['next_followup_reason'] ?? null
+                );
+            }
+        } elseif ($this->followupTimesDiffer($previousTaken, $payload['followup_at'] ?? null)) {
+            $changeLogs->recordFollowupMissedIfPast((int) $lead->id, $previousDue, $payload['followup_at'] ?? null);
+            $changeLogs->recordFollowupTaken(
+                (int) $lead->id,
+                $previousDue,
+                $payload['followup_at'] ?? null,
+                $payload['remarks'] ?? null
+            );
+        }
 
         if (! empty($payload['next_followup_at'])) {
             app(LeadFollowupService::class)->setPendingFollowup(
@@ -3403,6 +3447,11 @@ class LeadController extends Controller
         toastr()->success(translate('Follow_up_deleted_successfully'));
 
         return $this->redirectAfterFollowup($request, $lead);
+    }
+
+    protected function followupTimesDiffer(mixed $left, mixed $right): bool
+    {
+        return $this->normalizeDateTimeForCompare($left) !== $this->normalizeDateTimeForCompare($right);
     }
 
     protected function leadFollowupFutureDateRule(): \Closure
@@ -3492,6 +3541,11 @@ class LeadController extends Controller
             'created_by' => Auth::id(),
         ], $recordingData));
 
+        $changeLogs = app(LeadChangeLogService::class);
+        $dueAt = $lead->next_followup_at;
+        $changeLogs->recordFollowupMissedIfPast((int) $lead->id, $dueAt, $validated['called_at']);
+        $changeLogs->recordFollowupTaken((int) $lead->id, $dueAt, $validated['called_at'], $validated['remarks'] ?? null);
+
         toastr()->success(translate('Call_log_added_successfully'));
 
         return $this->redirectAfterCallLog($request, $lead);
@@ -3522,6 +3576,9 @@ class LeadController extends Controller
             $validated['called_number'] ?? null,
         );
 
+        $previousTaken = $followup->followup_at;
+        $previousDue = $followup->due_followup_at;
+
         $recordingData = $this->resolveCallLogRecordingUpload($request, $followup);
         if ($recordingData === false) {
             return $this->redirectAfterCallLog($request, $lead)
@@ -3541,6 +3598,17 @@ class LeadController extends Controller
             'called_number' => $calledNumber,
             'called_provider_id' => $calledProviderId,
         ], $recordingData ?? []));
+
+        if ($this->followupTimesDiffer($previousTaken, $validated['called_at'])) {
+            $changeLogs = app(LeadChangeLogService::class);
+            $changeLogs->recordFollowupMissedIfPast((int) $lead->id, $previousDue, $validated['called_at']);
+            $changeLogs->recordFollowupTaken(
+                (int) $lead->id,
+                $previousDue,
+                $validated['called_at'],
+                $validated['remarks'] ?? null
+            );
+        }
 
         toastr()->success(translate('Call_log_updated_successfully'));
 

@@ -276,7 +276,7 @@ class LeadFollowupService
 
     /**
      * @param  Collection<int, LeadFollowup>  $followups
-     * @return array<int, array{due_at: ?Carbon, on_time: ?bool, delay_minutes: ?int, delay_label: ?string}>
+     * @return array<int, array{due_at: ?Carbon, on_time: ?bool, delay_minutes: ?int, delay_label: ?string, early_minutes: ?int, early_label: ?string}>
      */
     public function buildFollowupDelayMeta(Lead $lead, Collection $followups): array
     {
@@ -291,10 +291,22 @@ class LeadFollowupService
         $previousDue = $receivedAt ? $this->defaultNextFollowupAt($receivedAt) : null;
         $meta = [];
 
-        foreach ($followups->sortBy('followup_at') as $followup) {
+        foreach ($followups->sortBy(function (LeadFollowup $followup) {
+            $at = $followup->followup_at ?? $followup->created_at;
+
+            return $at instanceof Carbon ? $at->getTimestamp() : ($at ? Carbon::parse($at)->getTimestamp() : 0);
+        }) as $followup) {
             $takenAt = $followup->followup_at instanceof Carbon
                 ? $followup->followup_at
                 : ($followup->followup_at ? Carbon::parse($followup->followup_at) : null);
+
+            // A reschedule has no taken time. Compare the moment it was moved
+            // with the due time so a missed slot still shows as missed.
+            if (! $takenAt && $followup->isRescheduled() && $followup->created_at) {
+                $takenAt = $followup->created_at instanceof Carbon
+                    ? $followup->created_at
+                    : Carbon::parse($followup->created_at);
+            }
 
             $storedDue = $followup->due_followup_at ?? null;
             if ($storedDue && ! $storedDue instanceof Carbon) {
@@ -305,14 +317,22 @@ class LeadFollowupService
             $onTime = null;
             $delayMinutes = null;
             $delayLabel = null;
+            $earlyMinutes = null;
+            $earlyLabel = null;
 
             if ($dueAt && $takenAt) {
                 if ($takenAt->lte($dueAt)) {
                     $onTime = true;
                     $delayMinutes = 0;
+                    $earlyMinutes = (int) round(abs($dueAt->diffInMinutes($takenAt)));
+                    if ($earlyMinutes >= 1) {
+                        $earlyLabel = $this->formatDelayDuration($earlyMinutes);
+                    } else {
+                        $earlyMinutes = null;
+                    }
                 } else {
                     $onTime = false;
-                    $delayMinutes = (int) round($dueAt->diffInMinutes($takenAt));
+                    $delayMinutes = (int) round(abs($dueAt->diffInMinutes($takenAt)));
                     $delayLabel = $this->formatDelayDuration($delayMinutes);
                 }
             }
@@ -322,6 +342,8 @@ class LeadFollowupService
                 'on_time' => $onTime,
                 'delay_minutes' => $delayMinutes,
                 'delay_label' => $delayLabel,
+                'early_minutes' => $earlyMinutes,
+                'early_label' => $earlyLabel,
             ];
 
             $previousDue = $followup->next_followup_at instanceof Carbon

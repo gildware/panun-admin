@@ -39,6 +39,133 @@ class LeadChangeLogService
     }
 
     /**
+     * Follow-up was taken. From = when it was due, to = when it was taken.
+     */
+    public function recordFollowupTaken(
+        int $leadId,
+        Carbon|string|null $dueAt,
+        Carbon|string|null $takenAt,
+        ?string $remarks = null,
+        ?string $changedBy = null
+    ): void {
+        $this->record($leadId, [
+            'followup_taken' => $this->followupEventChange(
+                'Follow_up_taken',
+                $this->formatFollowupWhen($dueAt),
+                $this->formatFollowupWhen($takenAt),
+                $remarks
+            ),
+        ], $changedBy);
+    }
+
+    /**
+     * Follow-up was moved. From = previous time, to = new time.
+     */
+    public function recordFollowupRescheduled(
+        int $leadId,
+        Carbon|string|null $fromAt,
+        Carbon|string|null $toAt,
+        ?string $reason = null,
+        ?string $changedBy = null
+    ): void {
+        $this->record($leadId, [
+            'followup_rescheduled' => $this->followupEventChange(
+                'Follow_up_rescheduled',
+                $this->formatFollowupWhen($fromAt),
+                $this->formatFollowupWhen($toAt),
+                $reason
+            ),
+        ], $changedBy);
+    }
+
+    /**
+     * Write one missed event for this due time. Later actions for the same due do not add another.
+     */
+    public function recordFollowupMissed(int $leadId, Carbon|string $dueAt, ?string $changedBy = null): bool
+    {
+        $due = $dueAt instanceof Carbon ? $dueAt : Carbon::parse($dueAt);
+        $dueKey = $due->format('Y-m-d H:i:s');
+
+        if ($this->followupMissedAlreadyLogged($leadId, $dueKey)) {
+            return false;
+        }
+
+        $this->record($leadId, [
+            'followup_missed' => [
+                'label' => 'Follow_up_missed',
+                'old' => $this->formatFollowupWhen($due),
+                'new' => translate('Missed_Follow_up'),
+                'due_at' => $dueKey,
+            ],
+        ], $changedBy);
+
+        return true;
+    }
+
+    /**
+     * Missed only when the follow-up was still open after its due time.
+     */
+    public function recordFollowupMissedIfPast(
+        int $leadId,
+        Carbon|string|null $dueAt,
+        Carbon|string|null $actedAt = null,
+        ?string $changedBy = null
+    ): bool {
+        if ($dueAt === null || $dueAt === '') {
+            return false;
+        }
+
+        $due = $dueAt instanceof Carbon ? $dueAt : Carbon::parse($dueAt);
+        $acted = $actedAt instanceof Carbon
+            ? $actedAt
+            : ($actedAt ? Carbon::parse($actedAt) : Carbon::now());
+
+        if ($acted->lte($due)) {
+            return false;
+        }
+
+        return $this->recordFollowupMissed($leadId, $due, $changedBy);
+    }
+
+    public function followupMissedAlreadyLogged(int $leadId, string $dueKey): bool
+    {
+        return LeadChangeLog::query()
+            ->where('lead_id', $leadId)
+            ->where('changes->followup_missed->due_at', $dueKey)
+            ->exists();
+    }
+
+    /**
+     * @return array{label: string, old: string, new: string, reason?: string}
+     */
+    private function followupEventChange(string $label, string $from, string $to, ?string $detail = null): array
+    {
+        $change = [
+            'label' => $label,
+            'old' => $from,
+            'new' => $to,
+        ];
+
+        $detail = trim((string) $detail);
+        if ($detail !== '') {
+            $change['reason'] = $detail;
+        }
+
+        return $change;
+    }
+
+    private function formatFollowupWhen(Carbon|string|null $value): string
+    {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        $at = $value instanceof Carbon ? $value : Carbon::parse($value);
+
+        return $at->format('d F Y h:i a');
+    }
+
+    /**
      * @return array<string, array{label: string, old: string, new: string}>
      */
     public function buildTypeHistoryDiff(string $leadType, array $oldData, array $newData): array

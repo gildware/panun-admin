@@ -606,7 +606,7 @@ class BookingFollowupService
 
     /**
      * @param  Collection<int, BookingFollowup>  $followups
-     * @return array<int, array{due_at: ?Carbon, on_time: ?bool, delay_minutes: ?int, delay_label: ?string}>
+     * @return array<int, array{due_at: ?Carbon, on_time: ?bool, delay_minutes: ?int, delay_label: ?string, early_minutes: ?int, early_label: ?string}>
      */
     public function buildFollowupDelayMeta(Collection $followups): array
     {
@@ -637,14 +637,22 @@ class BookingFollowupService
             $onTime = null;
             $delayMinutes = null;
             $delayLabel = null;
+            $earlyMinutes = null;
+            $earlyLabel = null;
 
             if ($dueAt && $takenAt && ! $followup->isRescheduled()) {
                 if ($takenAt->lte($dueAt)) {
                     $onTime = true;
                     $delayMinutes = 0;
+                    $earlyMinutes = (int) round(abs($dueAt->diffInMinutes($takenAt)));
+                    if ($earlyMinutes >= 1) {
+                        $earlyLabel = $this->formatDelayDuration($earlyMinutes);
+                    } else {
+                        $earlyMinutes = null;
+                    }
                 } else {
                     $onTime = false;
-                    $delayMinutes = (int) round($dueAt->diffInMinutes($takenAt));
+                    $delayMinutes = (int) round(abs($dueAt->diffInMinutes($takenAt)));
                     $delayLabel = $this->formatDelayDuration($delayMinutes);
                 }
             }
@@ -654,6 +662,8 @@ class BookingFollowupService
                 'on_time' => $onTime,
                 'delay_minutes' => $delayMinutes,
                 'delay_label' => $delayLabel,
+                'early_minutes' => $earlyMinutes,
+                'early_label' => $earlyLabel,
             ];
         }
 

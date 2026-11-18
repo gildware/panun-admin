@@ -89,7 +89,7 @@ class LeadCommentController extends Controller
         }
 
         $leadId = $comment->lead_id;
-        $comment->delete();
+        app(LeadCommentService::class)->deleteComment($comment, $user);
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true]);

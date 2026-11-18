@@ -44,6 +44,7 @@ class LeadCommentService
             ]);
         }
 
+        $this->recordCommentHistory($lead, 'comment_added', 'Comment_added', '—', $this->commentHistoryText($comment));
         $this->notifyRecipients($lead, $comment, $author);
 
         return $comment->load(['createdBy', 'pinnedByUser', 'attachments']);
@@ -128,6 +129,17 @@ class LeadCommentService
         return $comment->fresh(['createdBy', 'pinnedByUser']);
     }
 
+    public function deleteComment(LeadComment $comment, User $actor): void
+    {
+        $lead = $comment->lead;
+        $text = $this->commentHistoryText($comment);
+        $comment->delete();
+
+        if ($lead) {
+            $this->recordCommentHistory($lead, 'comment_removed', 'Comment_removed', $text, '—', (string) $actor->id);
+        }
+    }
+
     /**
      * @param  array<int, string>  $userIds
      * @return array<int, string>
@@ -146,6 +158,27 @@ class LeadCommentService
             ->map(fn ($id) => (string) $id)
             ->values()
             ->all();
+    }
+
+    private function commentHistoryText(LeadComment $comment): string
+    {
+        $preview = $this->messageParser->plainPreview($comment->body, 500);
+        if ($preview !== '') {
+            return $preview;
+        }
+
+        return translate('Attachment');
+    }
+
+    private function recordCommentHistory(Lead $lead, string $key, string $label, string $old, string $new, ?string $changedBy = null): void
+    {
+        app(LeadChangeLogService::class)->record($lead->id, [
+            $key => [
+                'label' => $label,
+                'old' => $old,
+                'new' => $new,
+            ],
+        ], $changedBy);
     }
 
     private function notifyRecipients(Lead $lead, LeadComment $comment, User $author): void
