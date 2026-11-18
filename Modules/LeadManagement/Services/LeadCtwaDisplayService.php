@@ -36,12 +36,18 @@ class LeadCtwaDisplayService
             return [];
         }
 
+        $keys = [];
+        foreach ($phones as $p) {
+            foreach (PartyPhoneDirectory::storedPhoneKeys($p) as $key) {
+                $keys[$key] = true;
+            }
+        }
+        if ($keys === []) {
+            return [];
+        }
+
         $users = WhatsAppUser::query()
-            ->where(function ($q) use ($phones) {
-                foreach ($phones as $p) {
-                    $q->orWhere('phone', 'like', '%'.$p);
-                }
-            })
+            ->whereIn('phone', array_keys($keys))
             ->where(function ($q) {
                 $q->whereNotNull('referral_json')
                     ->orWhereNotNull('ctwa_clid')

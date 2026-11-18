@@ -988,7 +988,81 @@ class EmployeeProgressScoreService
             $this->addLatePenalty($late[$employeeId], $delayMinutes);
         }
 
+        foreach ($this->openOverdueFollowups($employeeIds, $rangeStart, $rangeEnd) as $open) {
+            $employeeId = (string) ($open['employee_id'] ?? '');
+            if ($employeeId === '' || ! array_key_exists($employeeId, $late)) {
+                continue;
+            }
+
+            $this->addLatePenalty($late[$employeeId], (int) ($open['delay_minutes'] ?? 0));
+        }
+
         return $late;
+    }
+
+    /**
+     * Follow-ups that are still open after their due time. The delay grows until they are taken.
+     *
+     * @param  list<string>  $employeeIds
+     * @return list<array{employee_id: string, kind: string, reference: string, due: Carbon, delay_minutes: int, url: ?string}>
+     */
+    public function openOverdueFollowups(array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): array
+    {
+        if ($employeeIds === []) {
+            return [];
+        }
+
+        $asOf = Carbon::now()->lt($rangeEnd) ? Carbon::now() : $rangeEnd->copy();
+        $rows = [];
+
+        $leadQuery = Lead::query()
+            ->whereIn('handled_by', $employeeIds)
+            ->whereNotNull('handled_by')
+            ->where('handled_by', '!=', Lead::HANDLED_BY_AI)
+            ->whereNotNull('next_followup_at')
+            ->whereBetween('next_followup_at', [$rangeStart, $rangeEnd])
+            ->where('next_followup_at', '<', $asOf);
+        $this->leadOpenStatus->restrictQueryToOpenLeads($leadQuery);
+
+        foreach ($leadQuery->get(['id', 'name', 'phone_number', 'handled_by', 'next_followup_at']) as $lead) {
+            $due = $lead->next_followup_at instanceof Carbon
+                ? $lead->next_followup_at
+                : Carbon::parse($lead->next_followup_at);
+            $rows[] = [
+                'employee_id' => (string) $lead->handled_by,
+                'kind' => 'lead',
+                'reference' => $lead->name ?: ($lead->phone_number ?: (string) $lead->id),
+                'due' => $due,
+                'delay_minutes' => (int) round($due->diffInMinutes($asOf)),
+                'url' => route('admin.lead.show', $lead->id),
+            ];
+        }
+
+        $bookingFollowups = BookingFollowup::query()
+            ->where('status', 'scheduled')
+            ->whereBetween('date', [$rangeStart, $rangeEnd])
+            ->where('date', '<', $asOf)
+            ->whereHas('booking', function ($query) use ($employeeIds) {
+                $query->whereIn('assignee_id', $employeeIds)
+                    ->whereNotNull('assignee_id')
+                    ->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
+            })
+            ->with(['booking:id,readable_id,assignee_id'])
+            ->get(['id', 'booking_id', 'date']);
+
+        foreach ($bookingFollowups as $followup) {
+            $due = $followup->date instanceof Carbon ? $followup->date : Carbon::parse($followup->date);
+            $rows[] = [
+                'employee_id' => (string) ($followup->booking?->assignee_id ?? ''),
+                'kind' => 'booking',
+                'reference' => (string) ($followup->booking?->readable_id ?: $followup->booking_id),
+                'due' => $due,
+                'delay_minutes' => (int) round($due->diffInMinutes($asOf)),
+                'url' => $followup->booking_id ? route('admin.booking.details', $followup->booking_id) : null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

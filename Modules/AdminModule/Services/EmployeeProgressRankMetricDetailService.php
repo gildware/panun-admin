@@ -848,6 +848,26 @@ class EmployeeProgressRankMetricDetailService
             ];
         }
 
+        foreach ($this->progressScore->openOverdueFollowups([$employeeId], $rangeStart, $rangeEnd) as $open) {
+            $delayMinutes = (int) ($open['delay_minutes'] ?? 0);
+            $bucket = $this->lateBucketForMinutes($delayMinutes);
+            if ($bucket['key'] !== $bucketKey) {
+                continue;
+            }
+
+            $due = $open['due'] instanceof Carbon ? $open['due'] : Carbon::parse($open['due']);
+            $rows[] = [
+                'kind' => ($open['kind'] ?? '') === 'booking'
+                    ? (translate('Booking_followup') ?? 'Booking follow-up')
+                    : (translate('Lead_followup') ?? 'Lead follow-up'),
+                'reference' => $open['reference'] ?? '—',
+                'due_at' => $due->format('d M Y h:i a'),
+                'followup_at' => translate('Missed_Follow_up') ?? 'Missed',
+                'delay' => $this->formatDelay($delayMinutes),
+                'url' => $open['url'] ?? null,
+            ];
+        }
+
         usort($rows, fn (array $a, array $b) => strcmp((string) ($b['followup_at'] ?? ''), (string) ($a['followup_at'] ?? '')));
 
         return $rows;

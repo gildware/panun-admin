@@ -244,12 +244,15 @@ class SuperfoneCallExcelExport
             }
         }
 
+        // Match the list: a call is matched only when its lead or booking row
+        // is still there. A soft-deleted lead/booking leaves the id set, so the
+        // row shows Link call, and the unmatched filter has to include it.
         if ($request->input('matched') === 'yes') {
             $query->where(function ($inner) {
-                $inner->whereNotNull('lead_id')->orWhereNotNull('booking_id');
+                $inner->whereHas('lead')->orWhereHas('booking');
             });
         } elseif ($request->input('matched') === 'no') {
-            $query->whereNull('lead_id')->whereNull('booking_id');
+            $query->whereDoesntHave('lead')->whereDoesntHave('booking');
         }
 
         if ($request->filled('agent')) {

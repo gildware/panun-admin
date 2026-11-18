@@ -1721,10 +1721,6 @@
             })();
 
             $(function () {
-                var $customerModal = $('#leadCustomerModal');
-                if (typeof initZoneTreeSelect2 === 'function') {
-                    initZoneTreeSelect2($('#lead-zone-select'), $customerModal.length ? { dropdownParent: $customerModal } : {});
-                }
                 window.loadZoneAreasForSelect = function ($select, zoneIds) {
                     if (!$select || !$select.length) {
                         return;
@@ -2878,6 +2874,9 @@
             $('#leadCustomerModal').on('show.bs.modal', function () {
                 var $modal = $(this);
                 var s = getCustomerSelects();
+                if (s.zone.length && !s.zone.hasClass('select2-hidden-accessible') && typeof initZoneTreeSelect2 === 'function') {
+                    initZoneTreeSelect2(s.zone, { dropdownParent: $modal });
+                }
                 var editZone = $modal.data('editZone');
                 var editCategory = $modal.data('editCategory');
                 var editSubcategory = $modal.data('editSubcategory');
@@ -3538,12 +3537,6 @@
             });
             providerCategorySelect.on('change', function () {
                 loadProviderSubcategories();
-            });
-
-            $(function () {
-                if (providerZoneSelect.length) {
-                    initProviderZoneSelect();
-                }
             });
 
             $('#leadProviderModal').on('show.bs.modal', function () {

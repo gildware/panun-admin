@@ -17,6 +17,29 @@ use Modules\UserManagement\Entities\User;
  */
 class PartyPhoneDirectory
 {
+    /**
+     * Exact values we store for an Indian number, so lookups can use an index.
+     *
+     * @return list<string>
+     */
+    public static function storedPhoneKeys(string $digits): array
+    {
+        $digits = preg_replace('/\D+/', '', $digits) ?? '';
+        if (strlen($digits) >= 10) {
+            $digits = substr($digits, -10);
+        }
+        if ($digits === '') {
+            return [];
+        }
+
+        return array_values(array_unique([
+            $digits,
+            '0'.$digits,
+            '91'.$digits,
+            '+91'.$digits,
+        ]));
+    }
+
     public static function normalizeDigits(?string $phone): ?string
     {
         $digits = preg_replace('/\D+/', '', (string) $phone) ?? '';
@@ -473,17 +496,13 @@ class PartyPhoneDirectory
 
     private function wherePhoneEndsWith($query, string $column, string $digits): void
     {
-        $query->where(function ($inner) use ($column, $digits) {
-            if (DB::connection()->getDriverName() === 'mysql') {
-                $inner->whereRaw(
-                    "RIGHT(REGEXP_REPLACE(COALESCE({$column}, ''), '[^0-9]', ''), ?) = ?",
-                    [strlen($digits), $digits]
-                );
+        $keys = self::storedPhoneKeys($digits);
+        if ($keys === []) {
+            $query->whereRaw('1 = 0');
 
-                return;
-            }
+            return;
+        }
 
-            $inner->where($column, $digits)->orWhere($column, 'like', '%'.$digits);
-        });
+        $query->whereIn($column, $keys);
     }
 }

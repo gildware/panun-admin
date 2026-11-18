@@ -1074,8 +1074,28 @@
                 }
                 $('#lead-view-new-tab').attr('href', urls.tab);
                 $('#lead-view-loading').removeClass('d-none');
+                if (frame._leadPreviewTimer) {
+                    clearInterval(frame._leadPreviewTimer);
+                    frame._leadPreviewTimer = null;
+                }
                 if (frame.getAttribute('src') !== urls.modal) {
                     frame.src = urls.modal;
+                    let tries = 0;
+                    frame._leadPreviewTimer = setInterval(function () {
+                        tries += 1;
+                        let ready = false;
+                        try {
+                            const doc = frame.contentDocument;
+                            ready = !!(doc && doc.querySelector && doc.querySelector('.lead-detail-v2'));
+                        } catch (e) {}
+                        if (ready || tries > 80) {
+                            clearInterval(frame._leadPreviewTimer);
+                            frame._leadPreviewTimer = null;
+                            if (ready) {
+                                $('#lead-view-loading').addClass('d-none');
+                            }
+                        }
+                    }, 150);
                 } else {
                     $('#lead-view-loading').addClass('d-none');
                 }
@@ -1085,6 +1105,10 @@
             $('#lead-view-frame').off('load.leadIndexNav').on('load.leadIndexNav', function () {
                 const src = this.getAttribute('src') || '';
                 if (src && src !== 'about:blank') {
+                    if (this._leadPreviewTimer) {
+                        clearInterval(this._leadPreviewTimer);
+                        this._leadPreviewTimer = null;
+                    }
                     $('#lead-view-loading').addClass('d-none');
                     try {
                         if (this.contentWindow) {
@@ -1097,6 +1121,10 @@
             $('#leadViewModal').off('hidden.bs.modal.leadIndexNav').on('hidden.bs.modal.leadIndexNav', function () {
                 const frame = document.getElementById('lead-view-frame');
                 if (frame) {
+                    if (frame._leadPreviewTimer) {
+                        clearInterval(frame._leadPreviewTimer);
+                        frame._leadPreviewTimer = null;
+                    }
                     frame.src = 'about:blank';
                 }
                 $('#lead-view-loading').addClass('d-none');
