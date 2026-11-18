@@ -713,6 +713,7 @@ class EmployeeProgressRankMetricDetailService
                     && $assignee !== Lead::HANDLED_BY_AI
                     && $assignee !== $employeeId;
             })
+            ->unique('lead_id')
             ->map(function (LeadChangeLog $log) use ($names) {
                 $changes = is_array($log->changes) ? implode(', ', array_keys($log->changes)) : '—';
 
