@@ -591,6 +591,7 @@ class EmployeeProgressRankMetricDetailService
                     && $assignee !== Lead::HANDLED_BY_AI
                     && $assignee !== $employeeId;
             })
+            ->unique('lead_id')
             ->map(fn (LeadFollowup $followup) => [
                 'lead' => $followup->lead?->name ?: $followup->lead?->phone_number ?: $followup->lead_id,
                 'assignee' => $names[(string) ($followup->lead?->handled_by ?? '')] ?? '—',

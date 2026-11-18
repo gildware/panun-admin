@@ -132,7 +132,7 @@ class EmployeeProgressMetricHelp
             ),
             'team_ranking' => self::entry(
                 translate('Progress_team_ranking'),
-                'Score = quantity + helped other − late penalties. Own-work counts use assignee/handled_by for the period. Quantity: new bookings created (+2), assigned bookings completed (+10), new leads handled (+3), new providers registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Helped other (performer on someone else’s lead/booking): lead follow-ups (+1), booking follow-ups (+1), booking status updates (+2), lead updates (+1, once per lead). Late follow-ups on assigned leads/bookings by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10). Active assignments shows open leads and active bookings currently on your name (not period-scoped); penalties can apply even when New Leads Handled / New Bookings Created are 0 for the period.',
+                'Score = quantity + helped other − late penalties. Own-work counts use assignee/handled_by for the period. Quantity: new bookings created (+2), assigned bookings completed (+10), new leads handled (+3), new providers registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Helped other (performer on someone else’s lead/booking): lead follow-ups (+1, once per lead), booking follow-ups (+1), booking status updates (+2), lead updates (+1, once per lead). Late follow-ups on assigned leads/bookings by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10). Active assignments shows open leads and active bookings currently on your name (not period-scoped); penalties can apply even when New Leads Handled / New Bookings Created are 0 for the period.',
             ),
             'rank_marks_trend' => self::entry(
                 translate('Progress_rank_marks_trend'),
@@ -667,7 +667,7 @@ class EmployeeProgressMetricHelp
             ),
             self::rankHelpKey('helped_lead_followups') => self::rankEntry(
                 translate('Progress_helped_lead_followups') ?? 'Lead follow-ups for others',
-                'Lead follow-ups you logged on a lead assigned to someone else. Score = quantity × +'.$helpedLeadFu.'.',
+                'Distinct leads assigned to someone else that you followed up on in this period. Multiple follow-ups on the same lead count once. Score = quantity × +'.$helpedLeadFu.'.',
                 6,
                 $helpedLeadFu,
             ),

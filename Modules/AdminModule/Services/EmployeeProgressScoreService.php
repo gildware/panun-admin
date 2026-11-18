@@ -439,21 +439,28 @@ class EmployeeProgressScoreService
         $rangeStart = $periodStart->copy()->startOfDay();
         $rangeEnd = $periodEnd->copy()->endOfDay();
 
+        /** @var array<string, array<string, true>> $seenLeadFollowups */
+        $seenLeadFollowups = [];
         LeadFollowup::query()
             ->whereIn('created_by', $employeeIds)
             ->whereNotNull('followup_at')
             ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
             ->with(['lead:id,handled_by'])
             ->get(['id', 'created_by', 'lead_id'])
-            ->each(function (LeadFollowup $followup) use (&$counts) {
+            ->each(function (LeadFollowup $followup) use (&$counts, &$seenLeadFollowups) {
                 $employeeId = (string) ($followup->created_by ?? '');
+                $leadId = (string) ($followup->lead_id ?? '');
                 $assignee = (string) ($followup->lead?->handled_by ?? '');
-                if ($employeeId === '' || ! isset($counts[$employeeId])) {
+                if ($employeeId === '' || $leadId === '' || ! isset($counts[$employeeId])) {
                     return;
                 }
                 if ($assignee === '' || $assignee === Lead::HANDLED_BY_AI || $assignee === $employeeId) {
                     return;
                 }
+                if (isset($seenLeadFollowups[$employeeId][$leadId])) {
+                    return;
+                }
+                $seenLeadFollowups[$employeeId][$leadId] = true;
                 $counts[$employeeId]['lead_followups']++;
             });
 
