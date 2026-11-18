@@ -255,9 +255,10 @@ class LeadWhatsAppAssignmentSyncService
         }
 
         return SocialInboxChannel::using(SocialInboxChannel::WHATSAPP, function () use ($last10) {
+            $keys = \Modules\LeadManagement\Services\PartyPhoneDirectory::storedPhoneKeys($last10);
             $candidates = WhatsAppUser::query()
                 ->where('channel', SocialInboxChannel::WHATSAPP)
-                ->where('phone', 'like', '%' . $last10)
+                ->whereIn('phone', $keys)
                 ->orderByDesc('updated_at')
                 ->pluck('phone');
 
@@ -268,7 +269,7 @@ class LeadWhatsAppAssignmentSyncService
             }
 
             return WhatsAppMessage::query()
-                ->where('phone', 'like', '%' . $last10)
+                ->whereIn('phone', $keys)
                 ->orderByDesc('created_at')
                 ->value('phone');
         });

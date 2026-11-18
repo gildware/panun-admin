@@ -89,6 +89,23 @@ class PartyPhoneDirectoryTest extends TestCase
         );
     }
 
+    public function test_find_owner_matches_stored_plus91_phone_without_a_scan(): void
+    {
+        DB::table('users')->insert([
+            'id' => 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+            'first_name' => 'Mansha',
+            'last_name' => '',
+            'phone' => '+918797766884',
+            'user_type' => 'customer',
+        ]);
+
+        $owner = app(PartyPhoneDirectory::class)->findOwner('918797766884');
+
+        $this->assertNotNull($owner);
+        $this->assertSame('dddddddd-dddd-dddd-dddd-dddddddddddd', $owner['owner_id']);
+        $this->assertSame('primary', $owner['via']);
+    }
+
     public function test_find_owner_resolves_alternate_phone(): void
     {
         DB::table('users')->insert([

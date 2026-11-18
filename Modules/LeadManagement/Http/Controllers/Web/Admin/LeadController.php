@@ -2195,7 +2195,8 @@ class LeadController extends Controller
         $providerLeadStatuses = ProviderLeadStatus::where('is_active', true)->orderBy('name')->get();
         $providerCancellationReasons = ProviderCancellationReason::with(['options' => $activeFollowupOptions])->where('is_active', true)->orderBy('name')->get();
         $districts = District::where('is_active', true)->orderBy('name')->get();
-        $zones = Zone::ofStatus(1)->orderBy('name')->get();
+        // Polygons are multi-megabyte. The lead form only needs names for the dropdown.
+        $zones = Zone::query()->ofStatus(1)->forAdminList()->orderBy('name')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
 
         $handledByName = translate('Unassigned');
@@ -3881,7 +3882,7 @@ class LeadController extends Controller
 
         $last10 = $this->digitsLast10($lead->phone_number ?? null);
         if (!$wa && $last10) {
-            $phoneQuery = (clone $base)->where('phone', 'like', '%'.$last10);
+            $phoneQuery = (clone $base)->whereIn('phone', $this->phoneLookupKeys($last10));
             if (Schema::hasColumn($waTable, 'lead_id')) {
                 $phoneQuery->where(function ($sub) use ($lead) {
                     $sub->whereNull('lead_id')->orWhere('lead_id', $lead->id);
@@ -3936,8 +3937,9 @@ class LeadController extends Controller
             return null;
         }
 
+        $keys = $this->phoneLookupKeys($last10);
         $candidates = WhatsAppUser::query()
-            ->where('phone', 'like', '%' . $last10)
+            ->whereIn('phone', $keys)
             ->orderByDesc('updated_at')
             ->pluck('phone');
 
@@ -3948,9 +3950,20 @@ class LeadController extends Controller
         }
 
         return WhatsAppMessage::query()
-            ->where('phone', 'like', '%' . $last10)
+            ->whereIn('phone', $keys)
             ->orderByDesc('created_at')
             ->value('phone');
+    }
+
+    /**
+     * Exact phone values stored in this app (10 digits, 0…, 91…, +91…).
+     * Equality can use the phone index. A leading-wildcard LIKE cannot.
+     *
+     * @return list<string>
+     */
+    protected function phoneLookupKeys(string $last10): array
+    {
+        return \Modules\LeadManagement\Services\PartyPhoneDirectory::storedPhoneKeys($last10);
     }
 
     public function searchProvidersForLead(Request $request): JsonResponse

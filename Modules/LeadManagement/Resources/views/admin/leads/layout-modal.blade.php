@@ -32,10 +32,16 @@
     @stack('script')
     <script>
         $(document).ready(function () {
-            $('.js-select').not('.js-select-manual').select2({ width: '100%' });
             // Modal iframe should always open at the hero, not mid-page.
             window.scrollTo(0, 0);
-            setTimeout(function () { window.scrollTo(0, 0); }, 0);
+            // Select2 walks every option. Do it after the iframe can paint,
+            // and skip dropdowns that stay inside closed modals until opened.
+            setTimeout(function () {
+                $('.js-select').not('.js-select-manual').filter(function () {
+                    return $(this).closest('.modal').length === 0;
+                }).select2({ width: '100%' });
+                window.scrollTo(0, 0);
+            }, 0);
         });
     </script>
     @include('whatsappmodule::admin.booking-whatsapp-send-prompt')
