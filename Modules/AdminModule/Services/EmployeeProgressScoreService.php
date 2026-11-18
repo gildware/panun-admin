@@ -506,6 +506,8 @@ class EmployeeProgressScoreService
 
         $changeLogTable = (new LeadChangeLog)->getTable();
         if (Schema::hasTable($changeLogTable)) {
+            /** @var array<string, array<string, true>> $seenLeadUpdates */
+            $seenLeadUpdates = [];
             LeadChangeLog::query()
                 ->whereIn('changed_by', $employeeIds)
                 ->whereBetween('created_at', [$rangeStart, $rangeEnd])
@@ -513,15 +515,20 @@ class EmployeeProgressScoreService
                 ->whereNotNull('lead_id')
                 ->with(['lead:id,handled_by'])
                 ->get(['id', 'changed_by', 'lead_id'])
-                ->each(function (LeadChangeLog $log) use (&$counts) {
+                ->each(function (LeadChangeLog $log) use (&$counts, &$seenLeadUpdates) {
                     $employeeId = (string) ($log->changed_by ?? '');
+                    $leadId = (string) ($log->lead_id ?? '');
                     $assignee = (string) ($log->lead?->handled_by ?? '');
-                    if ($employeeId === '' || ! isset($counts[$employeeId])) {
+                    if ($employeeId === '' || $leadId === '' || ! isset($counts[$employeeId])) {
                         return;
                     }
                     if ($assignee === '' || $assignee === Lead::HANDLED_BY_AI || $assignee === $employeeId) {
                         return;
                     }
+                    if (isset($seenLeadUpdates[$employeeId][$leadId])) {
+                        return;
+                    }
+                    $seenLeadUpdates[$employeeId][$leadId] = true;
                     $counts[$employeeId]['lead_updates']++;
                 });
         }
