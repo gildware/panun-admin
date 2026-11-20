@@ -2,22 +2,43 @@
 
 namespace Modules\LeadManagement\Services;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\LeadManagement\Entities\SuperfoneCall;
 
 class SuperfoneCallReport
 {
-    public function build(): array
+    private ?string $filterFrom = null;
+
+    private ?string $filterTo = null;
+
+    private ?string $filterAgent = null;
+
+    private bool $hasDateFilter = false;
+
+    public function build(Request $request): array
     {
+        $this->resolveFilters($request);
+
         $todayStart = now('Asia/Kolkata')->startOfDay()->format('Y-m-d H:i:s');
         $todayEnd = now('Asia/Kolkata')->endOfDay()->format('Y-m-d H:i:s');
 
-        $today = $this->totals($todayStart, $todayEnd);
-        $overall = $this->totals();
+        $todayWindow = $this->intersectWindow($todayStart, $todayEnd);
+        $today = $todayWindow === null
+            ? $this->blank()
+            : $this->totals($todayWindow[0], $todayWindow[1]);
+        $overall = $this->hasDateFilter
+            ? $this->totals($this->filterFrom, $this->filterTo)
+            : $this->totals();
         $employees = $this->mergeGroups(
-            $this->grouped(translate('Unassigned'), $todayStart, $todayEnd),
-            $this->grouped(translate('Unassigned')),
+            $todayWindow === null
+                ? []
+                : $this->grouped(translate('Unassigned'), $todayWindow[0], $todayWindow[1]),
+            $this->hasDateFilter
+                ? $this->grouped(translate('Unassigned'), $this->filterFrom, $this->filterTo)
+                : $this->grouped(translate('Unassigned')),
         );
         $dates = [
             'day' => $this->byPeriod('day'),
@@ -28,15 +49,132 @@ class SuperfoneCallReport
 
         return [
             'todayLabel' => now('Asia/Kolkata')->format('d M Y'),
+            'overallLabel' => $this->overallLabel(),
+            'filters' => [
+                'from' => $this->filterFromDate(),
+                'to' => $this->filterToDate(),
+                'agent' => $this->filterAgent,
+            ],
+            'agents' => $this->agents(),
             'today' => $today,
             'overall' => $overall,
             'employees' => $employees,
             'dates' => $dates,
             'hours' => $hours,
-            'activity' => $this->employeeActivity($todayStart, $todayEnd),
             'typeColors' => $this->typeColors(),
             'charts' => $this->charts($today, $overall, $dates, $hours),
         ];
+    }
+
+    private function resolveFilters(Request $request): void
+    {
+        $fromDate = $this->parseDate($request->input('from'));
+        $toDate = $this->parseDate($request->input('to'));
+        if ($fromDate && $toDate && $fromDate->gt($toDate)) {
+            [$fromDate, $toDate] = [$toDate, $fromDate];
+        }
+
+        $this->filterFrom = $fromDate?->copy()->startOfDay()->format('Y-m-d H:i:s');
+        $this->filterTo = $toDate?->copy()->endOfDay()->format('Y-m-d H:i:s');
+        $this->hasDateFilter = $this->filterFrom !== null || $this->filterTo !== null;
+
+        if ($this->hasDateFilter) {
+            $this->filterFrom ??= Carbon::parse('2000-01-01', 'Asia/Kolkata')->startOfDay()->format('Y-m-d H:i:s');
+            $this->filterTo ??= now('Asia/Kolkata')->endOfDay()->format('Y-m-d H:i:s');
+        }
+
+        $agent = trim((string) $request->input('agent', ''));
+        $this->filterAgent = $agent !== '' ? $agent : null;
+    }
+
+    private function parseDate(mixed $value): ?Carbon
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $value, 'Asia/Kolkata')->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function filterFromDate(): ?string
+    {
+        return $this->filterFrom ? Carbon::parse($this->filterFrom, 'Asia/Kolkata')->format('Y-m-d') : null;
+    }
+
+    private function filterToDate(): ?string
+    {
+        return $this->filterTo ? Carbon::parse($this->filterTo, 'Asia/Kolkata')->format('Y-m-d') : null;
+    }
+
+    private function overallLabel(): string
+    {
+        if (! $this->hasDateFilter) {
+            return translate('Overall');
+        }
+
+        $from = Carbon::parse($this->filterFrom, 'Asia/Kolkata');
+        $to = Carbon::parse($this->filterTo, 'Asia/Kolkata');
+        if ($from->isSameDay($to)) {
+            return $from->format('d M Y');
+        }
+
+        if ($from->format('M Y') === $to->format('M Y')) {
+            return $from->format('d').'–'.$to->format('d M Y');
+        }
+
+        return $from->format('d M Y').' – '.$to->format('d M Y');
+    }
+
+    /**
+     * @return array{0: string, 1: string}|null
+     */
+    private function intersectWindow(string $from, string $to): ?array
+    {
+        if (! $this->hasDateFilter) {
+            return [$from, $to];
+        }
+
+        $start = max($from, $this->filterFrom);
+        $end = min($to, $this->filterTo);
+        if ($start > $end) {
+            return null;
+        }
+
+        return [$start, $end];
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    private function agents(): Collection
+    {
+        return SuperfoneCall::query()
+            ->whereNotNull('staff_name')
+            ->where('staff_name', '!=', '')
+            ->distinct()
+            ->orderBy('staff_name')
+            ->pluck('staff_name');
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     */
+    private function applyFilters($query, ?string $from = null, ?string $to = null): void
+    {
+        if ($from !== null && $to !== null) {
+            $query->whereBetween('started_at', [$from, $to]);
+        } elseif ($this->hasDateFilter) {
+            $query->whereBetween('started_at', [$this->filterFrom, $this->filterTo]);
+        }
+
+        if ($this->filterAgent !== null) {
+            $query->where('staff_name', $this->filterAgent);
+        }
     }
 
     /**
@@ -45,9 +183,7 @@ class SuperfoneCallReport
     private function totals(?string $from = null, ?string $to = null): array
     {
         $query = SuperfoneCall::query();
-        if ($from !== null && $to !== null) {
-            $query->whereBetween('started_at', [$from, $to]);
-        }
+        $this->applyFilters($query, $from, $to);
 
         return $this->cast($query->selectRaw($this->metricSql())->first());
     }
@@ -60,9 +196,7 @@ class SuperfoneCallReport
         $nameSql = "CASE WHEN staff_name IS NULL OR TRIM(staff_name) = '' THEN '' ELSE staff_name END";
 
         $query = $this->aggregate($nameSql, function ($inner) use ($from, $to) {
-            if ($from !== null && $to !== null) {
-                $inner->whereBetween('started_at', [$from, $to]);
-            }
+            $this->applyFilters($inner, $from, $to);
         })->orderByDesc('total')->orderBy('bucket');
 
         return $query->get()->map(function ($row) use ($emptyLabel) {
@@ -124,7 +258,7 @@ class SuperfoneCallReport
     private function charts(array $today, array $overall, array $dates, array $hours): array
     {
         $colors = $this->typeColors();
-        $periods = [translate('Today'), translate('Overall')];
+        $periods = [translate('Today'), $this->overallLabel()];
 
         return [
             'overall' => [
@@ -326,8 +460,23 @@ SQL;
             default => 30,
         };
 
+        if ($this->hasDateFilter) {
+            $from = Carbon::parse($this->filterFrom, 'Asia/Kolkata');
+            $to = Carbon::parse($this->filterTo, 'Asia/Kolkata');
+            $limit = match ($grain) {
+                'week' => max(1, min(104, (int) abs($from->diffInWeeks($to)) + 1)),
+                'month' => max(1, min(60, (int) abs($from->diffInMonths($to)) + 1)),
+                default => max(1, min(366, (int) abs($from->diffInDays($to)) + 1)),
+            };
+        }
+
         $rows = $this->aggregate($bucketSql, function ($inner) {
-            $inner->where('started_at', '>=', '2000-01-01 00:00:00');
+            if ($this->hasDateFilter) {
+                $this->applyFilters($inner, $this->filterFrom, $this->filterTo);
+            } else {
+                $this->applyFilters($inner);
+                $inner->where('started_at', '>=', '2000-01-01 00:00:00');
+            }
         })->orderByDesc('bucket')->limit($limit)->get()
             ->map(function ($row) use ($grain) {
                 $cast = $this->cast($row);
@@ -375,7 +524,12 @@ SQL;
     private function byHour(): array
     {
         $found = $this->aggregate('HOUR(started_at)', function ($inner) {
-            $inner->where('started_at', '>=', '2000-01-01 00:00:00');
+            if ($this->hasDateFilter) {
+                $this->applyFilters($inner, $this->filterFrom, $this->filterTo);
+            } else {
+                $this->applyFilters($inner);
+                $inner->where('started_at', '>=', '2000-01-01 00:00:00');
+            }
         })->get()
             ->keyBy(fn ($row) => (int) $row->bucket);
 
@@ -395,68 +549,6 @@ SQL;
             'busy' => array_values(array_filter($rows, fn (array $row) => (int) $row['total'] > 0)),
             'peak' => (string) ($peak['label'] ?? ''),
         ];
-    }
-
-    /**
-     * @return list<array<string, int|string>>
-     */
-    private function employeeActivity(string $from, string $to): array
-    {
-        $nameSql = "CASE WHEN staff_name IS NULL OR TRIM(staff_name) = '' THEN '' ELSE staff_name END";
-        $unallocated = "UPPER(COALESCE(disposition, '')) <> 'UNALLOCATED'";
-
-        $rows = DB::query()
-            ->fromSub($this->callBuckets($nameSql, ['direction', 'outcome', 'disposition', 'started_at']), 'calls')
-            ->selectRaw('bucket')
-            ->selectRaw('COUNT(*) as total')
-            ->selectRaw('SUM(started_at BETWEEN ? AND ?) as today_total', [$from, $to])
-            ->selectRaw("SUM(direction = 'INBOUND' AND COALESCE(outcome, '') <> 'answered' AND {$unallocated} AND started_at BETWEEN ? AND ?) as today_missed", [$from, $to])
-            ->selectRaw('MIN(CASE WHEN started_at BETWEEN ? AND ? THEN started_at END) as first_today', [$from, $to])
-            ->selectRaw('MAX(CASE WHEN started_at BETWEEN ? AND ? THEN started_at END) as last_today', [$from, $to])
-            ->groupBy('bucket')
-            ->get();
-
-        $usual = [];
-        DB::query()
-            ->fromSub($this->callBuckets($nameSql, [], 'HOUR(started_at) as hour_bucket', function ($inner) {
-                $inner->where('started_at', '>=', '2000-01-01 00:00:00');
-            }), 'calls')
-            ->selectRaw('bucket, hour_bucket, COUNT(*) as total')
-            ->groupBy('bucket', 'hour_bucket')
-            ->orderBy('hour_bucket')
-            ->get()
-            ->each(function ($row) use (&$usual) {
-                $name = trim((string) $row->bucket);
-                $count = (int) $row->total;
-                if (! isset($usual[$name]) || $count > $usual[$name]['count']) {
-                    $usual[$name] = ['count' => $count, 'hour' => (int) $row->hour_bucket];
-                }
-            });
-
-        $activity = $rows->map(function ($row) use ($usual) {
-            $name = trim((string) $row->bucket);
-            $todayTotal = (int) $row->today_total;
-            $active = $todayTotal > 0;
-
-            return [
-                'label' => $name !== '' ? $name : translate('Unassigned'),
-                'status' => $active ? 'active' : 'inactive',
-                'status_label' => $active ? translate('Active') : translate('Inactive'),
-                'today' => $todayTotal,
-                'missed' => (int) $row->today_missed,
-                'total' => (int) $row->total,
-                'first' => $row->first_today ? Carbon::parse((string) $row->first_today)->format('h:i A') : '—',
-                'last' => $row->last_today ? Carbon::parse((string) $row->last_today)->format('h:i A') : '—',
-                'usual' => isset($usual[$name]) ? $this->hourLabel($usual[$name]['hour']) : '—',
-            ];
-        })->all();
-
-        usort($activity, function (array $a, array $b): int {
-            return [$a['status'] === 'active' ? 0 : 1, -$a['today'], -$a['total'], $a['label']]
-                <=> [$b['status'] === 'active' ? 0 : 1, -$b['today'], -$b['total'], $b['label']];
-        });
-
-        return $activity;
     }
 
     private function hourLabel(int $hour): string

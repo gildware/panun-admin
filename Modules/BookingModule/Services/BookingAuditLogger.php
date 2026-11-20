@@ -141,6 +141,179 @@ final class BookingAuditLogger
         ]);
     }
 
+    /**
+     * Write one missed follow-up event for this due time. Later actions for the same due do not add another.
+     */
+    public static function recordFollowupMissed(
+        string $bookingId,
+        Carbon|string $dueAt,
+        ?string $for = null
+    ): bool {
+        $due = $dueAt instanceof Carbon ? $dueAt : Carbon::parse($dueAt);
+        $dueKey = $due->format('Y-m-d H:i:s');
+        $context = self::followupMissedContext($dueKey, $for);
+
+        if (self::followupMissedAlreadyLogged($bookingId, $dueKey, $for)) {
+            return false;
+        }
+
+        self::log(
+            $bookingId,
+            'followup.missed',
+            translate('Follow_up_missed'),
+            self::formatFollowupWhen($due),
+            translate('Missed_Follow_up'),
+            $context
+        );
+
+        return true;
+    }
+
+    /**
+     * Missed only when the follow-up was still open after its due time.
+     */
+    public static function recordFollowupMissedIfPast(
+        string $bookingId,
+        Carbon|string|null $dueAt,
+        Carbon|string|null $actedAt = null,
+        ?string $for = null
+    ): bool {
+        if ($dueAt === null || $dueAt === '') {
+            return false;
+        }
+
+        $due = $dueAt instanceof Carbon ? $dueAt : Carbon::parse($dueAt);
+        $acted = $actedAt instanceof Carbon
+            ? $actedAt
+            : ($actedAt ? Carbon::parse($actedAt) : Carbon::now());
+
+        if ($acted->lte($due)) {
+            return false;
+        }
+
+        return self::recordFollowupMissed($bookingId, $due, $for);
+    }
+
+    public static function followupMissedAlreadyLogged(
+        string $bookingId,
+        string $dueKey,
+        ?string $for = null
+    ): bool {
+        $context = self::followupMissedContext($dueKey, $for);
+
+        return BookingChangeLog::query()
+            ->where('booking_id', $bookingId)
+            ->where('property_key', 'followup.missed')
+            ->where('context', $context)
+            ->exists();
+    }
+
+    /**
+     * Follow-up was taken. From = when it was due, to = when it was taken.
+     */
+    public static function recordFollowupTaken(
+        string $bookingId,
+        Carbon|string|null $dueAt,
+        Carbon|string|null $takenAt,
+        ?string $remarks = null,
+        ?string $for = null
+    ): void {
+        self::log(
+            $bookingId,
+            'followup.taken',
+            translate('Follow_up_taken'),
+            self::formatFollowupWhen($dueAt),
+            self::formatFollowupWhen($takenAt),
+            self::followupActionContext($for, $remarks)
+        );
+    }
+
+    public static function recordFollowupRescheduled(
+        string $bookingId,
+        Carbon|string|null $fromAt,
+        Carbon|string|null $toAt,
+        ?string $reason = null,
+        ?string $for = null
+    ): void {
+        self::log(
+            $bookingId,
+            'followup.rescheduled',
+            translate('Follow_up_rescheduled'),
+            self::formatFollowupWhen($fromAt),
+            self::formatFollowupWhen($toAt),
+            self::followupActionContext($for, $reason)
+        );
+    }
+
+    /**
+     * Follow-up details/time were edited after the fact.
+     * From/to are the previous and new values for the changed field.
+     */
+    public static function recordFollowupEdited(
+        string $bookingId,
+        Carbon|string|null $fromAt,
+        Carbon|string|null $toAt,
+        ?string $field = null,
+        ?string $for = null,
+        ?string $note = null
+    ): void {
+        $contextParts = [];
+        if ($for !== null && $for !== '') {
+            $contextParts[] = 'for:'.$for;
+        }
+        if ($field !== null && $field !== '') {
+            $contextParts[] = 'field:'.$field;
+        }
+        $note = trim((string) $note);
+        if ($note !== '') {
+            $contextParts[] = 'note:'.Str::limit($note, 180, '');
+        }
+
+        self::log(
+            $bookingId,
+            'followup.edited',
+            translate('Follow_up_edited'),
+            self::formatFollowupWhen($fromAt),
+            self::formatFollowupWhen($toAt),
+            $contextParts === [] ? null : implode('|', $contextParts)
+        );
+    }
+
+    private static function followupMissedContext(string $dueKey, ?string $for = null): string
+    {
+        $parts = ['due:'.$dueKey];
+        if ($for !== null && $for !== '') {
+            $parts[] = 'for:'.$for;
+        }
+
+        return implode('|', $parts);
+    }
+
+    private static function followupActionContext(?string $for = null, ?string $reason = null): ?string
+    {
+        $contextParts = [];
+        if ($for !== null && $for !== '') {
+            $contextParts[] = 'for:'.$for;
+        }
+        $reason = trim((string) $reason);
+        if ($reason !== '') {
+            $contextParts[] = 'reason:'.Str::limit($reason, 180, '');
+        }
+
+        return $contextParts === [] ? null : implode('|', $contextParts);
+    }
+
+    private static function formatFollowupWhen(Carbon|string|null $value): string
+    {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        $at = $value instanceof Carbon ? $value : Carbon::parse($value);
+
+        return $at->format('d F Y h:i a');
+    }
+
     public static function logBookingCreated(Booking $booking): void
     {
         self::clearCache();

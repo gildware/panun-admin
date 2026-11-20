@@ -111,7 +111,37 @@
                                             <span class="badge rounded-pill {{ $leadStatusBadgeClass }}">{{ $leadStatusLabel }}</span>
                                         </td>
                                         <td>{{ $deleterName !== '' ? $deleterName : '—' }}</td>
-                                        <td style="white-space: normal; min-width: 180px;">{{ $lead->deletion_reason ?: '—' }}</td>
+                                        <td style="white-space: normal; min-width: 220px;">
+                                            @php
+                                                $deletionTypeKey = \Modules\LeadManagement\Entities\Lead::deletionReasonTypes()[$lead->deletion_reason_type] ?? null;
+                                                $proofProvider = $lead->deletionLinkedProvider;
+                                                $proofLead = $lead->deletionLinkedLead;
+                                                $proofBooking = $lead->deletionLinkedBooking;
+                                            @endphp
+                                            @if($deletionTypeKey)
+                                                <div class="fw-medium">{{ translate($deletionTypeKey) }}</div>
+                                            @endif
+                                            <div>{{ $lead->deletion_reason ?: '—' }}</div>
+                                            @if($proofProvider)
+                                                <div class="small mt-1">
+                                                    <a href="{{ route('admin.provider.details', [$proofProvider->id, 'web_page' => 'overview']) }}" data-turbo="false">
+                                                        {{ $proofProvider->company_name ?: ($proofProvider->contact_person_name ?: translate('Provider')) }}
+                                                    </a>
+                                                </div>
+                                            @elseif($proofLead)
+                                                <div class="small mt-1">
+                                                    <a href="{{ route('admin.lead.show', $proofLead->id) }}" data-turbo="false">
+                                                        #{{ $proofLead->id }} — {{ $proofLead->name ?: '—' }}
+                                                    </a>
+                                                </div>
+                                            @elseif($proofBooking)
+                                                <div class="small mt-1">
+                                                    <a href="{{ route('admin.booking.details', [$proofBooking->id, 'web_page' => 'details']) }}" data-turbo="false">
+                                                        {{ $proofBooking->readable_id ?: $proofBooking->id }}
+                                                    </a>
+                                                </div>
+                                            @endif
+                                        </td>
                                         <td>{{ optional($lead->deleted_at)->format('d M Y, h:i a') }}</td>
                                         <td class="text-center">
                                             <div class="deleted-lead-actions">

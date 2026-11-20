@@ -77,7 +77,9 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">{{ translate('Remarks') }}</label>
+                        <label class="form-label" id="booking-edit-followup-remarks-label">
+                            {{ translate('Remarks') }} <span class="text-danger d-none" id="booking-edit-followup-remarks-required">*</span>
+                        </label>
                         <textarea name="remarks"
                                   id="booking-edit-followup-remarks"
                                   class="form-control"

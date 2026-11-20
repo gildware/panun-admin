@@ -56,6 +56,7 @@ class BookingFollowup extends Model
         'followup_at',
         'due_followup_at',
         'next_followup_at',
+        'rescheduled_at',
         'reason',
         'for',
         'status',
@@ -82,6 +83,7 @@ class BookingFollowup extends Model
         'followup_at' => 'datetime',
         'due_followup_at' => 'datetime',
         'next_followup_at' => 'datetime',
+        'rescheduled_at' => 'datetime',
         'transcribed_at' => 'datetime',
     ];
 

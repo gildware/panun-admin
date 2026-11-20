@@ -5,7 +5,8 @@
 @push('css_or_js')
     <style>
         .calls-report-card .card-body { padding: 0.7rem 0.8rem 0.8rem; }
-        .calls-report-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.45rem; }
+        .calls-report-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.45rem; flex-wrap: wrap; }
+        .calls-report-head-tools { display: flex; align-items: center; justify-content: flex-end; gap: 0.55rem; flex-wrap: wrap; margin-left: auto; }
         .calls-report-title { margin: 0; font-size: 0.92rem; font-weight: 700; color: #111827; }
         .calls-report-note { margin: 0.45rem 0 0; color: #6b7280; font-size: 0.68rem; line-height: 1.35; }
         .calls-report-score { width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -83,6 +84,13 @@
         .calls-lead-filters label { display: flex; flex-direction: column; gap: 0.15rem; min-width: 10rem; font-size: 0.66rem; font-weight: 700; color: #6b7280; }
         .calls-lead-filters select { font-size: 0.75rem; }
         .calls-lead-filters .calls-lead-actions { display: flex; align-items: center; gap: 0.45rem; }
+        .calls-report-inline-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.45rem; margin: 0; }
+        .calls-report-inline-filters label { display: inline-flex; flex-direction: row; align-items: center; gap: 0.28rem; min-width: 0; margin: 0; font-size: 0.66rem; font-weight: 700; color: #6b7280; white-space: nowrap; }
+        .calls-report-inline-filters .form-control,
+        .calls-report-inline-filters .form-select { width: auto; min-width: 8.5rem; max-width: 10.5rem; font-size: 0.72rem; padding: 0.22rem 0.4rem; height: calc(1.5em + 0.44rem + 2px); }
+        .calls-report-inline-filters #calls-report-view { min-width: 7.5rem; max-width: 8.5rem; }
+        .calls-report-inline-filters .calls-lead-actions { padding-bottom: 0; }
+        .calls-report-inline-filters .btn { padding: 0.22rem 0.55rem; font-size: 0.72rem; line-height: 1.2; }
         .calls-lead-reset { font-size: 0.72rem; font-weight: 700; color: #4b5563; }
         .calls-lead-pills { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.35rem; }
         .calls-lead-pills span { display: inline-flex; align-items: center; gap: 0.28rem; padding: 0.12rem 0.45rem; border-radius: 999px; background: #f3f4f6; font-size: 0.68rem; font-weight: 700; color: #374151; }
@@ -179,15 +187,50 @@
         <div class="container-fluid">
             <div class="card calls-report-card mb-3">
                 <div class="card-body">
+                    @php
+                        $reportFilters = $filters ?? ['from' => null, 'to' => null, 'agent' => null];
+                        $reportAgents = $agents ?? collect();
+                        $leadKeep = request()->only(['lead_period', 'lead_category', 'lead_service', 'lead_zone']);
+                    @endphp
                     <div class="calls-report-head">
                         <div>
                             <h2 class="calls-report-title">{{ translate('Call_report') }}</h2>
-                            <span class="text-muted" style="font-size: 0.72rem;">{{ translate('Today') }} · {{ $todayLabel }}</span>
+                            <span class="text-muted" style="font-size: 0.72rem;">{{ translate('Today') }} · {{ $todayLabel }}@if(($filters['agent'] ?? null) || ($filters['from'] ?? null) || ($filters['to'] ?? null)) · {{ $overallLabel }}@endif</span>
                         </div>
-                        <div class="calls-report-tabs" role="tablist">
-                            @foreach($reportTabs as $tabKey => $tab)
-                                <button type="button" class="{{ $tabKey === 'overall' ? 'is-active' : '' }}" data-report-tab="{{ $tabKey }}" role="tab">{{ $tab['label'] }}</button>
-                            @endforeach
+                        <div class="calls-report-head-tools">
+                            <form method="get" action="{{ route('admin.calls.report') }}" class="calls-report-inline-filters" id="calls-report-filters">
+                                @foreach($leadKeep as $keepKey => $keepValue)
+                                    @if($keepValue !== null && $keepValue !== '')
+                                        <input type="hidden" name="{{ $keepKey }}" value="{{ $keepValue }}">
+                                    @endif
+                                @endforeach
+                                <label>
+                                    {{ translate('View') }}
+                                    <select id="calls-report-view" class="form-select form-select-sm" aria-label="{{ translate('View') }}">
+                                        @foreach($reportTabs as $tabKey => $tab)
+                                            <option value="{{ $tabKey }}">{{ $tab['label'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label>
+                                    {{ translate('From') }}
+                                    <input type="date" name="from" value="{{ $reportFilters['from'] }}" class="form-control form-control-sm" data-auto-filter>
+                                </label>
+                                <label>
+                                    {{ translate('To') }}
+                                    <input type="date" name="to" value="{{ $reportFilters['to'] }}" class="form-control form-control-sm" data-auto-filter>
+                                </label>
+                                <label>
+                                    {{ translate('Employee') }}
+                                    <select name="agent" class="form-select form-select-sm" data-auto-filter>
+                                        <option value="">{{ translate('All') }}</option>
+                                        @foreach($reportAgents as $agent)
+                                            <option value="{{ $agent }}" @selected(($reportFilters['agent'] ?? null) === $agent)>{{ $agent }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <a class="calls-lead-reset" href="{{ route('admin.calls.report', $leadKeep) }}">{{ translate('Reset') }}</a>
+                            </form>
                         </div>
                     </div>
                     <p class="calls-report-note" style="margin-top: 0;">{{ translate('Calls_report_hint') }}</p>
@@ -204,7 +247,7 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    @foreach(['today' => translate('Today'), 'overall' => translate('Overall')] as $period => $label)
+                                    @foreach(['today' => translate('Today'), 'overall' => ($overallLabel ?? translate('Overall'))] as $period => $label)
                                         @php $bucket = $period === 'today' ? $today : $overall; @endphp
                                         <tr class="{{ $period === 'today' ? 'is-today-row' : '' }}">
                                             <th>{{ $label }}</th>
@@ -233,6 +276,7 @@
                 </div>
             </div>
 
+            @if(empty($reportFilters['agent']))
             <div class="card calls-report-card mb-3">
                 <div class="card-body">
                     <div class="calls-report-head">
@@ -249,11 +293,13 @@
                                 'rows' => $employees,
                                 'nameHeading' => translate('Employee'),
                                 'columns' => $tab['employeeColumns'],
+                                'overallHeading' => $overallLabel ?? translate('Overall'),
                             ])
                         </div>
                     @endforeach
                 </div>
             </div>
+            @endif
 
             @php
                 $dateViews = [
@@ -325,48 +371,6 @@
                 </div>
             </div>
 
-            <div class="card calls-report-card mb-3">
-                <div class="card-body">
-                    <div class="calls-report-head">
-                        <h2 class="calls-report-title">{{ translate('Employee') }} · {{ translate('By_time') }}</h2>
-                    </div>
-                    <div class="table-responsive calls-report-scroll">
-                        <table class="calls-report-table">
-                            <thead>
-                            <tr>
-                                <th>{{ translate('Employee') }}</th>
-                                <th>{{ translate('Status') }}</th>
-                                <th>{{ translate('Today') }}</th>
-                                <th class="calls-tone-missed">{{ translate('Missed') }}</th>
-                                <th>{{ translate('First_call') }}</th>
-                                <th>{{ translate('Last_call') }}</th>
-                                <th>{{ translate('Usual_time') }}</th>
-                                <th class="calls-tone-handled">{{ translate('Handled') }}</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            @forelse($activity as $person)
-                                <tr>
-                                    <th>{{ $person['label'] }}</th>
-                                    <td><span class="calls-status is-{{ $person['status'] }}">{{ $person['status_label'] }}</span></td>
-                                    <td><span class="calls-count calls-tone-inbound {{ (int) $person['today'] === 0 ? 'is-zero' : '' }}">{{ $person['today'] }}</span></td>
-                                    <td><span class="calls-count calls-tone-missed {{ (int) $person['missed'] === 0 ? 'is-zero' : '' }}">{{ $person['missed'] }}</span></td>
-                                    <td>{{ $person['first'] }}</td>
-                                    <td>{{ $person['last'] }}</td>
-                                    <td>{{ $person['usual'] }}</td>
-                                    <td><span class="calls-count calls-tone-handled {{ (int) $person['total'] === 0 ? 'is-zero' : '' }}">{{ $person['total'] }}</span></td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="8" class="calls-report-empty">{{ translate('No_calls_yet') }}</td>
-                                </tr>
-                            @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
             @include('leadmanagement::admin.calls._lead_charts')
         </div>
     </div>
@@ -427,18 +431,26 @@
                 chart.render();
             }
 
-            document.querySelectorAll('[data-report-tab]').forEach(function (button) {
-                button.addEventListener('click', function () {
-                    var key = button.getAttribute('data-report-tab');
-                    document.querySelectorAll('[data-report-tab]').forEach(function (item) {
-                        item.classList.toggle('is-active', item === button);
-                    });
-                    document.querySelectorAll('[data-report-panel]').forEach(function (panel) {
-                        panel.hidden = panel.getAttribute('data-report-panel') !== key;
-                    });
-                    draw(key);
+            var viewSelect = document.getElementById('calls-report-view');
+            var filterForm = document.getElementById('calls-report-filters');
+            function setReportView(key) {
+                document.querySelectorAll('[data-report-panel]').forEach(function (panel) {
+                    panel.hidden = panel.getAttribute('data-report-panel') !== key;
                 });
-            });
+                draw(key);
+            }
+            if (viewSelect) {
+                viewSelect.addEventListener('change', function () {
+                    setReportView(viewSelect.value);
+                });
+            }
+            if (filterForm) {
+                filterForm.querySelectorAll('[data-auto-filter]').forEach(function (field) {
+                    field.addEventListener('change', function () {
+                        filterForm.submit();
+                    });
+                });
+            }
 
             document.querySelectorAll('[data-employee-tab]').forEach(function (button) {
                 button.addEventListener('click', function () {
@@ -499,7 +511,7 @@
                 });
             });
 
-            draw('overall');
+            setReportView(viewSelect ? viewSelect.value : 'overall');
             drawDates('day');
             renderBar(document.getElementById('calls-report-hours'), data.hours, -40);
         })();

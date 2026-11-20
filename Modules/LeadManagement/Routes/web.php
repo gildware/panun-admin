@@ -72,6 +72,8 @@ Route::group([
         // Today's pending follow-ups
         Route::get('todays-followups', [LeadFollowupController::class, 'todaysFollowups'])->name('todays_followups');
         Route::get('search-providers', [LeadController::class, 'searchProvidersForLead'])->middleware(['can:lead_view'])->name('search-providers');
+        Route::get('search-leads-for-link', [LeadController::class, 'searchLeadsForLink'])->middleware(['can:lead_view'])->name('search-leads-for-link');
+        Route::get('search-bookings-for-link', [LeadController::class, 'searchBookingsForLink'])->middleware(['can:lead_view'])->name('search-bookings-for-link');
 
         Route::post('{lead}/comments', [LeadCommentController::class, 'store'])->middleware(['can:lead_update'])->name('comments.store');
         Route::put('comments/{comment}/pin', [LeadCommentController::class, 'togglePin'])->middleware(['can:lead_update'])->name('comments.pin');

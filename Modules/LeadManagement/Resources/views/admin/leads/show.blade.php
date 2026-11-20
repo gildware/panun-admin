@@ -183,10 +183,37 @@
                 if ($deletedByName === '' && $deletedByUser) {
                     $deletedByName = (string) ($deletedByUser->email ?: $deletedByUser->phone);
                 }
+                $deletionTypeLabel = \Modules\LeadManagement\Entities\Lead::deletionReasonTypes()[$lead->deletion_reason_type] ?? null;
+                $linkedProvider = $lead->deletionLinkedProvider;
+                $linkedLead = $lead->deletionLinkedLead;
+                $linkedBooking = $lead->deletionLinkedBooking;
             @endphp
             <div class="alert alert-warning mb-3">
                 <div class="fw-medium mb-1">{{ translate('This_lead_is_deleted') }}</div>
+                @if($deletionTypeLabel)
+                    <div>{{ translate('Deletion_reason_type') }}: {{ translate($deletionTypeLabel) }}</div>
+                @endif
                 <div>{{ translate('Deletion_reason') }}: {{ $lead->deletion_reason ?: '—' }}</div>
+                @if($linkedProvider || $linkedLead || $linkedBooking)
+                    <div class="mt-1">
+                        <span class="fw-medium">{{ translate('Attached_proof') }}:</span>
+                        @if($linkedProvider)
+                            <a href="{{ route('admin.provider.details', [$linkedProvider->id, 'web_page' => 'overview']) }}" class="ms-1" @if(!empty($inModal)) target="_top" @endif>
+                                {{ $linkedProvider->company_name ?: ($linkedProvider->contact_person_name ?: translate('Provider')) }}
+                            </a>
+                        @endif
+                        @if($linkedLead)
+                            <a href="{{ route('admin.lead.show', $linkedLead->id) }}" class="ms-1" @if(!empty($inModal)) target="_top" @endif>
+                                #{{ $linkedLead->id }} — {{ $linkedLead->name ?: '—' }}
+                            </a>
+                        @endif
+                        @if($linkedBooking)
+                            <a href="{{ route('admin.booking.details', [$linkedBooking->id, 'web_page' => 'details']) }}" class="ms-1" @if(!empty($inModal)) target="_top" @endif>
+                                {{ $linkedBooking->readable_id ?: $linkedBooking->id }}
+                            </a>
+                        @endif
+                    </div>
+                @endif
                 <div class="small text-muted mt-1">
                     {{ translate('Deleted_by') }}: {{ $deletedByName !== '' ? $deletedByName : '—' }}
                     · {{ translate('Deleted_at') }}: {{ optional($lead->deleted_at)->format('d M Y H:i') }}
@@ -1153,14 +1180,18 @@
                         @endcan
                     @endif
 
-                    <div class="modal fade" id="deleteLeadModal" tabindex="-1" aria-labelledby="deleteLeadModalLabel" aria-hidden="true">
+                    <div class="modal fade" id="deleteLeadModal" tabindex="-1" aria-labelledby="deleteLeadModalLabel" aria-hidden="true"
+                         data-provider-search-url="{{ route('admin.lead.search-providers') }}"
+                         data-lead-search-url="{{ route('admin.lead.search-leads-for-link') }}"
+                         data-booking-search-url="{{ route('admin.lead.search-bookings-for-link') }}"
+                         data-exclude-lead-id="{{ $lead->id }}">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content">
                                 <div class="modal-header border-0">
                                     <h5 class="modal-title text-danger" id="deleteLeadModalLabel">{{ translate('Are_you_sure?') }}</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                                 </div>
-                                <form method="POST" action="{{ route('admin.lead.destroy', $lead->id) }}">
+                                <form method="POST" action="{{ route('admin.lead.destroy', $lead->id) }}" id="deleteLeadForm">
                                     @csrf
                                     @method('DELETE')
                                     @if(!empty($inModal))
@@ -1170,18 +1201,84 @@
                                         <p class="mb-3 text-muted">
                                             {{ translate('Deleted_leads_help') }}
                                         </p>
-                                        <label class="form-label" for="deletion_reason">{{ translate('Deletion_reason') }}</label>
-                                        <textarea name="deletion_reason"
-                                                  id="deletion_reason"
-                                                  class="form-control @error('deletion_reason') is-invalid @enderror"
-                                                  rows="3"
-                                                  minlength="3"
-                                                  maxlength="1000"
-                                                  required
-                                                  placeholder="{{ translate('Why_is_this_lead_being_deleted') }}">{{ old('deletion_reason') }}</textarea>
-                                        @error('deletion_reason')
-                                            <div class="invalid-feedback d-block">{{ $message }}</div>
-                                        @enderror
+
+                                        <div class="mb-3">
+                                            <label class="form-label" for="deletion_reason_type">{{ translate('Deletion_reason_type') }}</label>
+                                            <select name="deletion_reason_type"
+                                                    id="deletion_reason_type"
+                                                    class="form-control @error('deletion_reason_type') is-invalid @enderror"
+                                                    required>
+                                                <option value="">{{ translate('Select') }}</option>
+                                                @foreach(\Modules\LeadManagement\Entities\Lead::deletionReasonTypes() as $typeKey => $typeLabel)
+                                                    <option value="{{ $typeKey }}" @selected(old('deletion_reason_type') === $typeKey)>
+                                                        {{ translate($typeLabel) }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @error('deletion_reason_type')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3 d-none" id="delete-proof-provider-wrap">
+                                            <label class="form-label" for="deletion_linked_provider_id">{{ translate('Provider') }}</label>
+                                            <select name="deletion_linked_provider_id"
+                                                    id="deletion_linked_provider_id"
+                                                    class="form-control @error('deletion_linked_provider_id') is-invalid @enderror"
+                                                    data-placeholder="{{ translate('Search_and_select_provider') }}">
+                                                @if(old('deletion_linked_provider_id'))
+                                                    <option value="{{ old('deletion_linked_provider_id') }}" selected></option>
+                                                @endif
+                                            </select>
+                                            @error('deletion_linked_provider_id')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3 d-none" id="delete-proof-lead-wrap">
+                                            <label class="form-label" for="deletion_linked_lead_id">{{ translate('Lead') }}</label>
+                                            <select name="deletion_linked_lead_id"
+                                                    id="deletion_linked_lead_id"
+                                                    class="form-control @error('deletion_linked_lead_id') is-invalid @enderror"
+                                                    data-placeholder="{{ translate('Search_and_select_lead') }}">
+                                                @if(old('deletion_linked_lead_id'))
+                                                    <option value="{{ old('deletion_linked_lead_id') }}" selected></option>
+                                                @endif
+                                            </select>
+                                            @error('deletion_linked_lead_id')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3 d-none" id="delete-proof-booking-wrap">
+                                            <label class="form-label" for="deletion_linked_booking_id">{{ translate('Booking') }}</label>
+                                            <select name="deletion_linked_booking_id"
+                                                    id="deletion_linked_booking_id"
+                                                    class="form-control @error('deletion_linked_booking_id') is-invalid @enderror"
+                                                    data-placeholder="{{ translate('Search_and_select_booking') }}">
+                                                @if(old('deletion_linked_booking_id'))
+                                                    <option value="{{ old('deletion_linked_booking_id') }}" selected></option>
+                                                @endif
+                                            </select>
+                                            @error('deletion_linked_booking_id')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-0" id="delete-proof-notes-wrap">
+                                            <label class="form-label" for="deletion_reason">{{ translate('Remarks') }}</label>
+                                            <textarea name="deletion_reason"
+                                                      id="deletion_reason"
+                                                      class="form-control @error('deletion_reason') is-invalid @enderror"
+                                                      rows="3"
+                                                      minlength="3"
+                                                      maxlength="1000"
+                                                      required
+                                                      placeholder="{{ translate('Why_is_this_lead_being_deleted') }}">{{ old('deletion_reason') }}</textarea>
+                                            @error('deletion_reason')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                        </div>
                                     </div>
                                     <div class="modal-footer border-0 d-flex justify-content-center gap-3 pb-4">
                                         <button type="button"
@@ -1189,7 +1286,7 @@
                                                 data-bs-dismiss="modal">
                                             {{ translate('Cancel') }}
                                         </button>
-                                        <button type="submit" class="btn btn-danger">
+                                        <button type="submit" class="btn btn-danger" id="deleteLeadSubmitBtn" disabled>
                                             {{ translate('Delete_Lead') }}
                                         </button>
                                     </div>
@@ -1197,7 +1294,7 @@
                             </div>
                         </div>
                     </div>
-                    @if($errors->has('deletion_reason'))
+                    @if($errors->has('deletion_reason') || $errors->has('deletion_reason_type') || $errors->has('deletion_linked_provider_id') || $errors->has('deletion_linked_lead_id') || $errors->has('deletion_linked_booking_id'))
                         <script>
                             document.addEventListener('DOMContentLoaded', function () {
                                 var modal = document.getElementById('deleteLeadModal');
@@ -4090,6 +4187,168 @@
     </script>
     @include('leadmanagement::admin.leads.partials._lead-edit-followup-scripts')
     @include('leadmanagement::admin.leads.partials._lead-temperature-script')
+    <script>
+    (function ($) {
+        function bindDeleteLeadProofModal() {
+            var $modal = $('#deleteLeadModal');
+            if (!$modal.length || $modal.data('proof-bound')) {
+                return;
+            }
+            $modal.data('proof-bound', true);
+
+            var providerUrl = $modal.data('provider-search-url');
+            var leadUrl = $modal.data('lead-search-url');
+            var bookingUrl = $modal.data('booking-search-url');
+            var excludeLeadId = $modal.data('exclude-lead-id');
+            var $form = $('#deleteLeadForm');
+            var $type = $('#deletion_reason_type');
+            var $providerWrap = $('#delete-proof-provider-wrap');
+            var $leadWrap = $('#delete-proof-lead-wrap');
+            var $bookingWrap = $('#delete-proof-booking-wrap');
+            var $provider = $('#deletion_linked_provider_id');
+            var $lead = $('#deletion_linked_lead_id');
+            var $booking = $('#deletion_linked_booking_id');
+            var $notes = $('#deletion_reason');
+            var $submit = $('#deleteLeadSubmitBtn');
+
+            function destroySelect2($el) {
+                if ($el.length && $el.data('select2')) {
+                    $el.off('change.deleteProof').select2('destroy');
+                }
+            }
+
+            function refreshSubmit() {
+                var type = $type.val();
+                var notes = ($notes.val() || '').trim();
+                var ok = !!type && notes.length >= 3;
+
+                if (type === 'already_provider') {
+                    ok = ok && !!$provider.val();
+                } else if (type === 'duplicate_lead') {
+                    ok = ok && !!$lead.val();
+                } else if (type === 'related_booking') {
+                    ok = ok && !!$booking.val();
+                } else if (type !== 'other') {
+                    ok = false;
+                }
+
+                $submit.prop('disabled', !ok);
+            }
+
+            function initAjaxSelect2($el, url, extraData) {
+                if (!$el.length || !$.fn.select2) {
+                    refreshSubmit();
+                    return;
+                }
+                destroySelect2($el);
+                $el.select2({
+                    width: '100%',
+                    allowClear: true,
+                    placeholder: $el.data('placeholder') || '',
+                    dropdownParent: $modal,
+                    ajax: {
+                        url: url,
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return Object.assign({
+                                q: params.term || '',
+                                selected: $el.val() || ''
+                            }, extraData || {});
+                        },
+                        processResults: function (data) {
+                            return data;
+                        },
+                        cache: true
+                    },
+                    minimumInputLength: 0
+                });
+
+                $el.off('change.deleteProof').on('change.deleteProof', refreshSubmit);
+
+                var selected = $el.val();
+                if (selected) {
+                    $.get(url, Object.assign({ selected: selected }, extraData || {}), function (data) {
+                        var match = (data.results || []).find(function (item) {
+                            return String(item.id) === String(selected);
+                        });
+                        if (match) {
+                            var option = new Option(match.text, match.id, true, true);
+                            $el.append(option).trigger('change');
+                        }
+                        refreshSubmit();
+                    });
+                } else {
+                    refreshSubmit();
+                }
+            }
+
+            function clearProofSelects() {
+                destroySelect2($provider);
+                $provider.empty().val(null);
+                destroySelect2($lead);
+                $lead.empty().val(null);
+                destroySelect2($booking);
+                $booking.empty().val(null);
+            }
+
+            function refreshDeleteProofUi() {
+                var type = $type.val();
+                var isProvider = type === 'already_provider';
+                var isLead = type === 'duplicate_lead';
+                var isBooking = type === 'related_booking';
+
+                $providerWrap.toggleClass('d-none', !isProvider);
+                $leadWrap.toggleClass('d-none', !isLead);
+                $bookingWrap.toggleClass('d-none', !isBooking);
+
+                $provider.prop('required', isProvider);
+                $lead.prop('required', isLead);
+                $booking.prop('required', isBooking);
+                $notes.prop('required', true).attr('minlength', 3);
+
+                if (isProvider) {
+                    initAjaxSelect2($provider, providerUrl);
+                } else if (isLead) {
+                    initAjaxSelect2($lead, leadUrl, { exclude_id: excludeLeadId });
+                } else if (isBooking) {
+                    initAjaxSelect2($booking, bookingUrl);
+                } else {
+                    clearProofSelects();
+                    refreshSubmit();
+                }
+            }
+
+            $type.on('change', function () {
+                clearProofSelects();
+                refreshDeleteProofUi();
+            });
+            $notes.on('input change', refreshSubmit);
+
+            $form.on('submit', function (e) {
+                refreshSubmit();
+                if ($submit.prop('disabled')) {
+                    e.preventDefault();
+                }
+            });
+
+            $modal.on('shown.bs.modal', function () {
+                refreshDeleteProofUi();
+            });
+
+            $modal.on('hidden.bs.modal', function () {
+                clearProofSelects();
+                refreshSubmit();
+            });
+
+            refreshDeleteProofUi();
+        }
+
+        $(function () {
+            bindDeleteLeadProofModal();
+        });
+    })(jQuery);
+    </script>
 @endpush
 
 @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)

@@ -19,7 +19,10 @@
             failed: @json(translate('Failed_to_update')),
             deleting: @json(translate('Delete')) + '…',
             cannotDeletePending: @json(translate('Cannot_delete_pending_follow_up')),
+            rescheduleRemarksRequired: @json(translate('Reschedule_remarks_required')),
         };
+        var originalEditDate = '';
+        var originalEditStatus = 'scheduled';
 
         function statusLabel(status) {
             if (status === 'completed') return labels.taken;
@@ -36,6 +39,25 @@
             $('#booking-edit-followup-reason-group').toggleClass('d-none', !isScheduled);
             $('#booking-edit-followup-at').prop('required', !isScheduled && status === 'completed');
             $('#booking-edit-followup-date').toggleClass('js-followup-future-only', isScheduled);
+        }
+
+        function syncEditRemarksRequirement() {
+            var dateChanged = originalEditStatus === 'scheduled'
+                && originalEditDate
+                && ($('#booking-edit-followup-date').val() || '') !== originalEditDate;
+            $('#booking-edit-followup-remarks').prop('required', !!dateChanged);
+            $('#booking-edit-followup-remarks-required').toggleClass('d-none', !dateChanged);
+            if (dateChanged) {
+                $('#booking-edit-followup-remarks').attr(
+                    'placeholder',
+                    @json(translate('Add_a_note_about_why_this_follow_up_is_being_rescheduled'))
+                );
+            } else {
+                $('#booking-edit-followup-remarks').attr(
+                    'placeholder',
+                    @json(translate('Add_remarks_from_follow_up'))
+                );
+            }
         }
 
         function localFollowupScheduleMin() {
@@ -64,13 +86,16 @@
             $('#booking-edit-followup-status-label').text(labels.status + ': ' + statusLabel(payload.status || 'scheduled'));
             $('#booking-edit-followup-for').val(payload.for || 'customer');
             $('#booking-edit-followup-date').val(payload.date || '');
+            originalEditDate = payload.date || '';
+            originalEditStatus = payload.status || 'scheduled';
             $('#booking-edit-followup-at').val(payload.followupAt || '');
             $('#booking-edit-followup-channel').val(payload.channel || '');
             $('#booking-edit-followup-urgency').val(payload.urgency || 'medium');
             $('#booking-edit-followup-reason').val(payload.reason || '');
             $('#booking-edit-followup-remarks').val(payload.remarks || '');
             $('#booking-edit-followup-next').val(payload.nextAt || '');
-            toggleEditFollowupFields(payload.status || 'scheduled');
+            toggleEditFollowupFields(originalEditStatus);
+            syncEditRemarksRequirement();
             applyEditFollowupFutureMin();
 
             $modal.find('input.js-followup-not-future').each(function () {
@@ -131,6 +156,10 @@
             }
         });
 
+        $(document).on('change input', '#booking-edit-followup-date', function () {
+            syncEditRemarksRequirement();
+        });
+
         $form.on('submit', function (event) {
             var action = ($form.attr('action') || '').trim();
             if (!action) {
@@ -138,6 +167,17 @@
                 if (typeof toastr !== 'undefined') {
                     toastr.error(labels.failed);
                 }
+                return;
+            }
+
+            syncEditRemarksRequirement();
+            if ($('#booking-edit-followup-remarks').prop('required')
+                && !($('#booking-edit-followup-remarks').val() || '').trim()) {
+                event.preventDefault();
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(labels.rescheduleRemarksRequired);
+                }
+                $('#booking-edit-followup-remarks').focus();
                 return;
             }
 

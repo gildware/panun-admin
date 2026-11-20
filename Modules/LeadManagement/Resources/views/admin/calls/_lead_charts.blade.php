@@ -3,6 +3,10 @@
     $leadFilters = $leadCharts['filters'] ?? ['period' => 'overall', 'category' => null, 'service' => null, 'zone' => null];
     $leadOptions = $leadCharts['options'] ?? ['categories' => [], 'services' => [], 'zones' => []];
     $periodQuery = request()->except('lead_period');
+    $callFilterKeep = array_filter(
+        request()->only(['from', 'to', 'agent']),
+        fn ($value) => $value !== null && $value !== ''
+    );
 @endphp
 <div class="card calls-report-card mb-3">
     <div class="card-body">
@@ -22,6 +26,9 @@
         <p class="calls-report-note" style="margin-top: 0;">{{ translate('Superfone_leads_hint') }}</p>
         <form method="get" action="{{ route('admin.calls.report') }}" class="calls-lead-filters">
             <input type="hidden" name="lead_period" value="{{ $leadFilters['period'] ?? 'overall' }}">
+            @foreach($callFilterKeep as $keepKey => $keepValue)
+                <input type="hidden" name="{{ $keepKey }}" value="{{ $keepValue }}">
+            @endforeach
             <label>
                 {{ translate('Category') }}
                 <select name="lead_category" class="form-select form-select-sm">
@@ -51,7 +58,7 @@
             </label>
             <div class="calls-lead-actions">
                 <button type="submit" class="btn btn-sm btn--primary">{{ translate('Filter') }}</button>
-                <a class="calls-lead-reset" href="{{ route('admin.calls.report') }}">{{ translate('Reset') }}</a>
+                <a class="calls-lead-reset" href="{{ route('admin.calls.report', $callFilterKeep) }}">{{ translate('Reset') }}</a>
             </div>
         </form>
         <div class="calls-lead-grid">

@@ -26,7 +26,13 @@ class DeletedLeadController extends Controller
         $search = trim((string) $request->input('search', ''));
 
         $leads = Lead::onlyTrashed()
-            ->with(['deletedByUser', 'source'])
+            ->with([
+                'deletedByUser',
+                'source',
+                'deletionLinkedProvider:id,company_name,contact_person_name,contact_person_phone,company_phone',
+                'deletionLinkedLead:id,name,phone_number,lead_type',
+                'deletionLinkedBooking:id,readable_id,booking_status,customer_id',
+            ])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', '%'.$search.'%')
@@ -89,6 +95,10 @@ class DeletedLeadController extends Controller
         try {
             $lead->deleted_by = null;
             $lead->deletion_reason = null;
+            $lead->deletion_reason_type = null;
+            $lead->deletion_linked_provider_id = null;
+            $lead->deletion_linked_lead_id = null;
+            $lead->deletion_linked_booking_id = null;
             $lead->restore();
         } catch (\Throwable $e) {
             report($e);
