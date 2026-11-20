@@ -2,7 +2,6 @@
 
 namespace Modules\LeadManagement\Http\Controllers\Web\Admin;
 
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -20,38 +19,15 @@ class DeletedCallController extends Controller
         });
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): RedirectResponse
     {
-        $search = trim((string) $request->input('search', ''));
+        $query = ['status' => 'deleted'];
+        $search = trim((string) $request->input('search', $request->input('q', '')));
+        if ($search !== '') {
+            $query['q'] = $search;
+        }
 
-        $calls = SuperfoneCall::onlyTrashed()
-            ->with([
-                'deletedByUser:id,first_name,last_name,email,phone',
-                'lead:id,name,phone_number,lead_type',
-                'employee:id,first_name,last_name',
-                'provider:id,company_name,contact_person_name',
-                'booking:id,readable_id,booking_status',
-                'customer:id,first_name,last_name,phone',
-            ])
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($inner) use ($search) {
-                    $inner->where('customer_phone', 'like', '%'.$search.'%')
-                        ->orWhere('customer_phone_digits', 'like', '%'.$search.'%')
-                        ->orWhere('staff_name', 'like', '%'.$search.'%')
-                        ->orWhere('cdr_uuid', 'like', '%'.$search.'%');
-                    if (ctype_digit($search)) {
-                        $inner->orWhere('id', (int) $search);
-                    }
-                });
-            })
-            ->latest('deleted_at')
-            ->paginate(pagination_limit())
-            ->withQueryString();
-
-        return view('leadmanagement::admin.calls.deleted', [
-            'calls' => $calls,
-            'search' => $search,
-        ]);
+        return redirect()->route('admin.calls.index', $query);
     }
 
     public function restore(int $id): RedirectResponse
@@ -60,7 +36,7 @@ class DeletedCallController extends Controller
         if (! $call) {
             toastr()->error(translate('Call_not_found') ?: 'Call not found.');
 
-            return redirect()->route('admin.calls.deleted');
+            return redirect()->route('admin.calls.index', ['status' => 'deleted']);
         }
 
         if (! $call->trashed()) {
@@ -75,7 +51,7 @@ class DeletedCallController extends Controller
             report($e);
             toastr()->error(translate('Call_restore_failed') ?: 'Could not restore this call. Please try again.');
 
-            return redirect()->route('admin.calls.deleted');
+            return redirect()->route('admin.calls.index', ['status' => 'deleted']);
         }
 
         toastr()->success(translate('Call_restored_successfully'));
@@ -94,7 +70,7 @@ class DeletedCallController extends Controller
                     : (translate('Call_not_found') ?: 'Call not found.')
             );
 
-            return redirect()->route('admin.calls.deleted');
+            return redirect()->route('admin.calls.index', ['status' => 'deleted']);
         }
 
         try {
@@ -103,11 +79,11 @@ class DeletedCallController extends Controller
             report($e);
             toastr()->error(translate('Call_delete_failed') ?: 'Could not permanently delete this call. Please try again.');
 
-            return redirect()->route('admin.calls.deleted');
+            return redirect()->route('admin.calls.index', ['status' => 'deleted']);
         }
 
         toastr()->success(translate('Call_deleted_permanently'));
 
-        return redirect()->route('admin.calls.deleted');
+        return redirect()->route('admin.calls.index', ['status' => 'deleted']);
     }
 }

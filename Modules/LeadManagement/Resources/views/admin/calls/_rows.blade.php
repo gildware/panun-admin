@@ -1,44 +1,32 @@
+@php
+    $showingDeleted = $showingDeleted ?? false;
+@endphp
 @foreach($calls as $call)
     @php
         $contactMark = $contactMarks[$call->id] ?? null;
-        $needsCallback = isset($awaitingCallbackIds[$call->id]) && $contactMark === null;
+        $needsCallback = ! $showingDeleted && isset($awaitingCallbackIds[$call->id]) && $contactMark === null;
+        $deleteLabel = $call->customer_phone ?: ($call->cdr_uuid ?: ('#'.$call->id));
     @endphp
     <tr @class([
         'calls-row--needs-callback' => $needsCallback,
         'calls-row--contacted' => $contactMark && $contactMark->channel !== 'not_picked',
         'calls-row--not-picked' => $contactMark && $contactMark->channel === 'not_picked',
     ]) @if($needsCallback) title="{{ translate('Needs_callback') }}" @elseif($contactMark) title="{{ $contactMark->channelLabel() }}" @endif>
-        @if(is_super_admin())
-            <td class="calls-select-cell" onclick="event.stopPropagation()">
+        @if(is_super_admin() && ! $showingDeleted)
+            <td class="calls-select-cell" data-col="select" onclick="event.stopPropagation()">
                 <input type="checkbox"
                        class="form-check-input calls-row-select"
                        value="{{ $call->id }}"
-                       data-delete-label="{{ $call->customer_phone ?: ($call->cdr_uuid ?: ('#'.$call->id)) }} · {{ $call->formatIst('started_at') }}"
+                       data-delete-label="{{ $deleteLabel }} · {{ $call->formatIst('started_at') }}"
                        aria-label="{{ translate('Select_call') }}">
             </td>
         @endif
-        <td>
+        <td data-col="time">
             <a href="{{ route('admin.calls.show', $call) }}">
                 {{ $call->formatIst('started_at') }}
             </a>
         </td>
-        <td class="calls-call-id-cell">
-            @if($call->cdr_uuid)
-                <button type="button"
-                        class="btn btn-outline-secondary calls-copy-id"
-                        data-call-id="{{ $call->cdr_uuid }}"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="top"
-                        data-bs-title="{{ translate('Copy_call_id') }}"
-                        title="{{ translate('Copy_call_id') }}"
-                        aria-label="{{ translate('Copy_call_id') }}">
-                    <span class="material-icons" aria-hidden="true">content_copy</span>
-                </button>
-            @else
-                <span class="text-muted">—</span>
-            @endif
-        </td>
-        <td>
+        <td data-col="direction">
             @if($call->direction === 'INBOUND')
                 <span class="call-pill call-pill--in">
                     <span class="material-icons">call_received</span>
@@ -53,9 +41,9 @@
                 {{ $call->directionLabel() }}
             @endif
         </td>
-        <td title="{{ $call->customer_phone }}">{{ $call->customer_phone ?: '—' }}</td>
-        <td title="{{ $call->staff_name }}">{{ $call->staff_name ?: '—' }}</td>
-        <td class="calls-result-cell">
+        <td data-col="phone" title="{{ $call->customer_phone }}">{{ $call->customer_phone ?: '—' }}</td>
+        <td data-col="employee" title="{{ $call->staff_name }}">{{ $call->staff_name ?: '—' }}</td>
+        <td class="calls-result-cell" data-col="result">
             @php
                 $outcome = $call->outcome ?: 'unknown';
                 if ($outcome === 'missed' && $call->direction === 'OUTBOUND') {
@@ -94,8 +82,8 @@
                 @endif
             </span>
         </td>
-        <td>{{ $call->durationLabel() }}</td>
-        <td>
+        <td data-col="duration">{{ $call->durationLabel() }}</td>
+        <td data-col="recording">
             @if($call->hasRecording())
                 <button type="button"
                         class="call-pill call-pill--rec calls-play-recording"
@@ -112,7 +100,7 @@
                 —
             @endif
         </td>
-        <td>
+        <td data-col="party">
             @php
                 $partyProvider = trim((string) ($call->provider->company_name ?? $call->provider->contact_person_name ?? ''));
                 $partyCustomer = trim((string) (($call->customer->first_name ?? '').' '.($call->customer->last_name ?? '')));
@@ -125,14 +113,14 @@
                 <span class="text-muted">—</span>
             @endif
         </td>
-        <td class="calls-lead-cell">
+        <td class="calls-lead-cell" data-col="lead">
             @include('leadmanagement::admin.calls._lead_cell', [
                 'call' => $call,
                 'openBookings' => $bookingChoices[$call->id] ?? collect(),
                 'rowsOnly' => $rowsOnly ?? false,
             ])
         </td>
-        <td class="calls-booking-cell">
+        <td class="calls-booking-cell" data-col="booking">
             @if($call->booking)
                 @php $bookingStatus = (string) ($call->booking->booking_status ?: 'pending'); @endphp
                 <a class="booking-chip booking-chip--{{ $bookingStatus }}" href="{{ route('admin.booking.details', [$call->booking_id, 'web_page' => 'details']) }}">
@@ -143,8 +131,29 @@
                 <span class="text-muted">—</span>
             @endif
         </td>
-        <td class="calls-actions-cell">
+        <td class="calls-actions-cell" data-col="actions">
             <div class="calls-actions-stack">
+            @if($showingDeleted)
+                <div class="calls-actions-primary">
+                    <a href="{{ route('admin.calls.show', $call) }}" class="btn btn--primary calls-link-lead-btn" data-turbo="false">{{ translate('view') }}</a>
+                    <button type="button"
+                            class="btn btn-success calls-link-lead-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#restoreCallModal"
+                            data-action="{{ route('admin.calls.deleted.restore', $call->id) }}"
+                            data-name="{{ $deleteLabel }}">
+                        {{ translate('Restore') }}
+                    </button>
+                    <button type="button"
+                            class="btn btn-outline-danger calls-link-lead-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#forceDeleteCallModal"
+                            data-action="{{ route('admin.calls.deleted.force', $call->id) }}"
+                            data-name="{{ $deleteLabel }}">
+                        {{ translate('Delete_permanently') }}
+                    </button>
+                </div>
+            @else
             @if($needsCallback)
                 <button type="button"
                         class="btn btn-outline-danger calls-contact-btn"
@@ -156,6 +165,18 @@
                 </button>
             @endif
             <div class="calls-actions-primary">
+            @can('lead_add')
+                @if(strlen((string) ($call->customer_phone_digits ?: '')) >= 8)
+                    <button type="button"
+                            class="btn btn-outline-secondary calls-link-lead-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#call-create-lead-modal"
+                            data-create-lead-action="{{ route('admin.calls.create-lead', $call) }}"
+                            data-create-lead-phone="{{ $call->customer_phone }}">
+                        {{ translate('New_lead') }}
+                    </button>
+                @endif
+            @endcan
             @if(!$call->lead && !$call->booking)
                 @php
                     $linkProvider = trim((string) ($call->provider->company_name ?? $call->provider->contact_person_name ?? ''));
@@ -211,13 +232,14 @@
                         data-bs-toggle="modal"
                         data-bs-target="#call-delete-modal"
                         data-delete-url="{{ route('admin.calls.destroy', $call) }}"
-                        data-delete-label="{{ $call->customer_phone ?: ($call->cdr_uuid ?: ('#'.$call->id)) }} · {{ $call->formatIst('started_at') }}"
+                        data-delete-label="{{ $deleteLabel }} · {{ $call->formatIst('started_at') }}"
                         title="{{ translate('Delete') }}"
                         aria-label="{{ translate('Delete') }}">
                     <span class="material-icons" aria-hidden="true">delete</span>
                 </button>
             @endif
             </div>
+            @endif
             </div>
         </td>
     </tr>

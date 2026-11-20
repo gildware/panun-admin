@@ -82,4 +82,37 @@ class LeadFollowupChangeLogTest extends TestCase
         $this->assertSame('Follow_up_missed', $logs[0]->changes['followup_missed']['label']);
         $this->assertSame('18 November 2026 11:15 am', $logs[1]->changes['followup_taken']['new']);
     }
+
+    public function test_remove_followup_taken_events_clears_take_and_matching_miss(): void
+    {
+        $leadId = 3933;
+        $due = Carbon::parse('2026-11-20 23:00:00');
+        $lateTaken = Carbon::parse('2026-11-21 00:15:00');
+        $otherDue = Carbon::parse('2026-11-21 10:00:00');
+        $otherTaken = Carbon::parse('2026-11-18 09:00:00');
+
+        $this->service->recordFollowupMissedIfPast($leadId, $due, $lateTaken);
+        $this->service->recordFollowupTaken($leadId, $due, $lateTaken);
+        $this->service->recordFollowupTaken($leadId, $otherDue, $otherTaken);
+
+        $this->assertSame(2, $this->service->removeFollowupTakenEvents($leadId, $due, $lateTaken));
+
+        $logs = LeadChangeLog::query()->where('lead_id', $leadId)->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame('21 November 2026 10:00 am', $logs[0]->changes['followup_taken']['old']);
+        $this->assertSame('18 November 2026 09:00 am', $logs[0]->changes['followup_taken']['new']);
+    }
+
+    public function test_remove_early_take_does_not_clear_unrelated_miss_for_same_due(): void
+    {
+        $leadId = 3933;
+        $due = Carbon::parse('2026-11-20 23:00:00');
+        $earlyTaken = Carbon::parse('2026-11-17 13:32:31');
+
+        $this->service->recordFollowupMissedIfPast($leadId, $due, Carbon::parse('2026-11-21 00:00:00'));
+        $this->service->recordFollowupTaken($leadId, $due, $earlyTaken);
+
+        $this->assertSame(1, $this->service->removeFollowupTakenEvents($leadId, $due, $earlyTaken));
+        $this->assertTrue($this->service->followupMissedAlreadyLogged($leadId, $due->format('Y-m-d H:i:s')));
+    }
 }

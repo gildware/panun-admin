@@ -33,6 +33,7 @@ use Carbon\Carbon;
 use Modules\WhatsAppModule\Services\LeadWhatsAppAssignmentSyncService;
 use Modules\WhatsAppModule\Services\MetaSocialOutboundService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
+use Modules\WhatsAppModule\Services\WhatsAppLeadLifecycleService;
 use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
@@ -2051,6 +2052,81 @@ class WhatsAppController extends Controller
         }
 
         return response()->json(['data' => $rows->all()]);
+    }
+
+    /**
+     * Staff override: mint a new CRM lead for the open WhatsApp chat phone.
+     */
+    public function createLeadFromChat(Request $request): JsonResponse|RedirectResponse
+    {
+        $this->authorize('lead_add');
+
+        $data = $request->validate([
+            'phone' => 'required|string|max:64',
+            'name' => 'nullable|string|max:191',
+        ]);
+
+        $rawPhone = trim((string) $data['phone']);
+        $graphTo = $this->whatsAppCloud->normalizeRecipientPhone($rawPhone);
+        if ($graphTo === null && (str_starts_with($rawPhone, 'FB_') || str_starts_with($rawPhone, 'IG_'))) {
+            $graphTo = $rawPhone;
+        }
+        if ($graphTo === null) {
+            $message = translate('Invalid_whatsapp_phone');
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        $threadPhone = $this->resolveWhatsappThreadPhoneKey($rawPhone, $graphTo);
+        $waUser = WhatsAppUser::query()
+            ->where('phone', $threadPhone)
+            ->where('channel', SocialInboxChannel::current())
+            ->first();
+        $name = trim((string) ($data['name'] ?? '')) !== ''
+            ? trim((string) $data['name'])
+            : ($waUser->name ?? null);
+
+        try {
+            $lead = app(WhatsAppLeadLifecycleService::class)
+                ->createLeadManuallyForPhone($threadPhone, $name);
+        } catch (\Throwable $e) {
+            report($e);
+            $message = translate('Something_went_wrong');
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 500);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        if (! $lead) {
+            $message = translate('Phone_number_is_required');
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        $message = translate('New_lead_created_from_chat');
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'lead_id' => $lead->id,
+                'lead_url' => route('admin.lead.show', $lead->id),
+            ]);
+        }
+
+        Toastr::success($message);
+
+        return redirect()->route('admin.lead.show', $lead->id);
     }
 
     /**

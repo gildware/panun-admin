@@ -1122,7 +1122,7 @@ trait AdminMenuWithRoutes
                 'route_name' => 'Calls',
                 'uri' => 'admin/calls',
                 'full_route' => url('admin/calls'),
-                "keywords" => 'Calls, Superfone, call logs, recordings, inbound, outbound',
+                "keywords" => 'Calls, Superfone, call logs, recordings, inbound, outbound, deleted calls, restore call',
                 "type" => 'menu',
             ],
             [
@@ -1131,14 +1131,6 @@ trait AdminMenuWithRoutes
                 'full_route' => url('admin/calls/report'),
                 'page_title' => 'Call_report',
                 "keywords" => 'Call report, missed, answered, unallocated, inbound, outbound, employee, company',
-                "type" => 'menu',
-            ],
-            [
-                'route_name' => 'Deleted_calls',
-                'uri' => 'admin/calls/deleted',
-                'full_route' => url('admin/calls/deleted'),
-                'page_title' => 'Deleted_calls',
-                "keywords" => 'Deleted calls, restore call, permanently delete call, Superfone',
                 "type" => 'menu',
             ],
             [

@@ -136,6 +136,39 @@ class LeadChangeLogService
     }
 
     /**
+     * Drop the take (and matching miss) written when a Superfone call was linked.
+     * Used on unlink so Change History does not keep a take after the follow-up is gone.
+     */
+    public function removeFollowupTakenEvents(
+        int $leadId,
+        Carbon|string|null $dueAt,
+        Carbon|string|null $takenAt
+    ): int {
+        $removed = LeadChangeLog::query()
+            ->where('lead_id', $leadId)
+            ->where('changes->followup_taken->old', $this->formatFollowupWhen($dueAt))
+            ->where('changes->followup_taken->new', $this->formatFollowupWhen($takenAt))
+            ->delete();
+
+        if ($dueAt === null || $dueAt === '' || $takenAt === null || $takenAt === '') {
+            return $removed;
+        }
+
+        $due = $dueAt instanceof Carbon ? $dueAt : Carbon::parse($dueAt);
+        $taken = $takenAt instanceof Carbon ? $takenAt : Carbon::parse($takenAt);
+        if ($taken->lte($due)) {
+            return $removed;
+        }
+
+        $removed += LeadChangeLog::query()
+            ->where('lead_id', $leadId)
+            ->where('changes->followup_missed->due_at', $due->format('Y-m-d H:i:s'))
+            ->delete();
+
+        return $removed;
+    }
+
+    /**
      * @return array{label: string, old: string, new: string, reason?: string}
      */
     private function followupEventChange(string $label, string $from, string $to, ?string $detail = null): array

@@ -107,7 +107,8 @@ class LeadOpenStatusService
     /**
      * Attach this lead on an inbound call/WhatsApp thread instead of minting.
      * Only open leads qualify — closed / booked / future leads do not absorb
-     * the next enquiry (same gate as {@see shouldCreateNewLead()}).
+     * the next enquiry as an open reuse (mint is separately gated by
+     * {@see shouldCreateNewLead()} / any prior lead or booking history).
      */
     public function firstLeadForIncomingCall(Collection $leads): ?Lead
     {
@@ -194,11 +195,12 @@ class LeadOpenStatusService
     }
 
     /**
-     * Mint a new CRM lead only when the phone has neither an open lead nor an open booking.
+     * Auto-mint a CRM lead only when the phone has never been tied to any lead
+     * (open or closed) or any booking (open or closed). Staff may still create manually.
      */
-    public static function shouldCreateNewLead(bool $hasOpenLead, bool $hasOpenBooking): bool
+    public static function shouldCreateNewLead(bool $hasAnyLead, bool $hasAnyBooking): bool
     {
-        return ! $hasOpenLead && ! $hasOpenBooking;
+        return ! $hasAnyLead && ! $hasAnyBooking;
     }
 
     public static function nonResponsiveReopenDays(): int
@@ -311,18 +313,27 @@ class LeadOpenStatusService
     /**
      * Shared Superfone + WhatsApp decision for a phone's known leads.
      *
+     * - open lead / open booking → auto-attach that work
+     * - any closed lead or closed booking history → `existing` (no auto-attach, no auto-mint;
+     *   staff manually attach or create)
+     * - no lead/booking match → `mint`
+     *
      * @param  Collection<int, Lead>  $leads
      * @return array{
-     *     action: 'open'|'booking'|'reopen'|'mint',
+     *     action: 'open'|'booking'|'existing'|'mint',
      *     lead: ?Lead,
      *     has_open_lead: bool,
-     *     has_open_booking: bool
+     *     has_open_booking: bool,
+     *     has_any_lead: bool,
+     *     has_any_booking: bool
      * }
      */
     public function resolveInboundLead(Collection $leads, string $phoneDigits): array
     {
         $openLead = $this->firstOpenLead($leads);
         $hasOpenBooking = $this->phoneHasOpenBooking($phoneDigits);
+        $hasAnyLead = $leads->isNotEmpty();
+        $hasAnyBooking = $this->phoneHasAnyBooking($phoneDigits);
 
         if ($openLead) {
             return [
@@ -330,6 +341,8 @@ class LeadOpenStatusService
                 'lead' => $openLead,
                 'has_open_lead' => true,
                 'has_open_booking' => $hasOpenBooking,
+                'has_any_lead' => $hasAnyLead,
+                'has_any_booking' => $hasAnyBooking,
             ];
         }
 
@@ -339,16 +352,20 @@ class LeadOpenStatusService
                 'lead' => $this->existingLeadForOpenBookingPhone($phoneDigits),
                 'has_open_lead' => false,
                 'has_open_booking' => true,
+                'has_any_lead' => $hasAnyLead,
+                'has_any_booking' => true,
             ];
         }
 
-        $reopen = $this->firstReopenableNonResponsiveLead($leads);
-        if ($reopen) {
+        // Closed lead / any booking history: leave unmatched for staff (attach or create manually).
+        if ($hasAnyLead || $hasAnyBooking) {
             return [
-                'action' => 'reopen',
-                'lead' => $reopen,
+                'action' => 'existing',
+                'lead' => null,
                 'has_open_lead' => false,
                 'has_open_booking' => false,
+                'has_any_lead' => $hasAnyLead,
+                'has_any_booking' => $hasAnyBooking,
             ];
         }
 
@@ -357,6 +374,8 @@ class LeadOpenStatusService
             'lead' => null,
             'has_open_lead' => false,
             'has_open_booking' => false,
+            'has_any_lead' => false,
+            'has_any_booking' => false,
         ];
     }
 
@@ -390,19 +409,36 @@ class LeadOpenStatusService
      */
     public function phoneHasOpenBooking(string $phoneDigits): bool
     {
+        return $this->phoneHasBooking($phoneDigits, openOnly: true);
+    }
+
+    /**
+     * Whether this phone has ever been tied to a booking (any status).
+     */
+    public function phoneHasAnyBooking(string $phoneDigits): bool
+    {
+        return $this->phoneHasBooking($phoneDigits, openOnly: false);
+    }
+
+    /**
+     * @param  bool  $openOnly  When true, ignore terminal/closed booking statuses.
+     */
+    private function phoneHasBooking(string $phoneDigits, bool $openOnly): bool
+    {
         $suffix = PartyPhoneDirectory::normalizeDigits($phoneDigits);
         if ($suffix === null) {
             return false;
         }
 
         $customerIds = $this->customerIdsForPhone($suffix);
-        if ($customerIds !== []
-            && Booking::query()
-                ->whereIn('customer_id', $customerIds)
-                ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
-                ->exists()
-        ) {
-            return true;
+        if ($customerIds !== []) {
+            $customerBookings = Booking::query()->whereIn('customer_id', $customerIds);
+            if ($openOnly) {
+                $customerBookings->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH);
+            }
+            if ($customerBookings->exists()) {
+                return true;
+            }
         }
 
         $leadIds = $this->leadIdsForPhone($suffix);
@@ -410,10 +446,12 @@ class LeadOpenStatusService
             return false;
         }
 
-        return Booking::query()
-            ->whereIn('lead_id', $leadIds)
-            ->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH)
-            ->exists();
+        $leadBookings = Booking::query()->whereIn('lead_id', $leadIds);
+        if ($openOnly) {
+            $leadBookings->whereNotIn('booking_status', Booking::CLOSED_STATUSES_FOR_INBOUND_LEAD_MATCH);
+        }
+
+        return $leadBookings->exists();
     }
 
     /**

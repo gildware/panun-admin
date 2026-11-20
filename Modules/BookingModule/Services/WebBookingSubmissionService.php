@@ -10,6 +10,7 @@ use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Services\LeadFollowupService;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Services\WhatsAppLeadLifecycleService;
 
@@ -73,12 +74,15 @@ class WebBookingSubmissionService
         }
 
         $sourceId = Source::ensureWebsiteDirectBookingSource()->id;
-        $openLead = Lead::where('phone_number', $phone)
-            ->orderByDesc('id')
-            ->get()
-            ->first(fn (Lead $lead) => $this->leadLifecycle->isLeadOpen($lead));
+        $openStatus = app(LeadOpenStatusService::class);
+        $resolved = $openStatus->resolveInboundLead(
+            $openStatus->leadsForPhoneDigits($phone),
+            $phone
+        );
 
-        if ($openLead) {
+        if ($resolved['action'] === 'open' && $resolved['lead']) {
+            $openLead = $resolved['lead'];
+
             $dirty = false;
             if (trim((string) ($openLead->name ?? '')) === '' && $payload['name'] !== '') {
                 $openLead->name = $payload['name'];
@@ -97,6 +101,11 @@ class WebBookingSubmissionService
             }
 
             return $openLead->fresh();
+        }
+
+        // Closed / prior history: do not auto-attach or mint (staff may attach or create).
+        if ($resolved['action'] !== 'mint') {
+            return null;
         }
 
         $lead = Lead::create([
