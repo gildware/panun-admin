@@ -59,6 +59,43 @@ final class WhatsAppThreadPhoneKeys
     }
 
     /**
+     * Match a stored WhatsApp phone column to a lead last-10, including non-India
+     * country prefixes (e.g. lead 6548613184 ↔ thread 966548613184).
+     *
+     * Exact keys (India-style 10 / 0… / 91… / +91…) are tried first via whereIn;
+     * suffix LIKE covers any other country code Meta may store.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     * @param  list<string>  $exactKeys
+     */
+    public static function constrainQueryToLast10($query, string $column, string $last10, array $exactKeys = []): void
+    {
+        $digits = preg_replace('/\D+/', '', $last10) ?: '';
+        if (strlen($digits) >= 10) {
+            $digits = substr($digits, -10);
+        }
+        if ($digits === '') {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $exactKeys = array_values(array_unique(array_filter(
+            $exactKeys,
+            static fn ($key): bool => is_string($key) && $key !== ''
+        )));
+
+        $query->where(function ($q) use ($column, $exactKeys, $digits) {
+            if ($exactKeys !== []) {
+                $q->whereIn($column, $exactKeys)
+                    ->orWhere($column, 'like', '%'.$digits);
+            } else {
+                $q->where($column, 'like', '%'.$digits);
+            }
+        });
+    }
+
+    /**
      * @param  list<string|null>  $phones
      * @return list<string>
      */

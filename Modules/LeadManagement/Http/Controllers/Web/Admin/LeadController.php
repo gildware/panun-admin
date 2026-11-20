@@ -3882,7 +3882,9 @@ class LeadController extends Controller
 
         $last10 = $this->digitsLast10($lead->phone_number ?? null);
         if (!$wa && $last10) {
-            $phoneQuery = (clone $base)->whereIn('phone', $this->phoneLookupKeys($last10));
+            $keys = $this->phoneLookupKeys($last10);
+            $phoneQuery = clone $base;
+            \Modules\WhatsAppModule\Support\WhatsAppThreadPhoneKeys::constrainQueryToLast10($phoneQuery, 'phone', $last10, $keys);
             if (Schema::hasColumn($waTable, 'lead_id')) {
                 $phoneQuery->where(function ($sub) use ($lead) {
                     $sub->whereNull('lead_id')->orWhere('lead_id', $lead->id);
@@ -3938,8 +3940,9 @@ class LeadController extends Controller
         }
 
         $keys = $this->phoneLookupKeys($last10);
-        $candidates = WhatsAppUser::query()
-            ->whereIn('phone', $keys)
+        $userQuery = WhatsAppUser::query();
+        \Modules\WhatsAppModule\Support\WhatsAppThreadPhoneKeys::constrainQueryToLast10($userQuery, 'phone', $last10, $keys);
+        $candidates = $userQuery
             ->orderByDesc('updated_at')
             ->pluck('phone');
 
@@ -3949,8 +3952,10 @@ class LeadController extends Controller
             }
         }
 
-        return WhatsAppMessage::query()
-            ->whereIn('phone', $keys)
+        $messageQuery = WhatsAppMessage::query();
+        \Modules\WhatsAppModule\Support\WhatsAppThreadPhoneKeys::constrainQueryToLast10($messageQuery, 'phone', $last10, $keys);
+
+        return $messageQuery
             ->orderByDesc('created_at')
             ->value('phone');
     }
