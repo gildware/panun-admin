@@ -2169,6 +2169,9 @@ class LeadController extends Controller
             'comments.attachments',
             'createdBy',
             'deletedByUser',
+            'deletionLinkedProvider',
+            'deletionLinkedLead',
+            'deletionLinkedBooking',
             'customerLeadTags',
             'huntingInterests' => fn ($q) => $q->with(['provider:id,company_name,contact_person_name,contact_person_phone'])->latest(),
             'huntingStartedByUser:id,first_name,last_name,email',
@@ -4091,18 +4094,192 @@ class LeadController extends Controller
         return $label;
     }
 
+    public function searchLeadsForLink(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q', ''));
+        $selected = $request->query('selected');
+        $excludeId = (int) $request->query('exclude_id', 0);
+
+        if ($selected) {
+            $lead = Lead::query()->withTrashed()->find($selected);
+            if ($lead && (int) $lead->id !== $excludeId) {
+                return response()->json(['results' => [[
+                    'id' => $lead->id,
+                    'text' => $this->formatLeadSelectLabel($lead),
+                ]]]);
+            }
+
+            return response()->json(['results' => []]);
+        }
+
+        $idTerm = ltrim($q, '#');
+        $isId = $idTerm !== '' && ctype_digit($idTerm);
+
+        $query = Lead::query()->orderByDesc('id');
+        if ($excludeId > 0) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        if ($q !== '') {
+            $query->where(function ($builder) use ($q, $idTerm, $isId) {
+                $builder->where('name', 'like', '%'.$q.'%')
+                    ->orWhere('phone_number', 'like', '%'.$q.'%');
+                if ($isId) {
+                    $builder->orWhere('id', (int) $idTerm);
+                }
+            });
+        }
+
+        $results = $query->limit(20)->get(['id', 'name', 'phone_number', 'lead_type'])
+            ->map(fn (Lead $lead) => [
+                'id' => $lead->id,
+                'text' => $this->formatLeadSelectLabel($lead),
+            ])->values();
+
+        return response()->json(['results' => $results]);
+    }
+
+    public function searchBookingsForLink(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q', ''));
+        $selected = $request->query('selected');
+
+        if ($selected) {
+            $booking = Booking::query()->withTrashed()->with('customer:id,first_name,last_name,phone')->find($selected);
+            if ($booking) {
+                return response()->json(['results' => [[
+                    'id' => $booking->id,
+                    'text' => $this->formatBookingSelectLabel($booking),
+                ]]]);
+            }
+
+            return response()->json(['results' => []]);
+        }
+
+        $idTerm = ltrim($q, '#');
+        $isId = $idTerm !== '' && ctype_digit($idTerm);
+
+        $query = Booking::query()
+            ->with('customer:id,first_name,last_name,phone')
+            ->orderByDesc('created_at');
+
+        if ($q !== '') {
+            $query->where(function ($builder) use ($q, $idTerm, $isId) {
+                $builder->where('readable_id', 'like', '%'.$q.'%')
+                    ->orWhere('id', 'like', '%'.$q.'%')
+                    ->orWhereHas('customer', function ($customer) use ($q) {
+                        $customer->where('first_name', 'like', '%'.$q.'%')
+                            ->orWhere('last_name', 'like', '%'.$q.'%')
+                            ->orWhere('phone', 'like', '%'.$q.'%');
+                    })
+                    ->orWhereHas('provider', function ($provider) use ($q) {
+                        $provider->where('company_name', 'like', '%'.$q.'%')
+                            ->orWhere('contact_person_name', 'like', '%'.$q.'%');
+                    });
+                if ($isId) {
+                    $builder->orWhere('id', $idTerm);
+                }
+            });
+        }
+
+        $results = $query->limit(20)->get(['id', 'readable_id', 'booking_status', 'customer_id'])
+            ->map(fn (Booking $booking) => [
+                'id' => $booking->id,
+                'text' => $this->formatBookingSelectLabel($booking),
+            ])->values();
+
+        return response()->json(['results' => $results]);
+    }
+
+    protected function formatLeadSelectLabel(Lead $lead): string
+    {
+        $typeLabel = Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type;
+
+        return sprintf(
+            '#%s — %s (%s) — %s',
+            $lead->id,
+            $lead->name ?: '—',
+            $lead->phone_number ?: '—',
+            $typeLabel
+        );
+    }
+
+    protected function formatBookingSelectLabel(Booking $booking): string
+    {
+        $customer = $booking->customer;
+        $customerName = $customer
+            ? trim(($customer->first_name ?? '').' '.($customer->last_name ?? ''))
+            : '—';
+        $phone = $customer?->phone ?? '—';
+
+        return sprintf(
+            '%s — %s (%s) — %s',
+            $booking->readable_id ?: $booking->id,
+            $customerName !== '' ? $customerName : '—',
+            $phone,
+            ucfirst((string) $booking->booking_status)
+        );
+    }
+
     public function destroy(Request $request, int $id): RedirectResponse|\Illuminate\Http\Response
     {
+        $lead = Lead::findOrFail($id);
+
         $validated = $request->validate([
+            'deletion_reason_type' => ['required', 'string', Rule::in(array_keys(Lead::deletionReasonTypes()))],
+            'deletion_linked_provider_id' => [
+                'nullable',
+                'uuid',
+                Rule::requiredIf(fn () => $request->input('deletion_reason_type') === Lead::DELETION_REASON_ALREADY_PROVIDER),
+                'exists:providers,id',
+            ],
+            'deletion_linked_lead_id' => [
+                'nullable',
+                'integer',
+                Rule::requiredIf(fn () => $request->input('deletion_reason_type') === Lead::DELETION_REASON_DUPLICATE_LEAD),
+                Rule::exists('leads', 'id')->where(fn ($query) => $query->where('id', '!=', $lead->id)),
+            ],
+            'deletion_linked_booking_id' => [
+                'nullable',
+                'uuid',
+                Rule::requiredIf(fn () => $request->input('deletion_reason_type') === Lead::DELETION_REASON_RELATED_BOOKING),
+                'exists:bookings,id',
+            ],
             'deletion_reason' => ['required', 'string', 'min:3', 'max:1000'],
         ], [
-            'deletion_reason.required' => translate('Deletion_reason_is_required'),
+            'deletion_reason_type.required' => translate('Deletion_reason_type_is_required'),
+            'deletion_linked_provider_id.required' => translate('Select_the_matching_provider'),
+            'deletion_linked_lead_id.required' => translate('Select_the_duplicate_lead'),
+            'deletion_linked_booking_id.required' => translate('Select_the_related_booking'),
+            'deletion_reason.required' => translate('Deletion_remarks_are_required'),
             'deletion_reason.min' => translate('Deletion_reason_is_too_short'),
         ]);
 
-        $lead = Lead::findOrFail($id);
+        $type = $validated['deletion_reason_type'];
+        $notes = trim((string) ($validated['deletion_reason'] ?? ''));
+
+        $providerId = $type === Lead::DELETION_REASON_ALREADY_PROVIDER
+            ? ($validated['deletion_linked_provider_id'] ?? null)
+            : null;
+        $linkedLeadId = $type === Lead::DELETION_REASON_DUPLICATE_LEAD
+            ? (int) ($validated['deletion_linked_lead_id'] ?? 0) ?: null
+            : null;
+        $bookingId = $type === Lead::DELETION_REASON_RELATED_BOOKING
+            ? ($validated['deletion_linked_booking_id'] ?? null)
+            : null;
+
         $lead->deleted_by = Auth::id();
-        $lead->deletion_reason = trim($validated['deletion_reason']);
+        $lead->deletion_reason_type = $type;
+        $lead->deletion_linked_provider_id = $providerId;
+        $lead->deletion_linked_lead_id = $linkedLeadId;
+        $lead->deletion_linked_booking_id = $bookingId;
+        $lead->deletion_reason = $this->buildLeadDeletionReasonText(
+            $type,
+            $providerId,
+            $linkedLeadId,
+            $bookingId,
+            $notes
+        );
         $lead->save();
         $lead->delete();
 
@@ -4115,6 +4292,42 @@ class LeadController extends Controller
         toastr()->success(translate('Lead_moved_to_deleted_leads'));
 
         return redirect($this->resolveLeadIndexBackUrl($lead->lead_type));
+    }
+
+    protected function buildLeadDeletionReasonText(
+        string $type,
+        ?string $providerId,
+        ?int $linkedLeadId,
+        ?string $bookingId,
+        string $notes
+    ): string {
+        $parts = [];
+
+        if ($type === Lead::DELETION_REASON_ALREADY_PROVIDER && $providerId) {
+            $provider = Provider::query()->find($providerId);
+            $parts[] = translate('Already_a_provider').': '.($provider
+                ? $this->formatProviderSelectLabel($provider)
+                : $providerId);
+        } elseif ($type === Lead::DELETION_REASON_DUPLICATE_LEAD && $linkedLeadId) {
+            $linkedLead = Lead::query()->withTrashed()->find($linkedLeadId);
+            $parts[] = translate('Duplicate_of_lead').': '.($linkedLead
+                ? $this->formatLeadSelectLabel($linkedLead)
+                : '#'.$linkedLeadId);
+        } elseif ($type === Lead::DELETION_REASON_RELATED_BOOKING && $bookingId) {
+            $booking = Booking::query()->withTrashed()->with('customer:id,first_name,last_name,phone')->find($bookingId);
+            $parts[] = translate('Related_to_booking').': '.($booking
+                ? $this->formatBookingSelectLabel($booking)
+                : $bookingId);
+        } elseif ($type === Lead::DELETION_REASON_OTHER) {
+            $parts[] = $notes;
+            $notes = '';
+        }
+
+        if ($notes !== '') {
+            $parts[] = $notes;
+        }
+
+        return implode(' — ', array_filter($parts));
     }
 
     protected function rememberLeadIndexReturnUrl(array $queryParams, int $page = 1): void

@@ -47,6 +47,29 @@ class Lead extends Model
         self::TEMPERATURE_COLD,
     ];
 
+    public const DELETION_REASON_ALREADY_PROVIDER = 'already_provider';
+
+    public const DELETION_REASON_DUPLICATE_LEAD = 'duplicate_lead';
+
+    public const DELETION_REASON_RELATED_BOOKING = 'related_booking';
+
+    public const DELETION_REASON_OTHER = 'other';
+
+    /**
+     * Structured soft-delete reasons that require attached proof.
+     *
+     * @return array<string, string>
+     */
+    public static function deletionReasonTypes(): array
+    {
+        return [
+            self::DELETION_REASON_ALREADY_PROVIDER => 'Already_a_provider',
+            self::DELETION_REASON_DUPLICATE_LEAD => 'Duplicate_lead',
+            self::DELETION_REASON_RELATED_BOOKING => 'Related_to_a_booking',
+            self::DELETION_REASON_OTHER => 'Other',
+        ];
+    }
+
     public static function assigneeIsHuman(?string $handledBy): bool
     {
         if ($handledBy === null) {
@@ -197,6 +220,21 @@ class Lead extends Model
     public function deletedByUser(): BelongsTo
     {
         return $this->belongsTo(\Modules\UserManagement\Entities\User::class, 'deleted_by', 'id')->withTrashed();
+    }
+
+    public function deletionLinkedProvider(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\ProviderManagement\Entities\Provider::class, 'deletion_linked_provider_id', 'id')->withTrashed();
+    }
+
+    public function deletionLinkedLead(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'deletion_linked_lead_id', 'id')->withTrashed();
+    }
+
+    public function deletionLinkedBooking(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\BookingModule\Entities\Booking::class, 'deletion_linked_booking_id', 'id')->withTrashed();
     }
 
     public function outboundEnquiries(): HasMany

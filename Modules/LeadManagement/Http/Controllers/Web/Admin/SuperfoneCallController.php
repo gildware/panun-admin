@@ -183,7 +183,7 @@ class SuperfoneCallController extends Controller
     public function report(Request $request, SuperfoneCallReport $report, SuperfoneLeadCharts $leadCharts)
     {
         try {
-            $data = $report->build();
+            $data = $report->build($request);
             try {
                 $data['leadCharts'] = $leadCharts->build($request);
             } catch (\Throwable $e) {

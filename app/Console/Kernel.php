@@ -18,6 +18,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('people:accrue-leave')->dailyAt('00:20');
         $schedule->command('notifications:send-booking-reminders')->everyFiveMinutes();
         $schedule->command('notifications:send-lead-followup-reminders')->everyFiveMinutes();
+        $schedule->command('bookings:record-followup-misses')->everyFiveMinutes();
         // Home-bundle cache is manual-rebuild only (admin Reset home cache).
         // Do not schedule customer:home-cache:warm — Hostinger keeps last build forever.
     }

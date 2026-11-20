@@ -4,7 +4,7 @@
         <tr>
             <th rowspan="2">{{ $nameHeading }}</th>
             <th colspan="{{ count($columns) }}" class="is-today">{{ translate('Today') }}</th>
-            <th colspan="{{ count($columns) }}" class="is-overall is-overall-start">{{ translate('Overall') }}</th>
+            <th colspan="{{ count($columns) }}" class="is-overall is-overall-start">{{ $overallHeading ?? translate('Overall') }}</th>
         </tr>
         <tr>
             @foreach($columns as $column)

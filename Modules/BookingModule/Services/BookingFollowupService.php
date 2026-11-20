@@ -606,7 +606,7 @@ class BookingFollowupService
 
     /**
      * @param  Collection<int, BookingFollowup>  $followups
-     * @return array<int, array{due_at: ?Carbon, on_time: ?bool, delay_minutes: ?int, delay_label: ?string, early_minutes: ?int, early_label: ?string}>
+     * @return array<int, array{due_at: ?Carbon, acted_at: ?Carbon, on_time: ?bool, was_missed: bool, delay_minutes: ?int, delay_label: ?string, early_minutes: ?int, early_label: ?string}>
      */
     public function buildFollowupDelayMeta(Collection $followups): array
     {
@@ -618,15 +618,17 @@ class BookingFollowupService
 
         foreach ($followups
             ->filter(fn (BookingFollowup $followup) => in_array($followup->status, ['completed', 'rescheduled'], true))
-            ->sortBy(fn (BookingFollowup $followup) => $followup->followup_at ?? $followup->created_at) as $followup) {
+            ->sortBy(fn (BookingFollowup $followup) => $followup->followup_at ?? $followup->rescheduled_at ?? $followup->updated_at ?? $followup->created_at) as $followup) {
             $takenAt = $followup->followup_at instanceof Carbon
                 ? $followup->followup_at
                 : ($followup->followup_at ? Carbon::parse($followup->followup_at) : null);
 
+            // Prefer the dedicated reschedule timestamp; fall back to updated_at for older rows.
             if (! $takenAt && $followup->isRescheduled()) {
-                $takenAt = $followup->created_at instanceof Carbon
-                    ? $followup->created_at
-                    : Carbon::parse($followup->created_at);
+                $rescheduledAt = $followup->rescheduled_at ?? $followup->updated_at;
+                $takenAt = $rescheduledAt instanceof Carbon
+                    ? $rescheduledAt
+                    : ($rescheduledAt ? Carbon::parse($rescheduledAt) : null);
             }
 
             $dueAt = $followup->due_followup_at ?? $followup->date;
@@ -639,8 +641,9 @@ class BookingFollowupService
             $delayLabel = null;
             $earlyMinutes = null;
             $earlyLabel = null;
+            $wasMissed = false;
 
-            if ($dueAt && $takenAt && ! $followup->isRescheduled()) {
+            if ($dueAt && $takenAt) {
                 if ($takenAt->lte($dueAt)) {
                     $onTime = true;
                     $delayMinutes = 0;
@@ -652,6 +655,7 @@ class BookingFollowupService
                     }
                 } else {
                     $onTime = false;
+                    $wasMissed = true;
                     $delayMinutes = (int) round(abs($dueAt->diffInMinutes($takenAt)));
                     $delayLabel = $this->formatDelayDuration($delayMinutes);
                 }
@@ -659,7 +663,9 @@ class BookingFollowupService
 
             $meta[(int) $followup->id] = [
                 'due_at' => $dueAt,
+                'acted_at' => $takenAt,
                 'on_time' => $onTime,
+                'was_missed' => $wasMissed,
                 'delay_minutes' => $delayMinutes,
                 'delay_label' => $delayLabel,
                 'early_minutes' => $earlyMinutes,

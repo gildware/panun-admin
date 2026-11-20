@@ -285,8 +285,9 @@
                 $('#booking-followup-submit-btn').text(labels.reschedule);
                 $('#booking-followup-urgency-group').show();
                 $('#booking-next-followup-input').prop('required', true);
-                $('#booking-followup-remarks-input').prop('required', false);
-                $('#booking-followup-remarks-label .text-danger').addClass('d-none');
+                $('#booking-followup-remarks-input').prop('required', true);
+                $('#booking-followup-remarks-label .text-danger').removeClass('d-none');
+                $('#booking-followup-remarks-input').attr('placeholder', @json(translate('Add_a_note_about_why_this_follow_up_is_being_rescheduled')));
                 if (!$('#booking-next-followup-input').val()) {
                     $('#booking-next-followup-input').val($('#booking-next-followup-input').data('default') || '');
                 }
@@ -296,6 +297,7 @@
                 $('#booking-followup-submit-btn').text(labels.saveChanges);
                 $('#booking-followup-remarks-input').prop('required', true);
                 $('#booking-followup-remarks-label .text-danger').removeClass('d-none');
+                $('#booking-followup-remarks-input').attr('placeholder', @json(translate('Add_remarks_from_follow_up')));
                 toggleBookingFollowupRecordingField();
                 toggleOptionalNextFields();
             }
@@ -454,9 +456,13 @@
             }
 
             var remarks = ($('#booking-followup-remarks-input').val() || '').trim();
-            if (followupAction !== '{{ \Modules\BookingModule\Entities\BookingFollowup::ACTION_RESCHEDULE }}' && remarks === '') {
+            if (remarks === '') {
                 if (typeof toastr !== 'undefined') {
-                    toastr.error(labels.remarksRequired);
+                    toastr.error(
+                        followupAction === '{{ \Modules\BookingModule\Entities\BookingFollowup::ACTION_RESCHEDULE }}'
+                            ? @json(translate('Reschedule_remarks_required'))
+                            : labels.remarksRequired
+                    );
                 }
                 $('#booking-followup-remarks-input').focus();
                 return false;
