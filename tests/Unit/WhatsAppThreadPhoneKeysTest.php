@@ -23,8 +23,65 @@ class WhatsAppThreadPhoneKeysTest extends TestCase
     {
         $this->assertTrue(WhatsAppThreadPhoneKeys::matches('9999740595', '919999740595'));
         $this->assertTrue(WhatsAppThreadPhoneKeys::matches('+91 99997 40595', '9999740595'));
+        $this->assertTrue(WhatsAppThreadPhoneKeys::matches('6548613184', '966548613184'));
         $this->assertFalse(WhatsAppThreadPhoneKeys::matches('9999740595', '9999740596'));
         $this->assertFalse(WhatsAppThreadPhoneKeys::matches('', '9999740595'));
+    }
+
+    public function test_constrain_query_matches_non_india_country_prefix(): void
+    {
+        $sql = '';
+        $bindings = [];
+        $query = new class($sql, $bindings) {
+            public function __construct(public string &$sql, public array &$bindings) {}
+
+            public function where($column, $operator = null, $value = null)
+            {
+                if (is_callable($column)) {
+                    $nested = new self($this->sql, $this->bindings);
+                    $column($nested);
+
+                    return $this;
+                }
+                $this->sql .= " where {$column} {$operator} ?";
+                $this->bindings[] = $value;
+
+                return $this;
+            }
+
+            public function whereIn($column, $values)
+            {
+                $this->sql .= " whereIn {$column} (".implode(',', $values).')';
+
+                return $this;
+            }
+
+            public function orWhere($column, $operator = null, $value = null)
+            {
+                $this->sql .= " orWhere {$column} {$operator} ?";
+                $this->bindings[] = $value;
+
+                return $this;
+            }
+
+            public function whereRaw($expression)
+            {
+                $this->sql .= " whereRaw {$expression}";
+
+                return $this;
+            }
+        };
+
+        WhatsAppThreadPhoneKeys::constrainQueryToLast10(
+            $query,
+            'phone',
+            '6548613184',
+            ['6548613184', '916548613184']
+        );
+
+        $this->assertStringContainsString('whereIn phone (6548613184,916548613184)', $sql);
+        $this->assertStringContainsString('orWhere phone like ?', $sql);
+        $this->assertContains('%6548613184', $bindings);
     }
 
     public function test_empty_phone_is_not_closed(): void
