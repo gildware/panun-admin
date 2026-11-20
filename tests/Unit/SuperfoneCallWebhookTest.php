@@ -157,13 +157,13 @@ class SuperfoneCallWebhookTest extends TestCase
         $this->assertNull($decision['booking']);
     }
 
-    public function test_closed_lead_or_no_open_work_mints_and_open_lead_or_booking_blocks(): void
+    public function test_any_lead_or_booking_history_blocks_auto_mint(): void
     {
-        // Closed booked lead + completed booking → mint
+        // Brand-new number → mint
         $this->assertTrue(SuperfoneCallService::shouldMintUnknownLead(false, 0));
-        // Open lead → reuse, do not mint
+        // Any prior lead → do not mint
         $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(true, 0));
-        // Open booking → reuse, do not mint
+        // Any prior booking → do not mint
         $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(false, 1));
         $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(false, 2));
         $this->assertFalse(SuperfoneCallService::shouldMintUnknownLead(true, 1));

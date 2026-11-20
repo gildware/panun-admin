@@ -1751,6 +1751,8 @@
     var replyUrl = '{{ route("admin.whatsapp.conversations.reply", ['channel' => $waInboxCh]) }}';
     var reactionUrl = '{{ route("admin.whatsapp.conversations.reaction", ['channel' => $waInboxCh]) }}';
     var handoffUrl = '{{ route("admin.whatsapp.conversations.handoff", ['channel' => $waInboxCh]) }}';
+    var createLeadFromChatUrl = @json(auth()->check() && auth()->user()->can('lead_add') ? route('admin.whatsapp.conversations.create-lead', ['channel' => $waInboxCh]) : '');
+    var canCreateLeadFromChat = @json((bool) (auth()->check() && auth()->user()->can('lead_add')));
     var deleteHistoryUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_delete') ? route('admin.whatsapp.conversations.delete-history', ['channel' => $waInboxCh]) : '');
     var canDeleteChatHistory = @json((bool) (auth()->check() && auth()->user()->can('whatsapp_chat_delete')));
     var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -1773,6 +1775,8 @@
     var strHandlerAiLabel = {!! json_encode(translate('AI')) !!};
     var strOverrideChat = {!! json_encode(translate('Override chat')) !!};
     var strViewLeads = {!! json_encode(translate('View leads')) !!};
+    var strNewLead = {!! json_encode(translate('New_lead')) !!};
+    var strCreateLeadFromChatConfirm = {!! json_encode(translate('Create_new_lead_from_this_chat_confirm')) !!};
     var strViewLeadLink = {!! json_encode(translate('View lead')) !!};
     var strConvLeadsEmpty = {!! json_encode(translate('No provider leads')) !!};
     var strLoadingEllipsis = {!! json_encode(translate('Loading…')) !!};
@@ -3823,6 +3827,66 @@
         return html;
     }
 
+    function waCreateLeadFromChat(phoneRaw) {
+        if (!canCreateLeadFromChat || !createLeadFromChatUrl || !phoneRaw) {
+            return;
+        }
+        var runCreate = function () {
+            return fetch(createLeadFromChatUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrf
+                },
+                body: JSON.stringify({
+                    phone: phoneRaw,
+                    name: waCustomerName || ''
+                })
+            }).then(function (r) {
+                return r.json().then(function (json) {
+                    return { ok: r.ok, data: json || {} };
+                });
+            }).then(function (result) {
+                if (!result.ok || !result.data.ok) {
+                    throw new Error((result.data && result.data.message) || 'Failed');
+                }
+                if (result.data.lead_url) {
+                    window.location.href = result.data.lead_url;
+                    return;
+                }
+                if (window.toastr && typeof window.toastr.success === 'function') {
+                    window.toastr.success((result.data && result.data.message) || strNewLead);
+                }
+            }).catch(function (err) {
+                if (window.Swal) {
+                    Swal.showValidationMessage(err && err.message ? err.message : 'Failed');
+                }
+                throw err;
+            });
+        };
+        if (window.Swal) {
+            Swal.fire({
+                title: strNewLead,
+                text: strCreateLeadFromChatConfirm,
+                icon: 'question',
+                showCancelButton: true,
+                reverseButtons: true,
+                confirmButtonText: '{{ translate('Yes') }}',
+                cancelButtonText: '{{ translate('Cancel') }}',
+                showLoaderOnConfirm: true,
+                expectRejections: true,
+                allowOutsideClick: function () { return !Swal.isLoading(); },
+                preConfirm: runCreate
+            });
+            return;
+        }
+        if (window.confirm(strCreateLeadFromChatConfirm)) {
+            runCreate();
+        }
+    }
+
     function waOpenConversationLeadsModal(phoneRaw) {
         var modalEl = document.getElementById('wa-conversation-leads-modal');
         var bodyEl = document.getElementById('wa-conversation-leads-body');
@@ -3844,7 +3908,20 @@
                 bodyEl.innerHTML = '<div class="alert alert-danger">' + waConvLeadsEscapeHtml(data.error || 'Failed to load') + '</div>';
                 return;
             }
-            bodyEl.innerHTML = waConvLeadsRenderTable(data.leads || []);
+            var html = waConvLeadsRenderTable(data.leads || []);
+            if (canCreateLeadFromChat) {
+                html += '<div class="d-flex justify-content-end mt-3">'
+                    + '<button type="button" class="btn btn-sm btn-outline-secondary" id="wa-conv-leads-create-btn">'
+                    + waConvLeadsEscapeHtml(strNewLead)
+                    + '</button></div>';
+            }
+            bodyEl.innerHTML = html;
+            var createBtn = document.getElementById('wa-conv-leads-create-btn');
+            if (createBtn) {
+                createBtn.addEventListener('click', function () {
+                    waCreateLeadFromChat(phoneRaw);
+                });
+            }
         }).catch(function () {
             bodyEl.innerHTML = '<div class="alert alert-danger">' + waConvLeadsEscapeHtml('Failed to load leads') + '</div>';
         });
@@ -4229,6 +4306,16 @@
                         waOpenConversationLeadsModal(phone);
                     });
                     leadsViewSlot.appendChild(btnViewLeads);
+                    if (canCreateLeadFromChat) {
+                        var btnNewLead = document.createElement('button');
+                        btnNewLead.type = 'button';
+                        btnNewLead.className = 'btn btn-sm btn-outline-secondary ms-1';
+                        btnNewLead.textContent = strNewLead;
+                        btnNewLead.addEventListener('click', function () {
+                            waCreateLeadFromChat(phone);
+                        });
+                        leadsViewSlot.appendChild(btnNewLead);
+                    }
                 }
                 var skipMetaUi =
                     (document.getElementById('wa-chat-status-select') &&

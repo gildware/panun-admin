@@ -116,15 +116,21 @@ class SuperfoneCallExcelExport
     /**
      * @return array<string, string>
      */
-    public function relations(): array
+    public function relations(?Request $request = null): array
     {
-        return [
+        $relations = [
             'lead:id,name,phone_number,lead_type',
             'employee:id,first_name,last_name',
             'provider:id,company_name,contact_person_name',
             'booking:id,readable_id,booking_status',
             'customer:id,first_name,last_name,phone',
         ];
+
+        if ($request && $this->showingDeleted($request)) {
+            $relations[] = 'deletedByUser:id,first_name,last_name,email,phone';
+        }
+
+        return $relations;
     }
 
     /**
@@ -193,11 +199,20 @@ class SuperfoneCallExcelExport
     public function query(Request $request): Builder
     {
         [$sort, $direction] = $this->resolveSort($request);
-        $query = SuperfoneCall::query()->with($this->relations());
+        $base = SuperfoneCall::query();
+        if ($this->showingDeleted($request)) {
+            $base->onlyTrashed();
+        }
+        $query = $base->with($this->relations($request));
         $this->applyFilters($query, $request);
         $this->applySort($query, $sort, $direction);
 
         return $query;
+    }
+
+    public function showingDeleted(Request $request): bool
+    {
+        return is_super_admin() && $request->input('status') === 'deleted';
     }
 
     public function applyFilters(Builder $query, Request $request): Builder
@@ -301,9 +316,12 @@ class SuperfoneCallExcelExport
             'dir' => $direction,
         ];
 
-        foreach (['q', 'outcome', 'agent', 'matched', 'direction', 'from', 'to'] as $key) {
+        foreach (['q', 'outcome', 'agent', 'matched', 'direction', 'from', 'to', 'status'] as $key) {
             $value = $request->input($key);
             if ($value !== null && $value !== '') {
+                if ($key === 'status' && ! $this->showingDeleted($request)) {
+                    continue;
+                }
                 $shared[$key] = $value;
             }
         }

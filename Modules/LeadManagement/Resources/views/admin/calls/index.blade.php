@@ -24,10 +24,10 @@
         .calls-filter-card .card-body { padding: 0.65rem 0.75rem; }
         .calls-list-card .card-body { padding: 0; }
         .calls-list-card { overflow: hidden; }
-        .calls-list-scroll { max-height: calc(100dvh - 16.5rem); overflow-x: auto; overflow-y: auto; }
+        .calls-list-scroll { max-height: calc(100dvh - 16.5rem); overflow-x: hidden; overflow-y: auto; }
         .calls-list-table thead th { position: sticky; top: 0; z-index: 2; background: #fff; box-shadow: inset 0 -1px 0 #e5e7eb; }
-        .calls-list-table { width: 100%; min-width: 1560px; table-layout: fixed; font-size: 0.8125rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
-        .calls-select-cell { width: 36px; text-align: center; overflow: visible !important; text-overflow: clip !important; }
+        .calls-list-table { width: 100%; max-width: 100%; table-layout: fixed; font-size: 0.75rem; border-collapse: separate; border-spacing: 0; --bs-table-striped-bg: #f3f5f8; --bs-table-hover-bg: #e7eef6; }
+        .calls-select-cell { width: 32px; text-align: center; overflow: visible !important; text-overflow: clip !important; }
         .calls-select-cell .form-check-input { margin: 0; cursor: pointer; }
         .calls-bulk-bar {
             display: flex;
@@ -41,17 +41,13 @@
         .calls-bulk-bar[hidden] { display: none !important; }
         .calls-bulk-bar__meta { font-size: 0.8125rem; font-weight: 600; color: #111827; }
         .calls-bulk-bar__actions { display: inline-flex; align-items: center; gap: 0.4rem; }
-        .calls-list-table td.calls-call-id-cell { overflow: visible; text-overflow: clip; text-align: center; }
-        .calls-copy-id { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
-        .calls-copy-id .material-icons { font-size: 16px; line-height: 1; }
-        .calls-copy-id.is-copied { color: #0f7a3a; border-color: #86efac; background: #e7f6ee; }
-        .calls-list-table.table > :not(caption) > * > * { height: 52px; padding: 0 0.55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+        .calls-list-table.table > :not(caption) > * > * { height: 38px; padding: 0 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
         .calls-list-table.table > :not(caption) > * > *.calls-actions-cell {
             height: auto;
-            min-height: 52px;
+            min-height: 38px;
             overflow: visible;
             text-overflow: clip;
-            padding: 0.45rem 0.75rem;
+            padding: 0.25rem 0.4rem;
             text-align: left;
             vertical-align: middle;
         }
@@ -66,10 +62,10 @@
         .calls-actions-primary {
             display: flex;
             flex-direction: row;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: flex-start;
-            gap: 0.35rem;
+            gap: 0.25rem;
             width: 100%;
         }
         .calls-actions-stack > form,
@@ -82,13 +78,13 @@
             align-items: center;
             justify-content: center;
             width: auto;
-            min-width: 5.75rem;
-            min-height: 30px;
-            padding: 0.28rem 0.55rem;
-            font-size: 0.72rem;
+            min-width: 0;
+            min-height: 26px;
+            padding: 0.15rem 0.4rem;
+            font-size: 0.68rem;
             font-weight: 600;
-            line-height: 1.2;
-            border-radius: 8px;
+            line-height: 1.15;
+            border-radius: 6px;
             white-space: nowrap;
             box-sizing: border-box;
         }
@@ -96,12 +92,12 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 30px;
-            min-width: 30px;
-            height: 30px;
+            width: 26px;
+            min-width: 26px;
+            height: 26px;
             padding: 0;
-            border-radius: 8px;
-            flex: 0 0 30px;
+            border-radius: 6px;
+            flex: 0 0 26px;
         }
         .calls-contact-btn { border-radius: 8px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
         #call-contact-modal .call-contact-channels { display: flex; flex-direction: column; gap: 0.45rem; }
@@ -116,7 +112,7 @@
         .calls-new-lead-btn:focus { border-color: #94a3b8; color: #111827; background: #f8fafc; }
         .calls-list-table td.calls-lead-cell { white-space: nowrap; }
         .calls-lead-line { display: inline-flex; align-items: center; gap: 0.4rem; max-width: 100%; }
-        .party-pill { display: inline-flex; align-items: center; padding: 0.22rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+        .party-pill { display: inline-flex; align-items: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0.22rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; line-height: 1.2; white-space: nowrap; }
         .party-pill--provider { background: #e7f0ff; color: #1d4ed8; }
         .party-pill--customer { background: #e7f6ee; color: #0f7a3a; }
         .call-link-who { padding: 0.75rem 0.85rem; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc; }
@@ -140,8 +136,38 @@
         .booking-chip--completed .booking-chip__status, .booking-chip--ongoing .booking-chip__status { background: #e7f6ee; color: #0f7a3a; }
         .booking-chip--canceled .booking-chip__status, .booking-chip--cancelled .booking-chip__status, .booking-chip--refund_request .booking-chip__status { background: #fdecea; color: #c62828; }
         .booking-chip:hover { border-color: #cbd5e1; }
-        .calls-list-table thead th { font-size: 0.75rem; font-weight: 600; }
-        .calls-list-table .material-icons { font-size: 16px; line-height: 1; vertical-align: middle; }
+        .calls-list-table thead th { font-size: 0.68rem; font-weight: 600; }
+        .calls-list-table .calls-th { min-width: 0; }
+        .calls-list-table .calls-th-label { overflow: hidden; text-overflow: ellipsis; }
+        .calls-col-resizer {
+            position: absolute;
+            inset-block: 0;
+            inset-inline-end: 0;
+            width: 8px;
+            cursor: col-resize;
+            user-select: none;
+            touch-action: none;
+            z-index: 3;
+        }
+        .calls-col-resizer::after {
+            content: "";
+            position: absolute;
+            inset-block: 22%;
+            inset-inline-end: 3px;
+            width: 2px;
+            border-radius: 1px;
+            background: rgba(17, 24, 39, 0.16);
+        }
+        .calls-list-table thead th:hover .calls-col-resizer::after,
+        .calls-col-resizer.is-dragging::after {
+            background: #2563eb;
+        }
+        body.calls-col-resizing,
+        body.calls-col-resizing * {
+            cursor: col-resize !important;
+            user-select: none !important;
+        }
+        .calls-list-table .material-icons { font-size: 14px; line-height: 1; vertical-align: middle; }
         .calls-scroll-sentinel { display: flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 36px; color: #6b7280; font-size: 0.75rem; }
         .calls-scroll-sentinel[hidden] { display: none; }
         .calls-scroll-sentinel__spin { width: 14px; height: 14px; border: 2px solid #d1d5db; border-top-color: #4b5563; border-radius: 50%; animation: calls-scroll-spin 0.7s linear infinite; }
@@ -150,6 +176,7 @@
             display: inline-flex;
             align-items: center;
             gap: 0.2rem;
+            max-width: 100%;
             padding: 0.12rem 0.5rem 0.12rem 0.35rem;
             border-radius: 999px;
             font-size: 0.72rem;
@@ -205,7 +232,7 @@
         .calls-list-table.table > tbody > tr.calls-row--needs-callback > td,
         .calls-list-table.table > tbody > tr.calls-row--contacted > td,
         .calls-list-table.table > tbody > tr.calls-row--not-picked > td {
-            height: 96px;
+            height: 64px;
             overflow: visible;
         }
         .call-pill--unanswered { background: #fff4e5; color: #b45309; }
@@ -239,6 +266,7 @@
 
 @section('content')
     @php
+        $showingDeleted = $showingDeleted ?? false;
         $directionToggle = request('direction');
         $toggleQuery = request()->except(['direction', 'page']);
         $directionReset = in_array($directionToggle, ['INBOUND', 'OUTBOUND'], true)
@@ -248,11 +276,6 @@
 
     <div class="main-content">
         <div class="container-fluid">
-            @if(is_super_admin())
-                <div class="d-flex justify-content-end mb-2">
-                    <a href="{{ route('admin.calls.deleted') }}" class="btn btn--secondary btn-sm">{{ translate('Deleted_calls') }}</a>
-                </div>
-            @endif
             <div class="card calls-filter-card mb-3">
                 <div class="card-body">
             <form method="get" action="{{ route('admin.calls.index') }}" class="calls-filter-bar" id="calls-filter-form">
@@ -263,6 +286,15 @@
                     <label for="call-q">{{ translate('Search') }}</label>
                     <input id="call-q" type="search" name="q" value="{{ request('q') }}" class="form-control" placeholder="{{ translate('Phone_name_or_agent') }}">
                 </div>
+                @if(is_super_admin())
+                    <div class="calls-filter-field">
+                        <label for="call-status">{{ translate('Status') }}</label>
+                        <select id="call-status" name="status" class="form-select">
+                            <option value="">{{ translate('Active') }}</option>
+                            <option value="deleted" @selected($showingDeleted)>{{ translate('Deleted_calls') }}</option>
+                        </select>
+                    </div>
+                @endif
                 <div class="calls-filter-field">
                     <label for="call-outcome">{{ translate('Call_result') }}</label>
                     <select id="call-outcome" name="outcome" class="form-select">
@@ -386,7 +418,7 @@
 
             <div class="card calls-list-card">
                 <div class="card-body">
-                @if(is_super_admin())
+                @if(is_super_admin() && ! $showingDeleted)
                     <div class="calls-bulk-bar" id="calls-bulk-bar" hidden>
                         <div class="calls-bulk-bar__meta">
                             <span id="calls-bulk-count">0</span> {{ translate('selected') }}
@@ -409,23 +441,22 @@
                     </div>
                 @endif
                 <div class="calls-list-scroll" id="calls-list-scroll" data-has-more="{{ $calls->hasMorePages() ? '1' : '0' }}" data-next-page="2">
-                    <table class="table table-striped table-hover table-sm align-middle mb-0 calls-list-table">
+                    <table class="table table-striped table-hover table-sm align-middle mb-0 calls-list-table" id="calls-list-table">
                         <colgroup>
-                            @if(is_super_admin())
-                                <col style="width: 36px">
+                            @if(is_super_admin() && ! $showingDeleted)
+                                <col data-col="select" style="width: 32px">
                             @endif
-                            <col style="width: 11%">
-                            <col style="width: 8%">
-                            <col style="width: 7%">
-                            <col style="width: 8%">
-                            <col style="width: 7%">
-                            <col style="width: 11%">
-                            <col style="width: 5%">
-                            <col style="width: 4%">
-                            <col style="width: 9%">
-                            <col style="width: 7%">
-                            <col style="width: 9%">
-                            <col style="width: 14%">
+                            <col data-col="time">
+                            <col data-col="direction">
+                            <col data-col="phone">
+                            <col data-col="employee">
+                            <col data-col="result">
+                            <col data-col="duration">
+                            <col data-col="recording">
+                            <col data-col="party">
+                            <col data-col="lead">
+                            <col data-col="booking">
+                            <col data-col="actions">
                         </colgroup>
                         <thead>
                         @php
@@ -435,35 +466,34 @@
                                     'dir' => $order,
                                 ]));
                             };
-                            $callsColspan = is_super_admin() ? 13 : 12;
+                            $callsColspan = (is_super_admin() && ! $showingDeleted) ? 12 : 11;
                         @endphp
                         <tr>
-                            @if(is_super_admin())
-                                <th class="calls-select-cell">
+                            @if(is_super_admin() && ! $showingDeleted)
+                                <th class="calls-select-cell" data-col="select">
                                     <input type="checkbox"
                                            class="form-check-input"
                                            id="calls-select-all"
                                            aria-label="{{ translate('Select_all') }}">
                                 </th>
                             @endif
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Time') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'started_at'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Call_id') }}</span></span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Direction') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'direction'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Phone') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'phone'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Employee') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'employee'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Result') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'outcome'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Duration') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'duration'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Recording') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'recording'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Customer_or_Provider') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'party'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Lead') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'lead'])</span></th>
-                            <th><span class="calls-th"><span class="calls-th-label">{{ translate('Booking') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'booking'])</span></th>
-                            <th class="calls-actions-cell">{{ translate('Actions') }}</th>
+                            <th data-col="time"><span class="calls-th"><span class="calls-th-label">{{ translate('Time') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'started_at'])</span></th>
+                            <th data-col="direction"><span class="calls-th"><span class="calls-th-label">{{ translate('Direction') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'direction'])</span></th>
+                            <th data-col="phone"><span class="calls-th"><span class="calls-th-label">{{ translate('Phone') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'phone'])</span></th>
+                            <th data-col="employee"><span class="calls-th"><span class="calls-th-label">{{ translate('Employee') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'employee'])</span></th>
+                            <th data-col="result"><span class="calls-th"><span class="calls-th-label">{{ translate('Result') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'outcome'])</span></th>
+                            <th data-col="duration"><span class="calls-th"><span class="calls-th-label">{{ translate('Duration') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'duration'])</span></th>
+                            <th data-col="recording"><span class="calls-th"><span class="calls-th-label">{{ translate('Recording') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'recording'])</span></th>
+                            <th data-col="party"><span class="calls-th"><span class="calls-th-label">{{ translate('Customer_or_Provider') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'party'])</span></th>
+                            <th data-col="lead"><span class="calls-th"><span class="calls-th-label">{{ translate('Lead') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'lead'])</span></th>
+                            <th data-col="booking"><span class="calls-th"><span class="calls-th-label">{{ translate('Booking') }}</span> @include('leadmanagement::admin.calls._sort_icons', ['column' => 'booking'])</span></th>
+                            <th class="calls-actions-cell" data-col="actions">{{ translate('Actions') }}</th>
                         </tr>
                         </thead>
                         <tbody id="calls-list-body">
                         @if($calls->isEmpty())
                             <tr>
-                                <td colspan="{{ $callsColspan }}" class="text-center text-muted py-3">{{ translate('No_calls_yet') }}</td>
+                                <td colspan="{{ $callsColspan }}" class="text-center text-muted py-3">{{ $showingDeleted ? translate('No_deleted_calls') : translate('No_calls_yet') }}</td>
                             </tr>
                         @else
                             @include('leadmanagement::admin.calls._rows')
@@ -653,6 +683,51 @@
                 </div>
             </div>
         </div>
+
+        @if($showingDeleted)
+            <div class="modal fade" id="restoreCallModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <form method="post" action="" data-turbo="false" data-once-submit>
+                            @csrf
+                            <div class="modal-header border-0">
+                                <h5 class="modal-title">{{ translate('Restore') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                            <div class="modal-body pt-0">
+                                <p class="mb-0" data-confirm-text>{{ translate('Confirm_restore_call') }}</p>
+                            </div>
+                            <div class="modal-footer border-0">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                <button type="submit" class="btn btn-success">{{ translate('Restore') }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="forceDeleteCallModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <form method="post" action="" data-turbo="false" data-once-submit>
+                            @csrf
+                            @method('DELETE')
+                            <div class="modal-header border-0">
+                                <h5 class="modal-title text-danger">{{ translate('Delete_permanently') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                            <div class="modal-body pt-0">
+                                <p class="mb-0" data-confirm-text>{{ translate('Confirm_permanent_delete_call') }}</p>
+                            </div>
+                            <div class="modal-footer border-0">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                <button type="submit" class="btn btn-danger">{{ translate('Delete_permanently') }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endif
     @endif
 @endsection
 
@@ -672,8 +747,8 @@
             var done = scroller ? scroller.getAttribute('data-has-more') !== '1' : true;
             var failed = false;
             var listRequestId = 0;
-            var noCallsLabel = @json(translate('No_calls_yet'));
-            var callsColspan = {{ is_super_admin() ? 13 : 12 }};
+            var noCallsLabel = @json($showingDeleted ? translate('No_deleted_calls') : translate('No_calls_yet'));
+            var callsColspan = {{ (is_super_admin() && ! $showingDeleted) ? 12 : 11 }};
 
             var bindTips = function (root) {
                 if (!window.bootstrap || !bootstrap.Tooltip) return;
@@ -730,6 +805,9 @@
                 if (sentinel) sentinel.hidden = true;
                 if (typeof window.callsSelectionSync === 'function') {
                     window.callsSelectionSync({ clearMissing: true });
+                }
+                if (typeof window.callsRefitColumns === 'function') {
+                    window.callsRefitColumns({ fromData: true });
                 }
             };
 
@@ -813,6 +891,9 @@
                         if (typeof window.callsSelectionSync === 'function') {
                             window.callsSelectionSync();
                         }
+                        if (typeof window.callsRefitColumns === 'function') {
+                            window.callsRefitColumns();
+                        }
                     }
                     if (!data || !data.has_more || html === '') {
                         done = true;
@@ -832,6 +913,10 @@
 
             form.addEventListener('change', function (event) {
                 if (search && event.target === search) return;
+                if (event.target && event.target.name === 'status') {
+                    form.submit();
+                    return;
+                }
                 refreshList();
             });
             form.querySelectorAll('[data-sort]').forEach(function (item) {
@@ -1088,50 +1173,291 @@
         })();
 
         (function () {
-            var copiedLabel = @json(translate('Copied'));
-            var copyLabel = @json(translate('Copy_call_id'));
-            var setTip = function (button, text) {
-                button.setAttribute('data-bs-title', text);
-                button.setAttribute('title', text);
-                button.setAttribute('aria-label', text);
-                var tip = window.bootstrap && bootstrap.Tooltip ? bootstrap.Tooltip.getInstance(button) : null;
-                if (tip && typeof tip.setContent === 'function') {
-                    tip.setContent({ '.tooltip-inner': text });
+            var table = document.getElementById('calls-list-table');
+            var scroller = document.getElementById('calls-list-scroll');
+            if (!table) return;
+
+            var cols = Array.prototype.slice.call(table.querySelectorAll('colgroup col'));
+            var headers = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+            if (!cols.length || cols.length !== headers.length) return;
+
+            var storageKey = 'admin-calls-column-widths-v2';
+            var minFlex = 48;
+            var selectWidth = 32;
+            var rtl = document.documentElement.getAttribute('dir') === 'rtl';
+            var widths = [];
+            var userResized = false;
+
+            var containerWidth = function () {
+                return Math.max(320, (scroller || table.parentElement || table).clientWidth);
+            };
+
+            var colKey = function (index) {
+                return cols[index].getAttribute('data-col') || '';
+            };
+
+            var isSelect = function (index) {
+                return colKey(index) === 'select';
+            };
+
+            var minFor = function (index) {
+                if (isSelect(index)) return selectWidth;
+                var key = colKey(index);
+                if (key === 'duration' || key === 'recording') return 52;
+                if (key === 'direction') return 88;
+                if (key === 'actions') return 120;
+                return minFlex;
+            };
+
+            var maxFor = function (index) {
+                var key = colKey(index);
+                if (key === 'actions') return 560;
+                if (key === 'result' || key === 'party') return 320;
+                if (key === 'time' || key === 'phone' || key === 'employee') return 240;
+                if (key === 'duration' || key === 'recording') return 96;
+                return 280;
+            };
+
+            var saveWidths = function () {
+                try {
+                    var payload = {};
+                    widths.forEach(function (width, index) {
+                        var key = colKey(index);
+                        if (key && key !== 'select') payload[key] = Math.round(width);
+                    });
+                    localStorage.setItem(storageKey, JSON.stringify(payload));
+                } catch (e) {}
+            };
+
+            var loadSaved = function () {
+                try {
+                    var raw = JSON.parse(localStorage.getItem(storageKey) || 'null');
+                    return raw && typeof raw === 'object' ? raw : null;
+                } catch (e) {
+                    return null;
                 }
             };
-            document.addEventListener('click', function (event) {
-                var button = event.target.closest('.calls-copy-id');
-                if (!button) return;
-                var id = button.getAttribute('data-call-id') || '';
-                if (!id) return;
-                var finish = function () {
-                    var icon = button.querySelector('.material-icons');
-                    button.classList.add('is-copied');
-                    setTip(button, copiedLabel);
-                    if (icon) icon.textContent = 'check';
-                    setTimeout(function () {
-                        button.classList.remove('is-copied');
-                        setTip(button, copyLabel);
-                        if (icon) icon.textContent = 'content_copy';
-                    }, 1200);
-                };
-                var fallback = function () {
-                    var input = document.createElement('textarea');
-                    input.value = id;
-                    input.setAttribute('readonly', '');
-                    input.style.position = 'fixed';
-                    input.style.left = '-9999px';
-                    document.body.appendChild(input);
-                    input.select();
-                    document.execCommand('copy');
-                    input.remove();
-                    finish();
-                };
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(id).then(finish).catch(fallback);
-                } else {
-                    fallback();
+
+            var preferredFromSaved = function (saved) {
+                return cols.map(function (col, index) {
+                    if (isSelect(index)) return selectWidth;
+                    var key = colKey(index);
+                    var value = saved && saved[key];
+                    return typeof value === 'number' && value > 0 ? value : minFor(index);
+                });
+            };
+
+            var applyWidths = function () {
+                var total = 0;
+                widths.forEach(function (width, index) {
+                    var px = Math.max(minFor(index), Math.round(width));
+                    widths[index] = px;
+                    cols[index].style.width = px + 'px';
+                    total += px;
+                });
+                table.style.tableLayout = 'fixed';
+                table.style.width = Math.max(containerWidth(), total) + 'px';
+                if (scroller) {
+                    scroller.style.overflowX = total > containerWidth() + 1 ? 'auto' : 'hidden';
                 }
+            };
+
+            var fitToContainer = function (preferred) {
+                var available = containerWidth();
+                var next = preferred.slice();
+                var fixed = 0;
+                var flexSum = 0;
+                next.forEach(function (width, index) {
+                    if (isSelect(index)) {
+                        next[index] = selectWidth;
+                        fixed += selectWidth;
+                    } else {
+                        next[index] = Math.max(minFor(index), Math.min(maxFor(index), width || minFor(index)));
+                        flexSum += next[index];
+                    }
+                });
+                var flexBudget = Math.max(flexSum, available - fixed);
+                if (flexSum <= 0) flexSum = 1;
+                var scale = flexBudget / flexSum;
+                var used = fixed;
+                var lastFlex = -1;
+                next.forEach(function (width, index) {
+                    if (isSelect(index)) return;
+                    lastFlex = index;
+                    next[index] = Math.max(minFor(index), Math.round(width * scale));
+                    used += next[index];
+                });
+                if (lastFlex >= 0) {
+                    next[lastFlex] = Math.max(minFor(lastFlex), next[lastFlex] + (available - used));
+                }
+                widths = next;
+                applyWidths();
+                table.style.width = '100%';
+                if (scroller) scroller.style.overflowX = 'hidden';
+            };
+
+            var measurePreferred = function () {
+                cols.forEach(function (col) {
+                    col.style.width = '';
+                });
+                table.style.tableLayout = 'auto';
+                table.style.width = 'max-content';
+                void table.offsetWidth;
+
+                var measured = headers.map(function (th, index) {
+                    if (isSelect(index)) return selectWidth;
+                    var max = Math.ceil(th.getBoundingClientRect().width);
+                    table.querySelectorAll('tbody tr').forEach(function (row) {
+                        var cell = row.children[index];
+                        if (!cell || cell.colSpan > 1) return;
+                        max = Math.max(max, Math.ceil(cell.getBoundingClientRect().width));
+                    });
+                    return Math.max(minFor(index), Math.min(maxFor(index), max + 12));
+                });
+
+                table.style.tableLayout = 'fixed';
+                return measured;
+            };
+
+            var measureColumn = function (index) {
+                var preferred = measurePreferred();
+                return preferred[index] || minFor(index);
+            };
+
+            var refit = function (options) {
+                options = options || {};
+                if (options.fromData || !userResized) {
+                    fitToContainer(measurePreferred());
+                    return;
+                }
+                fitToContainer(widths.length ? widths.slice() : measurePreferred());
+            };
+
+            window.callsRefitColumns = refit;
+
+            var saved = loadSaved();
+            if (saved) {
+                userResized = true;
+                fitToContainer(preferredFromSaved(saved));
+            } else {
+                fitToContainer(measurePreferred());
+            }
+
+            headers.forEach(function (header, index) {
+                if (index >= cols.length - 1 || isSelect(index)) return;
+
+                var handle = document.createElement('span');
+                handle.className = 'calls-col-resizer';
+                handle.title = 'Drag to resize. Double-click to fit content.';
+                handle.setAttribute('role', 'separator');
+                handle.setAttribute('aria-orientation', 'vertical');
+                header.appendChild(handle);
+
+                handle.addEventListener('pointerdown', function (event) {
+                    if (event.button !== 0) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    handle.setPointerCapture(event.pointerId);
+                    handle.classList.add('is-dragging');
+                    document.body.classList.add('calls-col-resizing');
+
+                    widths = headers.map(function (th) {
+                        return th.getBoundingClientRect().width;
+                    });
+                    var startX = event.clientX;
+                    var startLeft = widths[index];
+                    var nextIndex = index + 1;
+                    var startRight = widths[nextIndex];
+                    var pairTotal = startLeft + startRight;
+
+                    var onMove = function (moveEvent) {
+                        var delta = moveEvent.clientX - startX;
+                        if (rtl) delta = -delta;
+                        var left = Math.max(minFor(index), Math.min(pairTotal - minFor(nextIndex), startLeft + delta));
+                        widths[index] = left;
+                        widths[nextIndex] = pairTotal - left;
+                        applyWidths();
+                        table.style.width = '100%';
+                        if (scroller) scroller.style.overflowX = 'hidden';
+                    };
+
+                    var onUp = function () {
+                        handle.classList.remove('is-dragging');
+                        document.body.classList.remove('calls-col-resizing');
+                        handle.removeEventListener('pointermove', onMove);
+                        handle.removeEventListener('pointerup', onUp);
+                        handle.removeEventListener('pointercancel', onUp);
+                        userResized = true;
+                        saveWidths();
+                    };
+
+                    handle.addEventListener('pointermove', onMove);
+                    handle.addEventListener('pointerup', onUp);
+                    handle.addEventListener('pointercancel', onUp);
+                });
+
+                handle.addEventListener('dblclick', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    widths = headers.map(function (th) {
+                        return th.getBoundingClientRect().width;
+                    });
+                    var nextIndex = index + 1;
+                    var pairTotal = widths[index] + widths[nextIndex];
+                    var fitted = measureColumn(index);
+                    fitted = Math.max(minFor(index), Math.min(pairTotal - minFor(nextIndex), fitted));
+                    widths[index] = fitted;
+                    widths[nextIndex] = pairTotal - fitted;
+                    applyWidths();
+                    table.style.width = '100%';
+                    if (scroller) scroller.style.overflowX = 'hidden';
+                    userResized = true;
+                    saveWidths();
+                });
+            });
+
+            window.addEventListener('resize', function () {
+                refit({ fromData: !userResized });
+            });
+        })();
+
+        (function () {
+            ['restoreCallModal', 'forceDeleteCallModal'].forEach(function (id) {
+                var modal = document.getElementById(id);
+                if (!modal) return;
+                modal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+                    if (!button) return;
+                    var form = modal.querySelector('form');
+                    if (!form) return;
+                    form.action = button.getAttribute('data-action') || '';
+                    form.dataset.submitting = '';
+                    var submitBtn = form.querySelector('[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
+                    var text = modal.querySelector('[data-confirm-text]');
+                    if (!text) return;
+                    if (!text.getAttribute('data-base')) {
+                        text.setAttribute('data-base', text.textContent);
+                    }
+                    var name = button.getAttribute('data-name') || '';
+                    text.textContent = text.getAttribute('data-base') + (name ? ' (' + name + ')' : '');
+                });
+            });
+
+            document.querySelectorAll('form[data-once-submit]').forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (form.dataset.submitting === '1') {
+                        event.preventDefault();
+                        return;
+                    }
+                    form.dataset.submitting = '1';
+                    var submitBtn = form.querySelector('[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                    }
+                });
             });
         })();
 

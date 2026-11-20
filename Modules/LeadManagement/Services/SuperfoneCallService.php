@@ -648,12 +648,7 @@ class SuperfoneCallService
     public function unmatch(SuperfoneCall $call): SuperfoneCall
     {
         return DB::transaction(function () use ($call) {
-            if ($call->lead_followup_id) {
-                $followup = LeadFollowup::query()->find($call->lead_followup_id);
-                if ($followup && $this->remarksAreManaged($followup->remarks)) {
-                    $followup->delete();
-                }
-            }
+            $this->deleteManagedLeadFollowup($call->lead_followup_id ? (int) $call->lead_followup_id : null);
 
             if ($call->booking_followup_id) {
                 $followup = BookingFollowup::query()->find($call->booking_followup_id);
@@ -728,12 +723,7 @@ class SuperfoneCallService
     public function forceDelete(SuperfoneCall $call): void
     {
         DB::transaction(function () use ($call) {
-            if ($call->lead_followup_id) {
-                $followup = LeadFollowup::query()->find($call->lead_followup_id);
-                if ($followup && $this->remarksAreManaged($followup->remarks)) {
-                    $followup->delete();
-                }
-            }
+            $this->deleteManagedLeadFollowup($call->lead_followup_id ? (int) $call->lead_followup_id : null);
 
             if ($call->booking_followup_id) {
                 $followup = BookingFollowup::query()->find($call->booking_followup_id);
@@ -809,7 +799,14 @@ class SuperfoneCallService
         $openStatus = app(LeadOpenStatusService::class);
         $customer = $provider ? null : $this->findUserByPhoneDigits($digits, CUSTOMER_USER_TYPES);
         $resolved = $provider
-            ? ['action' => 'mint', 'lead' => null, 'has_open_lead' => false, 'has_open_booking' => false]
+            ? [
+                'action' => 'existing',
+                'lead' => null,
+                'has_open_lead' => false,
+                'has_open_booking' => false,
+                'has_any_lead' => false,
+                'has_any_booking' => false,
+            ]
             : $openStatus->resolveInboundLead($leadMatches, $digits);
         $openBookings = $customer
             ? $this->openBookingsForCustomer((string) $customer->id)->count()
@@ -818,13 +815,17 @@ class SuperfoneCallService
             $openBookings = 1;
         }
 
-        $lead = $resolved['lead'] ?? null;
-        if (($resolved['action'] ?? null) === 'reopen' && $lead) {
-            $lead = $openStatus->reopenNonResponsiveForInbound($lead, 'inbound');
-        }
+        // Only open leads / open-booking leads are auto-attached. Closed history stays unmatched
+        // so staff can manually attach or create a new lead.
+        $lead = in_array($resolved['action'] ?? null, ['open', 'booking'], true)
+            ? ($resolved['lead'] ?? null)
+            : null;
 
         $mintUnknown = ($resolved['action'] ?? null) === 'mint'
-            && self::shouldMintUnknownLead(false, $openBookings);
+            && self::shouldMintUnknownLead(
+                (bool) ($resolved['has_any_lead'] ?? false),
+                (($resolved['has_any_booking'] ?? false) || $openBookings > 0) ? 1 : 0
+            );
         $decision = self::decideLink(
             $provider !== null,
             $lead !== null,
@@ -861,7 +862,8 @@ class SuperfoneCallService
             return;
         }
 
-        if (($decision['party'] === self::LINK_UNKNOWN || $mintUnknown) && $openBookings === 0) {
+        // Auto-mint only for a true no-match number (staff may still create manually otherwise).
+        if ($mintUnknown && $openBookings === 0) {
             $created = $this->createUnknownLead($call);
             $call->lead_id = $created->id;
             $call->called_party_type = LeadFollowup::CALLED_PARTY_CUSTOMER;
@@ -872,12 +874,12 @@ class SuperfoneCallService
     }
 
     /**
-     * Mint an Unknown when the phone has neither an open lead nor an open booking.
-     * Closed / booked leads and completed bookings do not block a new lead.
+     * Auto-mint an Unknown only when the phone has no lead history and no booking history.
+     * Staff may still create via {@see createLeadFromCall()}.
      */
-    public static function shouldMintUnknownLead(bool $hasOpenLead, int $openBookings): bool
+    public static function shouldMintUnknownLead(bool $hasAnyLead, int $bookingCount): bool
     {
-        return LeadOpenStatusService::shouldCreateNewLead($hasOpenLead, $openBookings > 0);
+        return LeadOpenStatusService::shouldCreateNewLead($hasAnyLead, $bookingCount > 0);
     }
 
     public function linkToLead(SuperfoneCall $call, Lead $lead): SuperfoneCall
@@ -1492,6 +1494,25 @@ class SuperfoneCallService
         }
 
         return implode("\n", $lines);
+    }
+
+    private function deleteManagedLeadFollowup(?int $followupId): void
+    {
+        if (! $followupId) {
+            return;
+        }
+
+        $followup = LeadFollowup::query()->find($followupId);
+        if (! $followup || ! $this->remarksAreManaged($followup->remarks)) {
+            return;
+        }
+
+        $leadId = (int) $followup->lead_id;
+        $dueAt = $followup->due_followup_at;
+        $takenAt = $followup->followup_at;
+        $followup->delete();
+
+        app(LeadChangeLogService::class)->removeFollowupTakenEvents($leadId, $dueAt, $takenAt);
     }
 
     private function remarksAreManaged(?string $remarks): bool

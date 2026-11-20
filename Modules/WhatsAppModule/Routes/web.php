@@ -51,6 +51,7 @@ Route::group([
         Route::get('conversations/active-chats', [WhatsAppController::class, 'activeChatsPage'])->middleware(['can:whatsapp_chat_view'])->name('conversations.active-chats');
         Route::get('conversations/active-chats-forward', [WhatsAppController::class, 'activeChatsForForward'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.active-chats-forward');
         Route::post('conversations/handoff', [WhatsAppController::class, 'handoff'])->middleware(['can:whatsapp_chat_assign'])->name('conversations.handoff');
+        Route::post('conversations/create-lead', [WhatsAppController::class, 'createLeadFromChat'])->middleware(['can:lead_add'])->name('conversations.create-lead');
         Route::post('conversations/delete-history', [WhatsAppController::class, 'deleteChatHistory'])->middleware(['can:whatsapp_chat_delete'])->name('conversations.delete-history');
         Route::post('conversations/chat/thread-status', [WhatsAppController::class, 'updateThreadChatStatus'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.thread-status');
         Route::post('conversations/chat/thread-tags', [WhatsAppController::class, 'updateThreadChatTags'])->middleware(['can:whatsapp_chat_manage_tags'])->name('conversations.thread-tags');

@@ -32,21 +32,13 @@
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.calls.index'),
                     'label' => translate('Calls'),
-                    'active' => request()->routeIs('admin.calls.index', 'admin.calls.export')
-                        || (request()->routeIs('admin.calls.show') && ! request()->is('admin/calls/deleted*')),
+                    'active' => request()->routeIs('admin.calls.index', 'admin.calls.export', 'admin.calls.show'),
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.calls.report'),
                     'label' => translate('Call_report'),
                     'active' => request()->routeIs('admin.calls.report'),
                 ])
-                @if(is_super_admin())
-                    @include('adminmodule::layouts.partials.top-nav._link', [
-                        'href' => route('admin.calls.deleted'),
-                        'label' => translate('Deleted_calls'),
-                        'active' => request()->routeIs('admin.calls.deleted'),
-                    ])
-                @endif
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.calls.api-logs'),
                     'label' => translate('API_logs'),

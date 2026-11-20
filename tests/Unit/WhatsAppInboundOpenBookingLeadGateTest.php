@@ -44,7 +44,8 @@ class WhatsAppInboundOpenBookingLeadGateTest extends TestCase
             $table->unsignedBigInteger('ad_source_id')->nullable();
             $table->timestamp('date_time_of_lead_received')->nullable();
             $table->string('handled_by')->nullable();
-            $table->unsignedBigInteger('created_by')->nullable();
+            $table->string('created_by')->nullable();
+            $table->text('remarks')->nullable();
             $table->timestamp('next_followup_at')->nullable();
             $table->timestamp('non_responsive_at')->nullable();
             $table->timestamp('deleted_at')->nullable();
@@ -91,7 +92,7 @@ class WhatsAppInboundOpenBookingLeadGateTest extends TestCase
         });
     }
 
-    public function test_should_create_new_lead_only_when_neither_open_lead_nor_open_booking(): void
+    public function test_should_create_new_lead_only_when_no_lead_or_booking_history(): void
     {
         $this->assertTrue(LeadOpenStatusService::shouldCreateNewLead(false, false));
         $this->assertFalse(LeadOpenStatusService::shouldCreateNewLead(true, false));
@@ -168,7 +169,7 @@ class WhatsAppInboundOpenBookingLeadGateTest extends TestCase
         $this->assertSame($before, (int) DB::table('leads')->count());
     }
 
-    public function test_completed_booking_does_not_block_a_new_lead(): void
+    public function test_completed_booking_blocks_auto_mint(): void
     {
         DB::table('users')->insert([
             'id' => 'cccccccc-cccc-cccc-cccc-cccccccccccc',
@@ -185,7 +186,136 @@ class WhatsAppInboundOpenBookingLeadGateTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->assertFalse(app(LeadOpenStatusService::class)->phoneHasOpenBooking('1122334455'));
-        $this->assertTrue(LeadOpenStatusService::shouldCreateNewLead(false, false));
+        $openStatus = app(LeadOpenStatusService::class);
+        $this->assertFalse($openStatus->phoneHasOpenBooking('1122334455'));
+        $this->assertTrue($openStatus->phoneHasAnyBooking('1122334455'));
+
+        $resolved = $openStatus->resolveInboundLead(collect(), '1122334455');
+        $this->assertSame('existing', $resolved['action']);
+        $this->assertFalse(LeadOpenStatusService::shouldCreateNewLead(
+            $resolved['has_any_lead'],
+            $resolved['has_any_booking']
+        ));
+
+        $before = (int) DB::table('leads')->count();
+        $lead = app(WhatsAppLeadLifecycleService::class)
+            ->ensureUnknownLeadForPhone('911122334455', 'Returning');
+        $this->assertNull($lead);
+        $this->assertSame($before, (int) DB::table('leads')->count());
+    }
+
+    public function test_closed_lead_blocks_auto_mint_and_does_not_auto_attach(): void
+    {
+        Schema::create('lead_type_histories', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('lead_id');
+            $table->string('type');
+            $table->json('data')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('customer_lead_statuses', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->nullable();
+            $table->string('base_type')->nullable();
+        });
+
+        DB::table('sources')->insert([
+            'id' => 2,
+            'name' => 'AI Chat',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $statusId = DB::table('customer_lead_statuses')->insertGetId([
+            'name' => 'Booked',
+            'base_type' => 'completed',
+        ]);
+        $closedLeadId = DB::table('leads')->insertGetId([
+            'name' => 'Closed Customer',
+            'phone_number' => '9988776655',
+            'lead_type' => Lead::TYPE_CUSTOMER,
+            'source_id' => 2,
+            'non_responsive_at' => null,
+            'created_at' => now()->subDays(10),
+            'updated_at' => now()->subDays(10),
+        ]);
+        DB::table('lead_type_histories')->insert([
+            'lead_id' => $closedLeadId,
+            'type' => Lead::TYPE_CUSTOMER,
+            'data' => json_encode(['customer_lead_status_id' => $statusId]),
+            'created_at' => now()->subDays(10),
+            'updated_at' => now()->subDays(10),
+        ]);
+
+        $openStatus = app(LeadOpenStatusService::class);
+        $leads = $openStatus->leadsForPhoneDigits('9988776655');
+        $resolved = $openStatus->resolveInboundLead($leads, '9988776655');
+
+        $this->assertSame('existing', $resolved['action']);
+        $this->assertNull($resolved['lead']);
+
+        $before = (int) DB::table('leads')->count();
+        $lead = app(WhatsAppLeadLifecycleService::class)
+            ->ensureUnknownLeadForPhone('919988776655', 'Returning');
+        $this->assertNull($lead);
+        $this->assertSame($before, (int) DB::table('leads')->count());
+    }
+
+    public function test_staff_can_manually_create_lead_even_with_closed_history(): void
+    {
+        Schema::create('lead_type_histories', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('lead_id');
+            $table->string('type');
+            $table->json('data')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('customer_lead_statuses', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->nullable();
+            $table->string('base_type')->nullable();
+        });
+        Schema::create('lead_change_logs', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('lead_id');
+            $table->uuid('changed_by')->nullable();
+            $table->json('changes')->nullable();
+            $table->timestamps();
+        });
+
+        DB::table('sources')->insert([
+            'id' => 3,
+            'name' => 'AI Chat',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $statusId = DB::table('customer_lead_statuses')->insertGetId([
+            'name' => 'Booked',
+            'base_type' => 'completed',
+        ]);
+        $closedLeadId = DB::table('leads')->insertGetId([
+            'name' => 'Closed Customer',
+            'phone_number' => '8877665544',
+            'lead_type' => Lead::TYPE_CUSTOMER,
+            'source_id' => 3,
+            'non_responsive_at' => null,
+            'created_at' => now()->subDays(10),
+            'updated_at' => now()->subDays(10),
+        ]);
+        DB::table('lead_type_histories')->insert([
+            'lead_id' => $closedLeadId,
+            'type' => Lead::TYPE_CUSTOMER,
+            'data' => json_encode(['customer_lead_status_id' => $statusId]),
+            'created_at' => now()->subDays(10),
+            'updated_at' => now()->subDays(10),
+        ]);
+
+        $before = (int) DB::table('leads')->count();
+        $lead = app(WhatsAppLeadLifecycleService::class)
+            ->createLeadManuallyForPhone('918877665544', 'Staff Created');
+
+        $this->assertNotNull($lead);
+        $this->assertNotSame($closedLeadId, (int) $lead->id);
+        $this->assertSame(Lead::TYPE_UNKNOWN, $lead->lead_type);
+        $this->assertSame($before + 1, (int) DB::table('leads')->count());
     }
 }

@@ -37,45 +37,52 @@ class SuperfoneCallController extends Controller
     public function index(Request $request, SuperfoneCallExcelExport $export): View|JsonResponse
     {
         [$sort, $direction] = $export->resolveSort($request);
+        $showingDeleted = $export->showingDeleted($request);
         $query = $export->query($request);
 
         $rowsOnly = $request->boolean('rows');
         $page = $rowsOnly ? max(1, (int) $request->query('page', 1)) : 1;
         $calls = $query->paginate(20, ['*'], 'page', $page)->withQueryString();
-        $awaitingCallbackIds = SuperfoneCall::query()
-            ->awaitingCallback()
-            ->whereIn('superfone_calls.id', $calls->getCollection()->pluck('id'))
-            ->pluck('superfone_calls.id')
-            ->flip()
-            ->all();
-        $contactMarks = SuperfoneCallContact::marksForCalls($calls->getCollection());
-        $agents = $rowsOnly ? collect() : $export->agents();
-
+        $awaitingCallbackIds = [];
+        $contactMarks = [];
         $bookingChoices = [];
-        foreach ($calls as $call) {
-            if ($call->booking_id || $call->needsLeadLink()) {
-                continue;
+        $reopenLeadByCall = [];
+
+        if (! $showingDeleted) {
+            $awaitingCallbackIds = SuperfoneCall::query()
+                ->awaitingCallback()
+                ->whereIn('superfone_calls.id', $calls->getCollection()->pluck('id'))
+                ->pluck('superfone_calls.id')
+                ->flip()
+                ->all();
+            $contactMarks = SuperfoneCallContact::marksForCalls($calls->getCollection());
+
+            foreach ($calls as $call) {
+                if ($call->booking_id || $call->needsLeadLink()) {
+                    continue;
+                }
+                $open = $this->calls->openBookings($call);
+                if ($open->count() > 1) {
+                    $bookingChoices[$call->id] = $open;
+                }
             }
-            $open = $this->calls->openBookings($call);
-            if ($open->count() > 1) {
-                $bookingChoices[$call->id] = $open;
+
+            $openStatus = app(LeadOpenStatusService::class);
+            foreach ($calls as $call) {
+                $digits = (string) ($call->customer_phone_digits ?: '');
+                if (strlen($digits) < 8) {
+                    continue;
+                }
+                $reopen = $openStatus->firstReopenableNonResponsiveLead(
+                    $openStatus->leadsForPhoneDigits($digits)
+                );
+                if ($reopen) {
+                    $reopenLeadByCall[$call->id] = $reopen;
+                }
             }
         }
 
-        $reopenLeadByCall = [];
-        $openStatus = app(LeadOpenStatusService::class);
-        foreach ($calls as $call) {
-            $digits = (string) ($call->customer_phone_digits ?: '');
-            if (strlen($digits) < 8) {
-                continue;
-            }
-            $reopen = $openStatus->firstReopenableNonResponsiveLead(
-                $openStatus->leadsForPhoneDigits($digits)
-            );
-            if ($reopen) {
-                $reopenLeadByCall[$call->id] = $reopen;
-            }
-        }
+        $agents = $rowsOnly ? collect() : $export->agents();
 
         $rowData = [
             'calls' => $calls,
@@ -84,6 +91,7 @@ class SuperfoneCallController extends Controller
             'bookingChoices' => $bookingChoices,
             'reopenLeadByCall' => $reopenLeadByCall,
             'rowsOnly' => $rowsOnly,
+            'showingDeleted' => $showingDeleted,
         ];
 
         if ($rowsOnly) {
@@ -523,7 +531,7 @@ class SuperfoneCallController extends Controller
 
         toastr()->success(translate('Call_moved_to_deleted_calls'));
 
-        return redirect()->route('admin.calls.deleted');
+        return redirect()->route('admin.calls.index', ['status' => 'deleted']);
     }
 
     public function bulkDestroy(Request $request): RedirectResponse
@@ -548,7 +556,7 @@ class SuperfoneCallController extends Controller
 
         toastr()->success(translate('Calls_moved_to_deleted_calls'));
 
-        return redirect()->route('admin.calls.deleted');
+        return redirect()->route('admin.calls.index', ['status' => 'deleted']);
     }
 
     public function markContacted(Request $request, SuperfoneCall $call): RedirectResponse

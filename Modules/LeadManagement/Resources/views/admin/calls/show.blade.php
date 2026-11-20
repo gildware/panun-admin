@@ -7,7 +7,7 @@
         <div class="container-fluid">
             <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                 <h2 class="page-title mb-0">{{ translate('Call_details') }}</h2>
-                <a href="{{ $call->trashed() ? route('admin.calls.deleted') : route('admin.calls.index') }}" class="btn btn-outline-secondary">
+                <a href="{{ $call->trashed() ? route('admin.calls.index', ['status' => 'deleted']) : route('admin.calls.index') }}" class="btn btn-outline-secondary">
                     {{ $call->trashed() ? translate('Back_to_deleted_calls') : translate('Back') }}
                 </a>
             </div>
@@ -27,7 +27,7 @@
                         · {{ translate('Deleted_at') }}: {{ optional($call->deleted_at)->format('d M Y H:i') }}
                     </div>
                     <div class="d-flex flex-wrap gap-2 mt-2">
-                        <a href="{{ route('admin.calls.deleted') }}" class="btn btn-sm btn--secondary">{{ translate('Back_to_deleted_calls') }}</a>
+                        <a href="{{ route('admin.calls.index', ['status' => 'deleted']) }}" class="btn btn-sm btn--secondary">{{ translate('Back_to_deleted_calls') }}</a>
                         @if(is_super_admin())
                             <form method="post" action="{{ route('admin.calls.deleted.restore', $call->id) }}" data-turbo="false">
                                 @csrf

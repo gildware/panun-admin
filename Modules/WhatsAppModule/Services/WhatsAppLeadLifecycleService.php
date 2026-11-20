@@ -4,6 +4,7 @@ namespace Modules\WhatsAppModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\LeadManagement\Entities\AdSource;
@@ -230,10 +231,9 @@ class WhatsAppLeadLifecycleService
             return $resolved['lead'] ?: $openStatus->existingLeadForOpenBookingPhone($leadPhone);
         }
 
-        if ($resolved['action'] === 'reopen' && $resolved['lead']) {
-            $reopened = $openStatus->reopenNonResponsiveForInbound($resolved['lead'], 'inbound');
-
-            return $this->touchAiOpenLead($reopened, $name, $whatsAppPhone);
+        // Closed / prior history: do not auto-attach or mint (staff attach or create manually).
+        if ($resolved['action'] !== 'mint') {
+            return null;
         }
 
         // Skip creation for already-onboarded providers.
@@ -255,6 +255,56 @@ class WhatsAppLeadLifecycleService
 
         if (function_exists('admin_inbox_notify_lead_created')) {
             admin_inbox_notify_lead_created($lead);
+        }
+
+        return $lead;
+    }
+
+    /**
+     * Staff override: always mint a fresh Unknown for this WhatsApp phone
+     * (even when prior lead/booking history exists).
+     */
+    public function createLeadManuallyForPhone(string $whatsAppPhone, ?string $name = null): ?Lead
+    {
+        $leadPhone = $this->normalizeLeadPhone($whatsAppPhone);
+        if (! $leadPhone) {
+            return null;
+        }
+
+        $staffId = Auth::id();
+        $note = 'Created by staff from a WhatsApp chat (new enquiry).';
+        $lead = Lead::create([
+            'name' => trim((string) ($name ?: ('WhatsApp '.$leadPhone))),
+            'phone_number' => $leadPhone,
+            'source_id' => $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone),
+            'ad_source_id' => $this->resolveAdSourceIdForWhatsAppPhone($whatsAppPhone),
+            'lead_type' => Lead::TYPE_UNKNOWN,
+            'date_time_of_lead_received' => now(),
+            'handled_by' => $staffId ? (string) $staffId : null,
+            'created_by' => $staffId ? (string) $staffId : null,
+            'remarks' => $note,
+            'next_followup_at' => app(LeadFollowupService::class)->defaultNextFollowupAt(),
+        ]);
+
+        app(LeadChangeLogService::class)->record((int) $lead->id, [
+            'lead_added' => [
+                'label' => 'Lead_Added',
+                'old' => '—',
+                'new' => $note,
+            ],
+        ]);
+
+        if (function_exists('admin_inbox_notify_lead_created')) {
+            admin_inbox_notify_lead_created($lead);
+        }
+
+        try {
+            app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh() ?? $lead);
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp staff lead create: chat assignment sync failed', [
+                'lead_id' => $lead->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return $lead;
@@ -293,24 +343,13 @@ class WhatsAppLeadLifecycleService
             return $resolved['lead'] ?: $openStatus->existingLeadForOpenBookingPhone($leadPhone);
         }
 
-        if ($resolved['action'] === 'reopen' && $resolved['lead']) {
-            $reopened = $openStatus->reopenNonResponsiveForInbound($resolved['lead'], 'inbound');
-            if ($reopened->lead_type === $leadType) {
-                return $this->touchAiOpenLead($reopened, $name, $whatsAppPhone);
-            }
-            if ($reopened->lead_type === Lead::TYPE_UNKNOWN
-                && in_array($leadType, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)
-            ) {
-                return $this->convertUnknownOpenLeadToType($reopened, $leadType, $name, $whatsAppPhone);
-            }
-
-            return $this->touchAiOpenLead($reopened, $name, $whatsAppPhone);
+        if ($resolved['action'] === 'open' && $resolved['lead']) {
+            return $this->touchAiOpenLead($resolved['lead'], $name, $whatsAppPhone);
         }
 
+        // Closed / prior history: do not auto-attach or mint (staff attach or create manually).
         if ($resolved['action'] !== 'mint') {
-            if ($resolved['lead']) {
-                return $this->touchAiOpenLead($resolved['lead'], $name, $whatsAppPhone);
-            }
+            return null;
         }
 
         // Skip creation for already-onboarded providers.
