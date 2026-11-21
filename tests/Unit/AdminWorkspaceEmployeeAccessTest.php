@@ -73,6 +73,16 @@ class AdminWorkspaceEmployeeAccessTest extends TestCase
         $this->assertFalse(AdminWorkspace::isOperationsEmployee());
     }
 
+    public function test_team_lead_role_is_operations_frontline_and_can_track_team(): void
+    {
+        $this->actingAs($this->userWithRole('admin-employee', 'Team Lead'));
+
+        $this->assertTrue(AdminWorkspace::isOperationsEmployee());
+        $this->assertTrue(is_team_lead());
+        $this->assertTrue(can_track_all_employees());
+        $this->assertFalse(AdminWorkspace::userCanEnter(AdminWorkspace::SETTINGS));
+    }
+
     private function userWithRole(string $userType, string $roleName): User
     {
         $role = new Role();

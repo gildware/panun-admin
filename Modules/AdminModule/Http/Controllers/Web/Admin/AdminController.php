@@ -34,6 +34,7 @@ use Illuminate\Contracts\Support\Renderable;
 use Modules\AdminModule\Services\AdminDashboardCache;
 use Modules\AdminModule\Services\EmployeeDashboardService;
 use Modules\AdminModule\Services\OperationsDashboardService;
+use Modules\AdminModule\Services\PeopleWorkspace;
 use Modules\AdminModule\Services\AdvanceSearch;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\Account;
@@ -93,10 +94,14 @@ class AdminController extends Controller
      */
     public function dashboard(Request $request): View|Factory|Application|RedirectResponse
     {
-        $employeeData = app(EmployeeDashboardService::class)->build(auth()->user());
+        $actor = auth()->user();
+        $employeeData = app(EmployeeDashboardService::class)->build($actor);
         $showEmployeeProgress = is_admin_employee() || ! empty($employeeData['progress_scopes']);
+        $pendingTimesheet = $actor instanceof User
+            ? app(PeopleWorkspace::class)->pendingTimesheetReminder($actor)
+            : null;
 
-        return view('adminmodule::dashboard-employee', compact('employeeData', 'showEmployeeProgress'));
+        return view('adminmodule::dashboard-employee', compact('employeeData', 'showEmployeeProgress', 'pendingTimesheet'));
     }
 
     public function rankMarksChart(Request $request): JsonResponse

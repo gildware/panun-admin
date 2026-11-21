@@ -6,6 +6,10 @@
     $fullTimeHours = $restoring ? old('min_hours_full_time') : ($timesheetSettings->min_hours_full_time ?? $timesheetSettings->min_hours);
     $partTimeHours = $restoring ? old('min_hours_part_time') : ($timesheetSettings->min_hours_part_time ?? $timesheetSettings->min_hours);
     $startTiming = $restoring ? old('starts_on') : ($timesheetSettings->starts_on ? $timesheetSettings->starts_on->toDateString() : '2026-10-01');
+    $popupEnabled = $restoring ? (string) old('popup_enabled', '0') === '1' : $timesheetSettings->popupIsEnabled();
+    $popupIntervalParts = $timesheetSettings->popupIntervalParts();
+    $popupIntervalValue = $restoring ? old('popup_interval_value', $popupIntervalParts['value']) : $popupIntervalParts['value'];
+    $popupIntervalUnit = $restoring ? old('popup_interval_unit', $popupIntervalParts['unit']) : $popupIntervalParts['unit'];
 @endphp
 <div class="people-ws-head">
     <div>
@@ -51,6 +55,30 @@
             @endforeach
         </div>
         <p class="people-ws-note">People do not fill a timesheet on these days, and payroll does not count them as working days. Leave at least one day as a working day.</p>
+    </div>
+    <div class="field">
+        <label for="popup_enabled">Pending timesheet popup</label>
+        <label>
+            <input id="popup_enabled" type="checkbox" name="popup_enabled" value="1" @checked($popupEnabled)>
+            Show popup reminder
+        </label>
+        <p class="people-ws-note">When on, employees with missing timesheet days see a centered popup. You can also manage this under Settings → People & HR → Timesheet settings.</p>
+    </div>
+    <div class="field">
+        <label for="popup_interval_value">Popup timer</label>
+        <div class="people-ws-hours-pair" style="align-items:end;">
+            <div>
+                <input id="popup_interval_value" class="people-ws-hours" name="popup_interval_value" type="number" min="1" max="86400" step="1" value="{{ $popupIntervalValue }}" required>
+            </div>
+            <div>
+                <select id="popup_interval_unit" name="popup_interval_unit" required>
+                    @foreach(['seconds' => 'Seconds', 'minutes' => 'Minutes', 'hours' => 'Hours'] as $unit => $label)
+                        <option value="{{ $unit }}" @selected($popupIntervalUnit === $unit)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+        <p class="people-ws-note">How often the popup comes back after it is closed. Minimum 5 seconds, maximum 24 hours. Default is 30 minutes.</p>
     </div>
     <button class="btn-pw primary" type="submit">Save settings</button>
 </form>

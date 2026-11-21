@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{{ asset('assets/admin-module') }}/css/material-icons.css" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
         html, body { margin: 0; height: 100%; }
@@ -283,6 +284,7 @@
             </div>
         </div>
     </header>
+    @include('adminmodule::partials._pending-timesheet-banner', ['pendingTimesheetGate' => true])
     <main class="workspace-choose">
         <div class="workspace-choose-wrap">
             <div class="workspace-welcome">

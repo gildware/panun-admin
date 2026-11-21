@@ -65,6 +65,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::get('workspace/{workspace}', [WorkspaceController::class, 'enter'])->name('workspace.enter');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('settings/home-cache', [SettingsHubController::class, 'homeCache'])->name('settings.home-cache');
+    Route::get('settings/timesheet', [SettingsHubController::class, 'timesheet'])->name('settings.timesheet');
+    Route::post('settings/timesheet', [SettingsHubController::class, 'saveTimesheet'])->name('settings.timesheet.save');
     Route::get('settings/{section?}', [SettingsHubController::class, 'index'])->name('settings.index');
     Route::get('marketing/{section?}', [MarketingHubController::class, 'index'])->name('marketing.index');
     Route::get('reports/{section?}', [ReportsHubController::class, 'index'])->name('reports.index');

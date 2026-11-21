@@ -47,6 +47,9 @@ final class AdminSettingsRegistry
             self::section('bookings', translate('Bookings'), 'event_available', [
                 self::item(translate('Booking_Configuration'), route('admin.booking.configuration.index'), ['admin/booking/configuration*'], ['admin.booking.configuration.index'], 'booking_configuration_view'),
             ]),
+            self::section('people', 'People & HR', 'badge', [
+                self::item('Timesheet settings', route('admin.settings.timesheet'), ['admin/settings/timesheet'], ['admin.settings.timesheet', 'admin.settings.timesheet.save']),
+            ]),
             self::section('whatsapp', translate('WhatsApp'), 'forum', [
                 self::item(translate('Message_templates'), route('admin.whatsapp.booking-templates.edit', ['channel' => 'whatsapp']), ['admin/social-inbox/*/booking-message-templates*'], [], 'whatsapp_message_template_view'),
                 self::item(__('whatsapp_ai.page_title'), route('admin.whatsapp.ai-settings.edit', ['channel' => 'whatsapp']), ['admin/social-inbox/*/ai-support*'], [], 'whatsapp_chat_view'),
@@ -138,6 +141,14 @@ final class AdminSettingsRegistry
             return self::$cachedMatch = [
                 'section_key' => $sectionKey,
                 'section_label' => self::sectionLabel($sectionKey),
+                'item' => null,
+            ];
+        }
+
+        if ($request->routeIs('admin.settings.timesheet', 'admin.settings.timesheet.save')) {
+            return self::$cachedMatch = [
+                'section_key' => 'people',
+                'section_label' => self::sectionLabel('people'),
                 'item' => null,
             ];
         }

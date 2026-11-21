@@ -355,7 +355,7 @@
             </div>
         @endif
 
-        @if(! is_admin_employee())
+        @if(! is_admin_employee() || is_team_lead())
             <div class="mb-3 mt-2" id="section-employee-status">
                 @include('adminmodule::admin.partials._staff-presence-widget')
             </div>

@@ -302,7 +302,19 @@ class PeopleWorkspace
             'min_hours' => 0,
             'week_off' => ['sun'],
             'starts_on' => '2026-10-01',
+            'popup_enabled' => true,
+            'popup_interval_seconds' => 1800,
         ]));
+    }
+
+    public function timesheetPopupEnabled(): bool
+    {
+        return $this->timesheetSettings()->popupIsEnabled();
+    }
+
+    public function timesheetPopupIntervalSeconds(): int
+    {
+        return $this->timesheetSettings()->popupIntervalSeconds();
     }
 
     /**
@@ -330,6 +342,118 @@ class PeopleWorkspace
         }
 
         return Carbon::parse($attributes['starts_on'])->startOfDay();
+    }
+
+    /**
+     * Dashboard reminder when this employee still has timesheet days to fill.
+     *
+     * @return array{pending_days: int, pending_since: int, month: string, oldest_date: string}|null
+     */
+    public function pendingTimesheetReminder(User $user): ?array
+    {
+        if (! Schema::hasTable('people_timesheets') || ! $this->requiresTimesheet($user)) {
+            return null;
+        }
+
+        $this->mirrorOpenLeave($user);
+
+        $today = now()->startOfDay();
+        $start = $this->timesheetStartsOn() ?? $today->copy()->subMonths(11)->startOfMonth();
+        $profile = $user->relationLoaded('peopleProfile')
+            ? $user->peopleProfile
+            : PeopleProfile::query()->where('user_id', $user->id)->first();
+        $joined = $profile?->joined_on?->copy()->startOfDay();
+        if ($joined && $joined->gt($start)) {
+            $start = $joined;
+        }
+        if ($start->gt($today)) {
+            return null;
+        }
+
+        $holidays = array_flip($this->holidayDates($start, $today));
+        $saved = [];
+        $sheets = PeopleTimesheet::query()->where('user_id', $user->id)->get();
+        foreach ($sheets as $sheet) {
+            $this->markSentBackDaysRejected($sheet);
+            $locked = in_array($sheet->status, ['pending', 'approved'], true);
+            foreach ($sheet->entries ?? [] as $date => $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+                $saved[$date] = $entry;
+                $saved[$date]['locked'] = $locked || ($entry['status'] ?? null) === 'approved';
+                $saved[$date]['sheet_status'] = (string) $sheet->status;
+            }
+        }
+
+        $pendingDays = 0;
+        $oldest = null;
+        for ($cursor = $start->copy(); $cursor->lte($today); $cursor->addDay()) {
+            if (! $this->timesheetDayIsPending($cursor, $today, $holidays, $saved, $user)) {
+                continue;
+            }
+            $pendingDays++;
+            if ($oldest === null) {
+                $oldest = $cursor->copy();
+            }
+        }
+
+        if ($pendingDays === 0 || $oldest === null) {
+            return null;
+        }
+
+        return [
+            'pending_days' => $pendingDays,
+            'pending_since' => (int) abs($oldest->diffInDays($today)),
+            'month' => $oldest->format('Y-m'),
+            'oldest_date' => $oldest->toDateString(),
+        ];
+    }
+
+    /**
+     * Same rules as the timesheet board: working days still open or sent back.
+     *
+     * @param  array<string, true>  $holidays
+     * @param  array<string, array<string, mixed>>  $saved
+     */
+    private function timesheetDayIsPending(CarbonInterface $date, CarbonInterface $today, array $holidays, array $saved, User $user): bool
+    {
+        $key = $date->toDateString();
+        if ($this->isBeforeTimesheetStart($date)) {
+            return false;
+        }
+        if (($saved[$key]['status'] ?? null) === 'week_off') {
+            return false;
+        }
+        if (($saved[$key]['status'] ?? null) === 'rejected') {
+            return true;
+        }
+        if (($saved[$key]['status'] ?? null) === 'approved') {
+            return false;
+        }
+        if (($saved[$key]['status'] ?? null) === 'submitted') {
+            $sheetStatus = (string) ($saved[$key]['sheet_status'] ?? '');
+            if ($sheetStatus === 'approved') {
+                return false;
+            }
+            $halfStillOpen = filled($saved[$key]['leave_request_id'] ?? null)
+                && (bool) ($saved[$key]['half'] ?? false)
+                && ! ($saved[$key]['locked'] ?? false)
+                && ! $date->gt($today);
+
+            return $halfStillOpen;
+        }
+        if (isset($holidays[$key])) {
+            return false;
+        }
+        if ($this->isWeekOff($date, $user)) {
+            return false;
+        }
+        if ($date->gt($today)) {
+            return false;
+        }
+
+        return true;
     }
 
     public function minTimesheetHours(?User $user = null): float

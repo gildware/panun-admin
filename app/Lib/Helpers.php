@@ -138,6 +138,39 @@ if (!function_exists('is_admin_employee')) {
     }
 }
 
+if (!function_exists('is_team_lead')) {
+    /**
+     * Team Lead employees can track the full team (Open Work, Call report, Employee Status).
+     */
+    function is_team_lead(?\Modules\UserManagement\Entities\User $user = null): bool
+    {
+        $user = $user ?? (auth()->check() ? auth()->user() : null);
+        if (! $user || $user->user_type !== 'admin-employee') {
+            return false;
+        }
+
+        $roles = $user->relationLoaded('roles') ? $user->roles : $user->roles()->get();
+
+        return $roles->contains(static fn ($role) => (string) ($role->role_name ?? '') === 'Team Lead');
+    }
+}
+
+if (!function_exists('can_track_all_employees')) {
+    function can_track_all_employees(?\Modules\UserManagement\Entities\User $user = null): bool
+    {
+        $user = $user ?? (auth()->check() ? auth()->user() : null);
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->user_type === 'super-admin') {
+            return true;
+        }
+
+        return is_team_lead($user);
+    }
+}
+
 if (!function_exists('admin_workspace')) {
     function admin_workspace(): string
     {

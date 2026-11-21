@@ -24,10 +24,12 @@ class WorkspaceDashboardController extends Controller
     {
         $user = $this->actor();
         $profile = $this->workspace->ensureStaffFile($user);
+        $user->setRelation('peopleProfile', $profile);
 
         return view('adminmodule::dashboards.people', [
             'name' => $this->workspace->displayName($user),
             'profile' => $profile,
+            'pendingTimesheet' => $this->workspace->pendingTimesheetReminder($user),
             'birthdays' => $this->upcomingBirthdays(),
             'holidays' => $this->holidayWindow(false),
             'previousHolidays' => $this->holidayWindow(true),

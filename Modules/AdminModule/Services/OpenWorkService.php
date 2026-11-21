@@ -43,8 +43,8 @@ class OpenWorkService
      */
     public function build(User $user): array
     {
-        $employeeScope = $user->user_type === 'admin-employee';
-        $userId = (string) $user->id;
+        // All admins/employees see the full Open Work queue (with owner filter in the UI).
+        $employeeScope = false;
         $today = Carbon::today();
         $now = Carbon::now();
 
@@ -60,27 +60,6 @@ class OpenWorkService
         $this->mergeActiveBookings($byKey, $today, $now, $namesById);
 
         $items = array_values($byKey);
-
-        if ($employeeScope) {
-            $items = array_values(array_filter(
-                $items,
-                static function (array $item) use ($userId): bool {
-                    $ownerId = (string) ($item['owner_id'] ?? '');
-                    if ($ownerId === '' || $ownerId === 'unassigned') {
-                        return true;
-                    }
-                    if ($ownerId === $userId) {
-                        return true;
-                    }
-                    $ownerIds = $item['owner_ids'] ?? null;
-                    if (is_array($ownerIds) && in_array($userId, $ownerIds, true)) {
-                        return true;
-                    }
-
-                    return false;
-                }
-            ));
-        }
 
         usort($items, static fn (array $a, array $b): int => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
         $items = array_slice($items, 0, self::MAX_ITEMS);
