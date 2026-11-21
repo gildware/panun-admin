@@ -26,6 +26,7 @@ use Modules\AdminModule\Entities\PeoplePayslip;
 use Modules\AdminModule\Entities\PeopleProfile;
 use Modules\AdminModule\Entities\PeopleSalaryStructure;
 use Modules\AdminModule\Entities\PeopleTimesheet;
+use Modules\AdminModule\Entities\PeopleTimesheetSetting;
 use Modules\AdminModule\Entities\PeopleTimesheetTask;
 use Modules\AdminModule\Services\PeopleLeaveAccrual;
 use Modules\AdminModule\Services\PeoplePayroll;
@@ -1071,6 +1072,9 @@ class PeopleHrController extends Controller
             'min_hours_part_time' => ['required', 'numeric', 'min:0', 'max:24'],
             'week_off' => ['nullable', 'array', 'max:6'],
             'week_off.*' => ['required', Rule::in(PeopleWorkspace::DAY_KEYS)],
+            'popup_enabled' => ['nullable', 'boolean'],
+            'popup_interval_value' => ['required', 'integer', 'min:1', 'max:86400'],
+            'popup_interval_unit' => ['required', Rule::in(['seconds', 'minutes', 'hours'])],
         ], [
             'week_off.max' => 'Keep at least one working day in the week.',
         ]);
@@ -1084,6 +1088,11 @@ class PeopleHrController extends Controller
             'min_hours_part_time' => $partTime,
             'week_off' => $off,
             'starts_on' => Carbon::parse($data['starts_on'])->toDateString(),
+            'popup_enabled' => $request->boolean('popup_enabled'),
+            'popup_interval_seconds' => PeopleTimesheetSetting::popupIntervalToSeconds(
+                (int) $data['popup_interval_value'],
+                (string) $data['popup_interval_unit'],
+            ),
         ])->save();
         Toastr::success('Timesheet settings saved.');
 

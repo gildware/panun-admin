@@ -132,6 +132,8 @@
         <turbo-frame id="admin-main" class="admin-main-frame" data-turbo-cache="false" aria-busy="false">
     @endif
 
+    @include('adminmodule::partials._pending-timesheet-banner')
+
     @if(admin_in_settings_module() && ! request()->routeIs('admin.settings.index', 'admin.settings.home-cache'))
         <div class="settings-module settings-module--embedded">
             @include('adminmodule::settings.partials._sidebar')
