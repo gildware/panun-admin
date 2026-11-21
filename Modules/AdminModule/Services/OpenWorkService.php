@@ -43,7 +43,8 @@ class OpenWorkService
      */
     public function build(User $user): array
     {
-        $employeeScope = $user->user_type === 'admin-employee';
+        // Team Leads see the full team queue (same as super-admin), not only their own items.
+        $employeeScope = $user->user_type === 'admin-employee' && ! is_team_lead($user);
         $userId = (string) $user->id;
         $today = Carbon::today();
         $now = Carbon::now();

@@ -214,7 +214,7 @@ class AdminWorkspace
             return false;
         }
 
-        $frontline = ['Employee', 'Member', 'Customer Support'];
+        $frontline = ['Employee', 'Member', 'Customer Support', 'Team Lead'];
 
         return $roles->every(fn ($role) => in_array($role->role_name, $frontline, true));
     }
