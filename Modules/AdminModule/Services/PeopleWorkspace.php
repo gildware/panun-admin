@@ -326,6 +326,11 @@ class PeopleWorkspace
             return true;
         }
 
+        // Super admin is not required to fill timesheets.
+        if ((string) $user->user_type === 'super-admin') {
+            return false;
+        }
+
         $profile = $user->relationLoaded('peopleProfile')
             ? $user->peopleProfile
             : PeopleProfile::query()->where('user_id', $user->id)->first();
