@@ -53,19 +53,17 @@
     $hasOldDay = is_string($oldWorkDate) && isset($cardsByDate[$oldWorkDate]);
     $autoOpenDate = null;
     if (! $hasOldDay) {
-        $todayKey = now()->toDateString();
         $dateKeys = array_keys($cardsByDate);
         sort($dateKeys);
         $firstPending = null;
         $firstRejected = null;
-        $todayOpen = null;
         foreach ($dateKeys as $dateKey) {
             $candidate = $cardsByDate[$dateKey];
             if (! empty($candidate['outside']) || empty($candidate['open'])) {
                 continue;
             }
             $candidateState = (string) ($candidate['state'] ?? '');
-            if (in_array($candidateState, ['holiday', 'future', 'off', 'before', 'weekoff'], true)) {
+            if (in_array($candidateState, ['holiday', 'future', 'today', 'off', 'before', 'weekoff'], true)) {
                 continue;
             }
             if ($firstRejected === null && $candidateState === 'rejected') {
@@ -74,11 +72,8 @@
             if ($firstPending === null && $candidateState === 'pending') {
                 $firstPending = $dateKey;
             }
-            if ($dateKey === $todayKey) {
-                $todayOpen = $todayKey;
-            }
         }
-        $autoOpenDate = $firstRejected ?? $todayOpen ?? $firstPending;
+        $autoOpenDate = $firstRejected ?? $firstPending;
     }
     $focusDate = $hasOldDay ? $oldWorkDate : $autoOpenDate;
     $weekPage = 0;
@@ -192,16 +187,22 @@
                                 || trim((string) ($row['description'] ?? '')) !== '';
                         }));
                         $rowHours = 0.0;
+                        $rowAllHours = 0.0;
                         $taskCount = 0;
                         foreach ($rows as $row) {
                             $amount = (float) ($row['hours'] ?? 0);
-                            $rowHours += $amount;
-                            if (trim((string) ($row['task'] ?? '')) !== '' && $amount > 0) {
-                                $taskCount++;
+                            $rowAllHours += $amount;
+                            $ticket = (string) ($row['ticket_id'] ?? '');
+                            $isOvertime = $ticket === 'overtime' || ($row['kind'] ?? '') === 'overtime';
+                            if (! $isOvertime) {
+                                $rowHours += $amount;
+                                if (trim((string) ($row['task'] ?? '')) !== '' && $amount > 0) {
+                                    $taskCount++;
+                                }
                             }
                         }
                         $dayState = (string) ($card['state'] ?? 'pending');
-                        $closed = in_array($dayState, ['holiday', 'future', 'off', 'before'], true);
+                        $closed = in_array($dayState, ['holiday', 'future', 'today', 'off', 'before'], true);
                         $startOpen = ($useOld && ! $closed) || ($autoOpenDate === $card['date'] && ! $closed && $open);
                         $minHours = (float) ($board['minHours'] ?? 0);
                         $submitHint = '';
@@ -209,10 +210,10 @@
                             $submitHint = $minHours > 0
                                 ? 'Add a task and at least '.$fmt($minHours).'.'
                                 : 'Add a task with hours.';
-                        } elseif ($rowHours > 24) {
+                        } elseif ($rowAllHours > 24) {
                             $submitHint = 'A day cannot be more than 24h.';
                         } elseif ($minHours > 0 && $rowHours + 0.001 < $minHours) {
-                            $submitHint = 'A day needs at least '.$fmt($minHours).'.';
+                            $submitHint = 'A day needs at least '.$fmt($minHours).' (overtime does not count).';
                         }
                         $holidayLabel = trim((string) ($card['holidayName'] ?? ''));
                         $holidayLabel = $holidayLabel !== '' ? 'Holiday · '.$holidayLabel : 'Holiday';
@@ -261,11 +262,12 @@
                             'off' => ['Week off', 'off'],
                             'weekoff' => ['Week off', 'off'],
                             'future' => ['Upcoming', 'future'],
+                            'today' => ['Opens tomorrow', 'future'],
                             'before' => ['Not open', 'before'],
                         ];
                         [$statusLabel, $statusClass] = $statusPills[$dayState] ?? ['Pending', 'pending'];
                     @endphp
-                    <form class="ts-day {{ $startOpen ? '' : 'is-collapsed' }} is-{{ $dayState }}{{ $closed ? ' is-locked' : '' }}" id="ts-day-{{ $card['date'] }}" method="post" action="{{ route('admin.people.timesheet.day') }}" data-open="{{ $open ? '1' : '0' }}" data-date="{{ $card['date'] }}" @if($startOpen && $autoOpenDate === $card['date']) data-auto-open="1" @endif>
+                    <form class="ts-day {{ $startOpen ? '' : 'is-collapsed' }} is-{{ $dayState === 'today' ? 'future' : $dayState }}{{ $closed ? ' is-locked' : '' }}" id="ts-day-{{ $card['date'] }}" method="post" action="{{ route('admin.people.timesheet.day') }}" data-open="{{ $open ? '1' : '0' }}" data-date="{{ $card['date'] }}" @if($startOpen && $autoOpenDate === $card['date']) data-auto-open="1" @endif>
                         @csrf
                         <input type="hidden" name="work_date" value="{{ $card['date'] }}">
                         <input type="hidden" name="month" value="{{ $board['month'] }}">
@@ -283,12 +285,14 @@
                             @endif
                             </div>
                             <div class="ts-day-aside">
-                            @if(! in_array($dayState, ['weekoff', 'holiday', 'future', 'off', 'before'], true))
-                            <p class="ts-day-time" title="Time filled / to be filled"><b class="ts-day-total {{ $open ? 'is-open' : '' }}" data-day-total>{{ $fmt($rowHours, true) }}</b><span class="ts-day-split">/</span><b class="ts-day-target">{{ $fmt((float) ($board['minHours'] ?? 0), true) }}</b></p>
+                            @if(! in_array($dayState, ['weekoff', 'holiday', 'future', 'today', 'off', 'before'], true))
+                            <p class="ts-day-time" title="Time filled / required (overtime counted separately)"><b class="ts-day-total {{ $open ? 'is-open' : '' }}" data-day-total>{{ $fmt($rowHours, true) }}</b><span class="ts-day-split">/</span><b class="ts-day-target">{{ $fmt((float) ($board['minHours'] ?? 0), true) }}</b></p>
                             @endif
                             <div class="ts-day-status">
                             @if($dayState === 'holiday')
                                 <span class="ts-submitted is-holiday" title="{{ $holidayLabel }}">{{ $holidayLabel }}</span>
+                            @elseif($dayState === 'today')
+                                <span class="ts-submitted is-future">Opens tomorrow</span>
                             @elseif($dayState === 'future')
                                 <span class="ts-submitted is-future">Upcoming</span>
                             @elseif($dayState === 'off')
@@ -395,12 +399,18 @@
                             'off' => 'Week off',
                             'weekoff' => 'Week off',
                             'future' => 'Upcoming',
+                            'today' => 'Opens tomorrow',
+                            'before' => 'Not open',
                         ];
                     @endphp
                     @foreach($board['statusDays'] as $day)
                         @php
                             $dayLabel = $dayStatus[$day['state']] ?? 'Day';
-                            $chipState = $day['state'] === 'weekoff' ? 'off' : $day['state'];
+                            $chipState = match ($day['state']) {
+                                'weekoff' => 'off',
+                                'today' => 'future',
+                                default => $day['state'],
+                            };
                             $mark = trim((string) ($day['mark'] ?? ''));
                             $chipTitle = $day['n'].' · '.$dayLabel.($mark !== '' ? ' · '.$mark : '');
                         @endphp
@@ -607,15 +617,22 @@
     function dayTotals(day) {
         var count = 0;
         var hours = 0;
+        var overtime = 0;
+        var all = 0;
         day.querySelectorAll('.ts-row').forEach(function (row) {
             var task = row.querySelector('.ts-task-select');
             if (!task || !task.value) return;
             var hourInput = row.querySelector('.ts-hours');
             var amount = hourInput ? Number(hourInput.value) || 0 : 0;
+            all += amount;
+            if (task.value === 'overtime' || rowKind(row) === 'overtime') {
+                overtime += amount;
+                return;
+            }
             hours += amount;
             if (amount > 0) count += 1;
         });
-        return { count: count, hours: hours };
+        return { count: count, hours: hours, overtime: overtime, all: all };
     }
 
     function dayCanSubmit(day) {
@@ -628,8 +645,8 @@
         if (totals.count < 1 || totals.hours <= 0) {
             return minHours > 0 ? ('Add a task and at least ' + least + '.') : 'Add a task with hours.';
         }
-        if (totals.hours > 24) return 'A day cannot be more than 24h.';
-        if (minHours > 0 && totals.hours + 0.001 < minHours) return 'A day needs at least ' + least + '.';
+        if (totals.all > 24) return 'A day cannot be more than 24h.';
+        if (minHours > 0 && totals.hours + 0.001 < minHours) return 'A day needs at least ' + least + ' (overtime does not count).';
         return '';
     }
 
@@ -1177,7 +1194,8 @@
             weekOffForm = button ? button.closest('.ts-day') : null;
             var text = document.getElementById('weekOffModalText');
             var label = button ? (button.getAttribute('data-weekoff-label') || '') : '';
-            var hours = weekOffForm ? dayTotals(weekOffForm).hours : 0;
+            var weekOffTotals = weekOffForm ? dayTotals(weekOffForm) : { hours: 0, overtime: 0, all: 0 };
+            var hours = weekOffTotals.all || 0;
             var warning = hours > 0 ? 'Hours already entered for this day will be cleared.' : '';
             if (text) {
                 if (label !== '' && warning !== '') text.textContent = label + '. ' + warning;
