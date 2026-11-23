@@ -42,6 +42,7 @@ class PeopleWorkspaceController extends Controller
         $user->loadMissing('roles');
         $profile = PeopleProfile::query()->with('manager')->where('user_id', $user->id)->first()
             ?? $this->workspace->ensureStaffFile($user)->load('manager');
+        $user->setRelation('peopleProfile', $profile);
         if ($section === 'timesheet' && ! $profile->requiresTimesheet()) {
             return redirect()->route('admin.people.index', ['section' => 'profile']);
         }
@@ -326,7 +327,7 @@ class PeopleWorkspaceController extends Controller
             return redirect()->route('admin.people.index', ['section' => 'profile']);
         }
         $data = $request->validate([
-            'work_date' => ['required', 'date', 'before_or_equal:today'],
+            'work_date' => ['required', 'date', 'before:today'],
             'month' => ['nullable', 'date_format:Y-m'],
             'intent' => ['required', Rule::in(['submit', 'leave', 'week_off', 'clear_week_off'])],
             'rows' => ['nullable', 'array', 'max:12'],
@@ -340,6 +341,11 @@ class PeopleWorkspaceController extends Controller
         ]);
 
         $date = Carbon::parse($data['work_date'])->startOfDay();
+        if (! $this->workspace->timesheetDayIsOpen($date)) {
+            Toastr::error('You can fill a day\'s timesheet from the next day.');
+
+            return $this->timesheetRedirect($request);
+        }
         if ($this->workspace->isBeforeTimesheetStart($date)) {
             $starts = $this->workspace->timesheetStartsOn();
             Toastr::error('Timesheets start on '.($starts ? $starts->format('j F Y') : 'a later date').'.');
@@ -482,14 +488,17 @@ class PeopleWorkspaceController extends Controller
         }
 
         $total = round(array_sum(array_column($rows, 'hours')), 2);
+        $counted = round(array_sum(array_map(function (array $row) {
+            return $this->workspace->timesheetRowIsOvertime($row) ? 0.0 : (float) ($row['hours'] ?? 0);
+        }, $rows)), 2);
         $minimum = $this->workspace->requiredDayHours($user);
         if ($rows === [] || $total <= 0 || $total > 24) {
             Toastr::error('Add the hours for that day before you submit. A day cannot be more than 24 hours.');
 
             return $this->timesheetRedirect($request)->withInput();
         }
-        if ($total + 0.001 < $minimum) {
-            Toastr::error('A day needs at least '.PeopleWorkspace::hoursText($minimum).' hours.');
+        if ($counted + 0.001 < $minimum) {
+            Toastr::error('A day needs at least '.PeopleWorkspace::hoursText($minimum).' hours (overtime does not count toward that minimum).');
 
             return $this->timesheetRedirect($request)->withInput();
         }
@@ -1092,7 +1101,7 @@ class PeopleWorkspaceController extends Controller
      */
     private function timesheetBoard(User $user, Request $request): array
     {
-        $today = now()->startOfDay();
+        $today = $this->workspace->timesheetToday();
         $currentMonth = $today->copy()->startOfMonth();
         $month = $currentMonth->copy();
         $start = $this->workspace->timesheetStartsOn();
@@ -1110,6 +1119,13 @@ class PeopleWorkspaceController extends Controller
         }
         if ($startMonth && $startMonth->lte($currentMonth) && $month->lt($startMonth)) {
             $month = $startMonth->copy();
+        }
+
+        if (! $user->relationLoaded('peopleProfile')) {
+            $user->setRelation(
+                'peopleProfile',
+                PeopleProfile::query()->where('user_id', $user->id)->first()
+            );
         }
 
         $this->workspace->mirrorOpenLeave($user);
@@ -1231,7 +1247,7 @@ class PeopleWorkspaceController extends Controller
                 'state' => $state,
                 'outside' => ! $inMonth,
                 'open' => ! ($entry['locked'] ?? false)
-                    && ! $cursor->gt($today)
+                    && $this->workspace->timesheetDayIsOpen($cursor, $today)
                     && ($state === 'rejected' || ! ($hasLeave && ! $halfLeave))
                     && in_array($state, ['pending', 'done', 'rejected'], true),
                 'onLeave' => $hasLeave,
@@ -1257,7 +1273,7 @@ class PeopleWorkspaceController extends Controller
         $dayHours = $this->workspace->requiredDayHours($user);
         $expectedDays = 0;
         foreach ($statusDays as $day) {
-            if (! in_array($day['state'], ['weekoff', 'off', 'holiday', 'before'], true)) {
+            if (! in_array($day['state'], ['weekoff', 'off', 'holiday', 'before', 'future', 'today'], true)) {
                 $expectedDays++;
             }
         }
@@ -1365,7 +1381,7 @@ class PeopleWorkspaceController extends Controller
             $halfStillOpen = filled($saved[$key]['leave_request_id'] ?? null)
                 && (bool) ($saved[$key]['half'] ?? false)
                 && ! ($saved[$key]['locked'] ?? false)
-                && ! $date->gt($today);
+                && $this->workspace->timesheetDayIsOpen($date, $today);
             if ($halfStillOpen) {
                 return 'pending';
             }
@@ -1380,6 +1396,9 @@ class PeopleWorkspaceController extends Controller
         }
         if ($date->gt($today)) {
             return 'future';
+        }
+        if ($date->isSameDay($today)) {
+            return 'today';
         }
 
         return 'pending';
@@ -1504,11 +1523,11 @@ class PeopleWorkspaceController extends Controller
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->copy()->addDays($i)->startOfDay();
             $entry = $entries[$day->toDateString()] ?? null;
-            if ($this->workspace->isBeforeTimesheetStart($day) || $this->workspace->isRecurringWeekOff($day, $user) || in_array($day->toDateString(), $holidays, true) || (is_array($entry) && ($entry['status'] ?? null) === 'week_off')) {
+            if ($this->workspace->isBeforeTimesheetStart($day) || $this->workspace->isWeekOff($day, $user) || in_array($day->toDateString(), $holidays, true) || (is_array($entry) && ($entry['status'] ?? null) === 'week_off')) {
                 continue;
             }
             $required++;
-            if ($day->isFuture()) {
+            if (! $this->workspace->timesheetDayIsOpen($day)) {
                 return false;
             }
             if (! $this->workspace->timesheetDayFilled($entry) || ! $this->workspace->dayMeetsMinimum($entry, $user)) {

@@ -362,20 +362,24 @@ class PeopleWorkspace
 
         $this->mirrorOpenLeave($user);
 
-        $today = now()->startOfDay();
+        $today = $this->timesheetToday();
+        $latestFillable = $this->latestFillableTimesheetDay($today);
         $start = $this->timesheetStartsOn() ?? $today->copy()->subMonths(11)->startOfMonth();
         $profile = $user->relationLoaded('peopleProfile')
             ? $user->peopleProfile
             : PeopleProfile::query()->where('user_id', $user->id)->first();
+        if ($profile && ! $user->relationLoaded('peopleProfile')) {
+            $user->setRelation('peopleProfile', $profile);
+        }
         $joined = $profile?->joined_on?->copy()->startOfDay();
         if ($joined && $joined->gt($start)) {
             $start = $joined;
         }
-        if ($start->gt($today)) {
+        if ($start->gt($latestFillable)) {
             return null;
         }
 
-        $holidays = array_flip($this->holidayDates($start, $today));
+        $holidays = array_flip($this->holidayDates($start, $latestFillable));
         $saved = [];
         $sheets = PeopleTimesheet::query()->where('user_id', $user->id)->get();
         foreach ($sheets as $sheet) {
@@ -393,7 +397,7 @@ class PeopleWorkspace
 
         $pendingDays = 0;
         $oldest = null;
-        for ($cursor = $start->copy(); $cursor->lte($today); $cursor->addDay()) {
+        for ($cursor = $start->copy(); $cursor->lte($latestFillable); $cursor->addDay()) {
             if (! $this->timesheetDayIsPending($cursor, $today, $holidays, $saved, $user)) {
                 continue;
             }
@@ -444,7 +448,7 @@ class PeopleWorkspace
             $halfStillOpen = filled($saved[$key]['leave_request_id'] ?? null)
                 && (bool) ($saved[$key]['half'] ?? false)
                 && ! ($saved[$key]['locked'] ?? false)
-                && ! $date->gt($today);
+                && $this->timesheetDayIsOpen($date, $today);
 
             return $halfStillOpen;
         }
@@ -454,7 +458,7 @@ class PeopleWorkspace
         if ($this->isWeekOff($date, $user)) {
             return false;
         }
-        if ($date->gt($today)) {
+        if (! $this->timesheetDayIsOpen($date, $today)) {
             return false;
         }
 
@@ -502,19 +506,59 @@ class PeopleWorkspace
         return $this->isPartTime($user) ? 4.0 : 8.0;
     }
 
-    public function timesheetEntryHours(array $entry): float
+    public function timesheetRowIsOvertime(array $row): bool
+    {
+        return ($row['ticket_id'] ?? '') === 'overtime' || ($row['kind'] ?? '') === 'overtime';
+    }
+
+    /**
+     * Hours on a day. Overtime is excluded by default so it does not inflate
+     * the day total against the required hours, or count toward the minimum.
+     */
+    public function timesheetEntryHours(array $entry, bool $includeOvertime = false): float
     {
         $rows = is_array($entry['rows'] ?? null) ? $entry['rows'] : [];
+        $total = 0.0;
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if (! $includeOvertime && $this->timesheetRowIsOvertime($row)) {
+                continue;
+            }
+            $total += (float) ($row['hours'] ?? 0);
+        }
 
-        return round(array_sum(array_map(
-            fn ($row) => is_array($row) ? (float) ($row['hours'] ?? 0) : 0.0,
-            $rows
-        )), 2);
+        return round($total, 2);
     }
 
     public function dayMeetsMinimum(array $entry, ?User $user = null): bool
     {
         return $this->timesheetEntryHours($entry) + 0.001 >= $this->requiredDayHours($user);
+    }
+
+    /** Calendar day used for timesheet open / pending rules. */
+    public function timesheetToday(): Carbon
+    {
+        return now()->startOfDay();
+    }
+
+    /**
+     * Latest day an employee may fill. A working day opens the next day.
+     */
+    public function latestFillableTimesheetDay(?CarbonInterface $today = null): Carbon
+    {
+        $anchor = $today
+            ? Carbon::parse($today->toDateString())->startOfDay()
+            : $this->timesheetToday();
+
+        return $anchor->copy()->subDay();
+    }
+
+    public function timesheetDayIsOpen(CarbonInterface $date, ?CarbonInterface $today = null): bool
+    {
+        return Carbon::parse($date->toDateString())->startOfDay()
+            ->lte($this->latestFillableTimesheetDay($today));
     }
 
     private function isPartTime(?User $user): bool
@@ -752,7 +796,7 @@ class PeopleWorkspace
         }
 
         $attributes = $profile->getAttributes();
-        if (! array_key_exists('week_off_override', $attributes) || $attributes['week_off_override'] === null) {
+        if (! array_key_exists('week_off_override', $attributes) || $attributes['week_off_override'] === null || $attributes['week_off_override'] === '') {
             return null;
         }
 
@@ -761,7 +805,7 @@ class PeopleWorkspace
             $days = json_decode($days, true);
         }
         if (! is_array($days)) {
-            return [];
+            return null;
         }
 
         return array_values(array_intersect(self::DAY_KEYS, $days));
@@ -1420,11 +1464,11 @@ class PeopleWorkspace
         for ($i = 0; $i < 7; $i++) {
             $day = $start->copy()->addDays($i);
             $entry = $entries[$day->toDateString()] ?? null;
-            if ($this->isBeforeTimesheetStart($day) || $this->isRecurringWeekOff($day, $user) || isset($holidays[$day->toDateString()]) || (is_array($entry) && ($entry['status'] ?? null) === 'week_off')) {
+            if ($this->isBeforeTimesheetStart($day) || $this->isWeekOff($day, $user) || isset($holidays[$day->toDateString()]) || (is_array($entry) && ($entry['status'] ?? null) === 'week_off')) {
                 continue;
             }
             $required++;
-            if ($day->isFuture()) {
+            if (! $this->timesheetDayIsOpen($day)) {
                 return false;
             }
             if (! $this->timesheetDayFilled($entry) || ! $this->dayMeetsMinimum($entry, $user)) {
