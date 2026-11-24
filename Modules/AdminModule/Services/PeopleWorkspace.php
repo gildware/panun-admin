@@ -404,13 +404,12 @@ class PeopleWorkspace
         $sheets = PeopleTimesheet::query()->where('user_id', $user->id)->get();
         foreach ($sheets as $sheet) {
             $this->markSentBackDaysRejected($sheet);
-            $locked = in_array($sheet->status, ['pending', 'approved'], true);
             foreach ($sheet->entries ?? [] as $date => $entry) {
                 if (! is_array($entry)) {
                     continue;
                 }
                 $saved[$date] = $entry;
-                $saved[$date]['locked'] = $locked || ($entry['status'] ?? null) === 'approved';
+                $saved[$date]['locked'] = ($entry['status'] ?? null) === 'approved';
                 $saved[$date]['sheet_status'] = (string) $sheet->status;
             }
         }
@@ -1445,20 +1444,10 @@ class PeopleWorkspace
             $hours[$dayKey] = round($dayHours, 1);
         }
 
-        $status = $sheet->status;
-        $decidedBy = $sheet->decided_by;
-        $decidedAt = $sheet->decided_at;
-        $locked = in_array($status, ['pending', 'approved'], true);
         $complete = $this->weekSubmitted($weekStart, $entries, $user);
-        if ($entry === null && ! $complete && $locked) {
-            $status = 'draft';
-            $decidedBy = null;
-            $decidedAt = null;
-        } elseif ($entry !== null && ! $locked && $complete) {
-            $status = 'pending';
-            $decidedBy = null;
-            $decidedAt = null;
-        }
+        $status = $this->timesheetStatusAfterSave($entries, $complete);
+        $decidedBy = $status === 'sent_back' ? $sheet->decided_by : null;
+        $decidedAt = $status === 'sent_back' ? $sheet->decided_at : null;
 
         $sheet->forceFill([
             'entries' => $entries,
@@ -1466,6 +1455,7 @@ class PeopleWorkspace
             'status' => $status,
             'decided_by' => $decidedBy,
             'decided_at' => $decidedAt,
+            'decision_note' => $status === 'sent_back' ? $sheet->decision_note : null,
         ])->save();
 
         if ($status === 'pending' && ! $wasPending) {
@@ -1549,14 +1539,23 @@ class PeopleWorkspace
             throw new \InvalidArgumentException('You cannot decide this timesheet.');
         }
 
-        if (! in_array($sheet->status, ['pending', 'draft', 'sent_back'], true)) {
-            throw new \InvalidArgumentException('This timesheet is not waiting for a decision.');
-        }
-
         $reason = trim((string) $note);
         $entries = is_array($sheet->entries) ? $sheet->entries : [];
 
         $day = $this->timesheetDayKey($day);
+        $hasSubmitted = $this->timesheetHasWaitingDay($entries);
+        // Day-wise decisions can still run when the week summary is already "approved"
+        // (other days approved earlier) as long as a submitted day remains.
+        if ($day !== null) {
+            $target = $entries[$day] ?? null;
+            if (! is_array($target) || ($target['status'] ?? null) !== 'submitted') {
+                throw new \InvalidArgumentException('That day is not waiting for a decision.');
+            }
+        } elseif (! $hasSubmitted && ! in_array($sheet->status, ['pending', 'draft', 'sent_back'], true)) {
+            throw new \InvalidArgumentException('This timesheet is not waiting for a decision.');
+        } elseif (! in_array($sheet->status, ['pending', 'draft', 'sent_back', 'approved'], true)) {
+            throw new \InvalidArgumentException('This timesheet is not waiting for a decision.');
+        }
 
         if ($decision === 'approve') {
             if ($day === null && $this->timesheetHasRejectedDay($entries)) {
@@ -1576,16 +1575,16 @@ class PeopleWorkspace
                 $approvedCount++;
             }
             if ($approvedCount === 0) {
-                if ($day !== null) {
-                    throw new \InvalidArgumentException('That day is not waiting for a decision.');
-                }
-                $status = 'approved';
-            } else {
-                $complete = $employee
-                    ? $this->weekSubmitted($sheet->week_starts_on, $entries, $employee)
-                    : false;
-                $status = $this->timesheetStatusAfterSave($entries, $complete);
+                throw new \InvalidArgumentException(
+                    $day !== null
+                        ? 'That day is not waiting for a decision.'
+                        : 'There is no submitted day waiting for a decision.'
+                );
             }
+            $complete = $employee
+                ? $this->weekSubmitted($sheet->week_starts_on, $entries, $employee)
+                : false;
+            $status = $this->timesheetStatusAfterSave($entries, $complete);
             $sheet->forceFill([
                 'entries' => $entries,
                 'status' => $status,
