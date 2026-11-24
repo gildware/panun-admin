@@ -374,13 +374,10 @@ class PeopleWorkspaceController extends Controller
 
         $sheet = $this->workspace->timesheetForWeek($user, $date->copy()->startOfWeek(Carbon::MONDAY));
         $existingDay = ($sheet->entries ?? [])[$date->toDateString()] ?? null;
-        if ($sheet->status === 'approved' || (is_array($existingDay) && ($existingDay['status'] ?? null) === 'approved')) {
+        $existingStatus = is_array($existingDay) ? ($existingDay['status'] ?? null) : null;
+        // Approval is day-wise only. Week status is a summary and must not lock other days.
+        if ($existingStatus === 'approved') {
             Toastr::error('This day is already approved.');
-
-            return $this->timesheetRedirect($request);
-        }
-        if ($sheet->status === 'pending') {
-            Toastr::error('This week is already with your manager.');
 
             return $this->timesheetRedirect($request);
         }
@@ -1142,13 +1139,12 @@ class PeopleWorkspaceController extends Controller
         $sheets = PeopleTimesheet::query()->where('user_id', $user->id)->get();
         foreach ($sheets as $sheet) {
             $this->workspace->markSentBackDaysRejected($sheet);
-            $locked = in_array($sheet->status, ['pending', 'approved'], true);
             foreach ($sheet->entries ?? [] as $date => $entry) {
                 if (! is_array($entry)) {
                     continue;
                 }
                 $saved[$date] = $entry;
-                $saved[$date]['locked'] = $locked || ($entry['status'] ?? null) === 'approved';
+                $saved[$date]['locked'] = ($entry['status'] ?? null) === 'approved';
                 $saved[$date]['sheet_status'] = (string) $sheet->status;
             }
         }
@@ -1867,7 +1863,7 @@ class PeopleWorkspaceController extends Controller
                 'total' => round($task + $additional + $overtime + $leave, 2),
                 'state' => $state,
                 'sheet' => $sheet,
-                'actionable' => $entryStatus === 'submitted' && in_array($sheetStatus, ['pending', 'draft'], true),
+                'actionable' => $entryStatus === 'submitted',
             ];
         }
 

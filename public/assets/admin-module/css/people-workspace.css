@@ -1614,7 +1614,7 @@ body:has(#attendanceUnlockModal.show) .modal-backdrop.show { z-index: 20055; }
   flex-direction: column;
   overflow: hidden;
 }
-.ts-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 14px 6px; }
+.ts-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 14px 6px; flex: none; }
 .ts-toolbar .ts-tools { margin-left: auto; }
 .ts-toolbar h2, .ts-pending h2, .ts-status { margin: 0; font-size: 15px; font-weight: 750; color: var(--ts-ink); }
 .ts-toolbar mark, .ts-pending mark, .ts-status mark { background: #ffe14a; color: inherit; padding: 0 4px; border-radius: 2px; }
@@ -1675,27 +1675,94 @@ body:has(#attendanceUnlockModal.show) .modal-backdrop.show { z-index: 20055; }
   object-position: left top;
   overflow: clip;
 }
-.ts-week-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 0; }
-.ts-toolbar .ts-week-bar { height: 32px; }
-.ts-view { position: relative; display: inline-flex; align-items: stretch; height: 32px; border: 1px solid #e6e8ef; border-radius: 8px; overflow: hidden; background: #fff; }
-.ts-view button { position: relative; z-index: 1; border: 0; border-left: 1px solid #e6e8ef; background: #fff; color: #667085; padding: 0 10px; font-size: 12px; font-weight: 750; cursor: pointer; white-space: nowrap; transition: color .22s ease; }
+.ts-week-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0 14px 10px;
+  position: relative;
+  z-index: 5;
+  flex: none;
+  min-height: 32px;
+  height: auto;
+  box-sizing: border-box;
+  width: 100%;
+}
+.ts-week-bar .ts-week-bar-label { margin-left: auto; }
+.ts-view {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  height: 32px;
+  border: 1px solid #e6e8ef;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  flex: none;
+}
+.ts-view button {
+  position: relative;
+  z-index: 2;
+  border: 0;
+  border-left: 1px solid #e6e8ef;
+  background: #fff;
+  color: #667085;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease;
+  pointer-events: auto;
+}
 .ts-view button:first-child { border-left: 0; }
 .ts-view button.is-on { background: var(--ts-purple); color: #fff; }
-.ts-view.is-ready::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: var(--ts-pill-w, 0px);
-  background: var(--ts-purple);
-  transform: translateX(var(--ts-pill-x, 0px));
-  transition: transform .32s cubic-bezier(0.4, 0, 0.2, 1), width .32s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
+.ts-view.is-ready::before { display: none; }
 .ts-view.is-ready button,
-.ts-view.is-ready button.is-on { background: transparent; }
+.ts-view.is-ready button.is-on { background: #fff; }
+.ts-view.is-ready button.is-on { background: var(--ts-purple); color: #fff; }
+.ts-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+}
+.ts-view button.is-on .ts-filter-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.ts-view.is-ready button.is-on .ts-filter-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.ts-week.is-filter-empty { display: none !important; }
+.ts-days.is-pending-empty .ts-weeks { display: none; }
+.ts-pending-empty {
+  display: none;
+  margin: 0;
+  padding: 18px 14px;
+  border: 1px dashed #d5dbe6;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+}
+.ts-days.is-pending-empty .ts-pending-empty { display: block; }
+.ts-day-skeleton.is-filtered-out { display: none; }
 .ts-week-arrows { display: inline-flex; align-items: center; gap: 4px; }
 .ts-week-bar-label { margin: 0; font-size: 13px; font-weight: 750; color: var(--ts-ink); white-space: nowrap; }
 .ts-week-arrow {

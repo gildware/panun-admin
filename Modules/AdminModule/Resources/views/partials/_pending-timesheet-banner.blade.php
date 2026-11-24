@@ -29,17 +29,20 @@
 @else
     @php
         $timesheetWorkspace = app(\Modules\AdminModule\Services\PeopleWorkspace::class);
-        $popupEnabled = $timesheetWorkspace->timesheetPopupEnabled();
+        $onTimesheetPage = request()->routeIs('admin.people.index')
+            && request()->query('section', 'profile') === 'timesheet';
+        $popupEnabled = ! $onTimesheetPage && $timesheetWorkspace->timesheetPopupEnabled();
         $popupIntervalSeconds = $timesheetWorkspace->timesheetPopupIntervalSeconds();
-        $pendingSince = max(1, (int) ($pendingTimesheet['pending_since'] ?? 0));
         $pendingDays = (int) ($pendingTimesheet['pending_days'] ?? 0);
         $timesheetUrl = route('admin.people.index', array_filter([
             'section' => 'timesheet',
             'month' => $pendingTimesheet['month'] ?? null,
         ])).(isset($pendingTimesheet['oldest_date']) ? '#ts-day-'.$pendingTimesheet['oldest_date'] : '');
         $bannerClass = 'ws-dash-timesheet'.(! empty($pendingTimesheetGate) ? ' ws-dash-timesheet--gate' : '');
-        $pendingTitle = 'Your timesheet is pending from '.$pendingSince.' '.($pendingSince === 1 ? 'day' : 'days');
-        $pendingBody = $pendingDays.' timesheet '.($pendingDays === 1 ? 'day' : 'days').' still need'.($pendingDays === 1 ? 's' : '').' to be filled.';
+        $pendingTitle = $pendingDays === 1
+            ? '1 timesheet day still needs to be filled'
+            : $pendingDays.' timesheet days still need to be filled';
+        $pendingBody = 'Open your timesheet to complete the pending day'.($pendingDays === 1 ? '' : 's').'.';
     @endphp
     <style>
         .ws-dash-timesheet {
@@ -245,6 +248,16 @@
                     button.addEventListener('click', closePopup);
                 });
 
+                popup.querySelectorAll('a[href]').forEach(function (link) {
+                    link.addEventListener('click', function () {
+                        closePopup();
+                        if (state.timer) {
+                            clearInterval(state.timer);
+                            state.timer = null;
+                        }
+                    });
+                });
+
                 popup.addEventListener('click', function (event) {
                     if (event.target === popup) {
                         closePopup();
@@ -262,6 +275,10 @@
                 if (state && state.timer) {
                     clearInterval(state.timer);
                     state.timer = null;
+                }
+                var stale = document.getElementById('ws-ts-popup');
+                if (stale) {
+                    stale.remove();
                 }
             })();
         </script>

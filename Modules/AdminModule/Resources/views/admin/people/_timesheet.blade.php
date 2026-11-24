@@ -104,6 +104,15 @@
         return $from->format('j M Y').'–'.$to->format('j M Y');
     };
     $weekLabel = $weekCount === 0 ? '' : $rangeText($weekMeta[$labelFrom]['start'], $weekMeta[$labelTo]['end']);
+    $monthPendingCount = 0;
+    foreach ($board['cards'] as $card) {
+        if (! empty($card['outside'])) {
+            continue;
+        }
+        if (in_array((string) ($card['state'] ?? ''), ['pending', 'rejected'], true)) {
+            $monthPendingCount++;
+        }
+    }
 @endphp
 <div class="ts-app" id="ts-app" data-min-hours="{{ $board['minHours'] ?? 0 }}">
     <div class="ts-main">
@@ -133,30 +142,33 @@
                     </p>
                 </div>
                 <button class="ts-leave-btn" type="button" data-bs-toggle="modal" data-bs-target="#applyLeaveModal">Apply leave</button>
-                <div class="ts-tools">
-                    <div class="ts-week-bar" data-week-page="{{ $weekPage }}" data-week-count="{{ $weekCount }}" data-today="{{ now()->toDateString() }}">
-                        <div class="ts-view" role="group" aria-label="Timesheet view">
-                            <button type="button" data-view="1" class="is-on">Weekly</button>
-                            <button type="button" data-view="2">Bi-weekly</button>
-                            <button type="button" data-view="0">Monthly</button>
-                        </div>
-                        <p class="ts-week-bar-label" data-week-label>{{ $weekLabel }}</p>
-                        <div class="ts-week-arrows">
-                            <button type="button" class="ts-week-arrow" data-week-step="-1" aria-label="Previous" @disabled($weekPage === 0)>
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            </button>
-                            <button type="button" class="ts-week-arrow" data-week-step="1" aria-label="Next" @disabled($weekPage >= $weekPageCount - 1)>
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </header>
+            <div class="ts-week-bar" data-week-page="{{ $weekPage }}" data-week-count="{{ $weekCount }}" data-today="{{ now()->toDateString() }}">
+                <div class="ts-view ts-status-filter" role="group" aria-label="Timesheet status filter">
+                    <button type="button" data-status-filter="all" class="is-on">All</button>
+                    <button type="button" data-status-filter="pending">Pending{!! $monthPendingCount > 0 ? ' <span class="ts-filter-count">'.$monthPendingCount.'</span>' : '' !!}</button>
+                </div>
+                <div class="ts-view" role="group" aria-label="Timesheet view">
+                    <button type="button" data-view="1" class="is-on">Weekly</button>
+                    <button type="button" data-view="2">Bi-weekly</button>
+                    <button type="button" data-view="0">Monthly</button>
+                </div>
+                <p class="ts-week-bar-label" data-week-label>{{ $weekLabel }}</p>
+                <div class="ts-week-arrows">
+                    <button type="button" class="ts-week-arrow" data-week-step="-1" aria-label="Previous" @disabled($weekPage === 0)>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <button type="button" class="ts-week-arrow" data-week-step="1" aria-label="Next" @disabled($weekPage >= $weekPageCount - 1)>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                </div>
+            </div>
 
             <div class="ts-days" id="ts-days">
                 @if($weekMeta === [])
                     <p class="ts-empty">No working days to fill in {{ $board['monthLabel'] }}.</p>
                 @else
+                <p class="ts-pending-empty">No pending timesheet days in {{ $board['monthLabel'] }}.</p>
                 <div class="ts-weeks is-one" style="--ts-week-cols: {{ max(1, $weekCount) }}">
                 @foreach($weekMeta as $week)
                 <section class="ts-week{{ ($week['number'] - 1) === $weekPage ? '' : ' is-off' }}" data-week="{{ $week['number'] }}" data-start="{{ $week['start'] }}" data-end="{{ $week['end'] }}" aria-label="{{ $week['range'] }}">
@@ -493,13 +505,17 @@
 <script>
 (function () {
     var root = document.getElementById('ts-app');
-    if (!root || root.dataset.bound === '1') return;
-    root.dataset.bound = '1';
+    // Use an expando, not data-bound: admin-partial-nav clones frame innerHTML after
+    // the first parse (to hoist styles), which copies data-* and drops listeners.
+    // A second activateScripts pass must be allowed to re-bind.
+    if (!root || root._tsBound) return;
+    root._tsBound = true;
     var minHours = Number(root.getAttribute('data-min-hours')) || 0;
     var tpl = document.getElementById('ts-row-tpl');
     var extraTpl = document.getElementById('ts-row-extra-tpl');
     var overtimeTpl = document.getElementById('ts-row-overtime-tpl');
     var query = '';
+    var statusFilter = 'all';
     var rowSeq = 1;
 
     function fmt(hours, withMinutes) {
@@ -802,13 +818,17 @@
     }
 
     function placeViewPill() {
-        var view = root.querySelector('.ts-view');
-        if (!view) return;
-        var on = view.querySelector('button.is-on');
-        if (!on) return;
-        view.style.setProperty('--ts-pill-x', on.offsetLeft + 'px');
-        view.style.setProperty('--ts-pill-w', on.offsetWidth + 'px');
-        view.classList.add('is-ready');
+        root.querySelectorAll('.ts-view').forEach(function (view) {
+            var on = view.querySelector('button.is-on');
+            if (!on) return;
+            view.style.setProperty('--ts-pill-x', on.offsetLeft + 'px');
+            view.style.setProperty('--ts-pill-w', on.offsetWidth + 'px');
+            view.classList.add('is-ready');
+        });
+    }
+
+    function dayIsPendingStatus(day) {
+        return day.classList.contains('is-pending') || day.classList.contains('is-rejected');
     }
 
     function formatRange(start, end) {
@@ -841,20 +861,41 @@
         return week ? pageForWeek(Number(week.getAttribute('data-week'))) : weekPage;
     }
 
+    function weekHasVisibleDays(week) {
+        var days = week.querySelectorAll('.ts-day');
+        if (!days.length) return statusFilter !== 'pending';
+        for (var i = 0; i < days.length; i++) {
+            if (!days[i].classList.contains('is-filtered-out')) return true;
+        }
+        return false;
+    }
+
     function paintWeekPage() {
         var pages = pageCount();
         var page = weekPage < 0 ? 0 : (weekPage > pages - 1 ? pages - 1 : weekPage);
         weekPage = page;
         if (weekBar) weekBar.setAttribute('data-week-page', String(page));
         var visible = [];
+        var anyPendingVisible = false;
         root.querySelectorAll('.ts-week').forEach(function (week) {
-            var on = weekSpan === 0 || pageForWeek(Number(week.getAttribute('data-week'))) === page;
-            week.classList.toggle('is-off', !on);
-            if (on) visible.push(week);
+            var onPage = weekSpan === 0 || pageForWeek(Number(week.getAttribute('data-week'))) === page;
+            var hasDays = weekHasVisibleDays(week);
+            week.classList.toggle('is-filter-empty', statusFilter === 'pending' && !hasDays);
+            week.classList.toggle('is-off', !onPage || (statusFilter === 'pending' && !hasDays));
+            if (onPage && hasDays) visible.push(week);
+            if (hasDays) anyPendingVisible = true;
         });
+        var daysBoard = document.getElementById('ts-days');
+        if (daysBoard) {
+            daysBoard.classList.toggle('is-pending-empty', statusFilter === 'pending' && !anyPendingVisible);
+        }
         var label = root.querySelector('[data-week-label]');
-        if (label && visible.length) {
-            label.textContent = formatRange(visible[0].getAttribute('data-start'), visible[visible.length - 1].getAttribute('data-end'));
+        if (label) {
+            if (visible.length) {
+                label.textContent = formatRange(visible[0].getAttribute('data-start'), visible[visible.length - 1].getAttribute('data-end'));
+            } else if (statusFilter === 'pending') {
+                label.textContent = 'No pending days';
+            }
         }
         var weeksEl = root.querySelector('.ts-weeks');
         if (weeksEl) {
@@ -890,11 +931,24 @@
             sessionStorage.setItem('people-timesheet-place', JSON.stringify({
                 month: currentMonthValue(),
                 span: weekSpan,
+                status: statusFilter,
                 start: shown ? shown.getAttribute('data-start') : '',
                 left: days ? days.scrollLeft : 0,
                 top: days ? days.scrollTop : 0
             }));
         } catch (e) {}
+    }
+
+    function setStatusFilter(next, options) {
+        next = next === 'pending' ? 'pending' : 'all';
+        var silent = options && options.silent;
+        statusFilter = next;
+        root.querySelectorAll('[data-status-filter]').forEach(function (button) {
+            button.classList.toggle('is-on', button.getAttribute('data-status-filter') === statusFilter);
+        });
+        placeViewPill();
+        if (!silent) applyFilters();
+        else paintWeekPage();
     }
 
     function restorePlace() {
@@ -906,6 +960,9 @@
         root.querySelectorAll('[data-view]').forEach(function (button) {
             button.classList.toggle('is-on', Number(button.getAttribute('data-view')) === weekSpan);
         });
+        if (saved.status === 'pending' || saved.status === 'all') {
+            setStatusFilter(saved.status, { silent: true });
+        }
         var serverWeek = (Number(weekBar && weekBar.getAttribute('data-week-page')) || 0) + 1;
         weekPage = weekSpan === 0 ? 0 : Math.floor((serverWeek - 1) / weekSpan);
         if (saved.month === currentMonthValue() && /^\d{4}-\d{2}-\d{2}$/.test(String(saved.start || ''))) {
@@ -980,7 +1037,10 @@
     function setWeekSpan(next) {
         next = Number(next);
         if (next !== 0 && next !== 1 && next !== 2) return;
-        if (next === weekSpan) return;
+        if (next === weekSpan) {
+            paintWeekPage();
+            return;
+        }
         var anchor = 1;
         var shown = root.querySelector('.ts-week:not(.is-off)');
         if (shown) anchor = Number(shown.getAttribute('data-week')) || 1;
@@ -995,11 +1055,13 @@
             button.classList.toggle('is-on', Number(button.getAttribute('data-view')) === weekSpan);
         });
         placeViewPill();
-        showWeekPage(weekSpan === 0 ? 0 : Math.floor((anchor - 1) / weekSpan));
+        weekPage = weekSpan === 0 ? 0 : Math.floor((anchor - 1) / weekSpan);
+        paintWeekPage();
     }
 
     function applyFilters() {
         var match = null;
+        var firstPending = null;
         root.querySelectorAll('.ts-day').forEach(function (day) {
             var any = false;
             day.querySelectorAll('.ts-row').forEach(function (row) {
@@ -1007,11 +1069,19 @@
                 row.hidden = !show;
                 if (show) any = true;
             });
-            day.classList.toggle('is-filtered-out', !any && query !== '');
-            if (query !== '' && any && !match) match = day;
-            if (query !== '') setDayOpen(day, any);
+            var hideByQuery = query !== '' && !any;
+            var hideByStatus = statusFilter === 'pending' && !dayIsPendingStatus(day);
+            day.classList.toggle('is-filtered-out', hideByQuery || hideByStatus);
+            if (!hideByStatus && !firstPending && dayIsPendingStatus(day)) firstPending = day;
+            if (query !== '' && any && !hideByStatus && !match) match = day;
+            if (query !== '') setDayOpen(day, any && !hideByStatus);
+        });
+        root.querySelectorAll('.ts-day-skeleton').forEach(function (skeleton) {
+            skeleton.classList.toggle('is-filtered-out', statusFilter === 'pending');
         });
         if (match) showWeekPage(pageForDay(match));
+        else if (statusFilter === 'pending' && firstPending) showWeekPage(pageForDay(firstPending));
+        paintWeekPage();
         refresh();
     }
 
@@ -1090,6 +1160,9 @@
         if (!id) return;
         var day = document.getElementById(id);
         if (!day || !day.classList.contains('ts-day')) return;
+        if (statusFilter === 'pending' && !dayIsPendingStatus(day)) {
+            setStatusFilter('all');
+        }
         showWeekPage(pageForDay(day));
         setDayOpen(day, true);
         day.scrollIntoView({ block: 'nearest' });
@@ -1260,9 +1333,16 @@
             if (headed) setDayOpen(headed, headed.classList.contains('is-collapsed'));
             return;
         }
-        var viewButton = event.target.closest('[data-view]');
-        if (viewButton) {
-            setWeekSpan(viewButton.getAttribute('data-view'));
+        var statusBtn = event.target.closest('[data-status-filter]');
+        if (statusBtn && root.contains(statusBtn)) {
+            event.preventDefault();
+            setStatusFilter(statusBtn.getAttribute('data-status-filter'));
+            return;
+        }
+        var viewBtn = event.target.closest('[data-view]');
+        if (viewBtn && root.contains(viewBtn)) {
+            event.preventDefault();
+            setWeekSpan(viewBtn.getAttribute('data-view'));
             return;
         }
         var weekStep = event.target.closest('[data-week-step]');
