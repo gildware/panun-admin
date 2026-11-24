@@ -663,6 +663,30 @@
         }
         if (totals.all > 24) return 'A day cannot be more than 24h.';
         if (minHours > 0 && totals.hours + 0.001 < minHours) return 'A day needs at least ' + least + ' (overtime does not count).';
+        var intervals = [];
+        var rows = day.querySelectorAll('.ts-row');
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            if (rowIsBlank(row)) continue;
+            var ticket = rowTicket(row);
+            var fromInput = row.querySelector('.ts-from');
+            var toInput = row.querySelector('.ts-to');
+            var from = clockMinutes(fromInput ? fromInput.value : '');
+            var to = clockMinutes(toInput ? toInput.value : '');
+            var isLeave = ticket === 'leave' || ticket === 'partial-leave';
+            if (!isLeave && ticket) {
+                if (from === null || to === null) return 'Enter a from time and a to time for each task.';
+                if (to <= from) return 'To time has to be later than from time.';
+            }
+            if (from !== null && to !== null && to > from) intervals.push([from, to]);
+        }
+        for (var a = 0; a < intervals.length; a++) {
+            for (var b = a + 1; b < intervals.length; b++) {
+                if (intervals[a][0] < intervals[b][1] && intervals[b][0] < intervals[a][1]) {
+                    return 'Task times cannot overlap.';
+                }
+            }
+        }
         return '';
     }
 

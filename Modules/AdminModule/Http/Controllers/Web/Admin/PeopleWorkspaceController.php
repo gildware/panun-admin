@@ -1431,17 +1431,33 @@ class PeopleWorkspaceController extends Controller
      */
     private function timesheetTimeError(array $rows): ?string
     {
+        $intervals = [];
         foreach ($rows as $row) {
-            if (! is_array($row) || trim((string) ($row['ticket_id'] ?? '')) === '' || ($row['ticket_id'] ?? '') === 'leave') {
+            if (! is_array($row) || trim((string) ($row['ticket_id'] ?? '')) === '') {
                 continue;
             }
+            $isLeave = ($row['ticket_id'] ?? '') === 'leave';
             $from = $this->clockMinutes($row['from_time'] ?? null);
             $to = $this->clockMinutes($row['to_time'] ?? null);
-            if ($from === null || $to === null) {
-                return 'Enter a from time and a to time for each task.';
+            if (! $isLeave) {
+                if ($from === null || $to === null) {
+                    return 'Enter a from time and a to time for each task.';
+                }
+                if ($to <= $from) {
+                    return 'To time has to be later than from time.';
+                }
             }
-            if ($to <= $from) {
-                return 'To time has to be later than from time.';
+            if ($from !== null && $to !== null && $to > $from) {
+                $intervals[] = [$from, $to];
+            }
+        }
+
+        $count = count($intervals);
+        for ($i = 0; $i < $count; $i++) {
+            for ($j = $i + 1; $j < $count; $j++) {
+                if ($intervals[$i][0] < $intervals[$j][1] && $intervals[$j][0] < $intervals[$i][1]) {
+                    return 'Task times cannot overlap.';
+                }
             }
         }
 
