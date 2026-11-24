@@ -398,7 +398,7 @@ class PeoplePayroll
         $days = 0.0;
         $cursor = Carbon::parse($start->toDateString());
         $last = Carbon::parse($end->toDateString());
-        $starts = $workspace->timesheetStartsOn();
+        $starts = $workspace->timesheetStartsOnFor($person);
         if ($starts && $cursor->lt($starts)) {
             $cursor = $starts->copy();
         }

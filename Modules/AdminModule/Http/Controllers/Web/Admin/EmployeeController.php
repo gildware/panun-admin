@@ -295,6 +295,7 @@ class EmployeeController extends Controller
                 'department' => $request->input('department') ?: null,
                 'manager_id' => $request->input('manager_id') ?: null,
                 'joined_on' => $request->input('joined_on') ?: null,
+                'timesheet_start_date' => $request->input('timesheet_start_date') ?: null,
             ]);
             $data = $request->validate([
                 'role_ids' => ['required', 'array', 'min:1'],
@@ -303,6 +304,7 @@ class EmployeeController extends Controller
                 'work_location' => ['nullable', Rule::in(PeopleProfile::allowedWorkLocations($profile->work_location))],
                 'billing_type' => ['required', Rule::in(array_keys(PeopleProfile::BILLING_TYPES))],
                 'requires_timesheet' => ['required', 'boolean'],
+                'timesheet_start_date' => ['nullable', 'date'],
                 'manager_id' => ['nullable', 'uuid'],
                 'joined_on' => ['nullable', 'date'],
                 'employment_stage' => ['required', Rule::in(['probation', 'permanent'])],
@@ -336,6 +338,7 @@ class EmployeeController extends Controller
                 $profile->work_location = $data['work_location'] ?? '';
                 $profile->billing_type = $data['billing_type'];
                 $profile->requires_timesheet = $request->boolean('requires_timesheet');
+                $profile->timesheet_start_date = $data['timesheet_start_date'] ?? null;
                 $profile->manager_id = $data['manager_id'] ?: null;
                 $profile->joined_on = $data['joined_on'] ?? null;
                 $profile->employment_stage = $data['employment_stage'];
