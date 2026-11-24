@@ -951,17 +951,32 @@
         else paintWeekPage();
     }
 
+    function requestedStatusFilter() {
+        try {
+            return new URLSearchParams(window.location.search).get('status') === 'pending' ? 'pending' : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
     function restorePlace() {
         var saved = readPlace();
-        if (!saved) return null;
-        var span = Number(saved.span);
-        if (span !== 0 && span !== 1 && span !== 2) return null;
+        var forcedStatus = requestedStatusFilter();
+        if (!saved && !forcedStatus) return null;
+        var span = saved ? Number(saved.span) : weekSpan;
+        if (span !== 0 && span !== 1 && span !== 2) span = weekSpan;
         weekSpan = span;
         root.querySelectorAll('[data-view]').forEach(function (button) {
             button.classList.toggle('is-on', Number(button.getAttribute('data-view')) === weekSpan);
         });
-        if (saved.status === 'pending' || saved.status === 'all') {
+        if (forcedStatus) {
+            setStatusFilter(forcedStatus, { silent: true });
+        } else if (saved && (saved.status === 'pending' || saved.status === 'all')) {
             setStatusFilter(saved.status, { silent: true });
+        }
+        if (!saved) {
+            paintWeekPage();
+            return { status: forcedStatus || 'all', month: currentMonthValue() };
         }
         var serverWeek = (Number(weekBar && weekBar.getAttribute('data-week-page')) || 0) + 1;
         weekPage = weekSpan === 0 ? 0 : Math.floor((serverWeek - 1) / weekSpan);
