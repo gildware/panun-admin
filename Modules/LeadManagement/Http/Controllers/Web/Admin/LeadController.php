@@ -1290,6 +1290,7 @@ class LeadController extends Controller
             return redirect($url);
         }
 
+        $appliedAssignGrace = false;
         if (array_key_exists('handled_by', $validated) && ! array_key_exists('next_followup_at', $validated)) {
             $graceLead = clone $lead;
             if (app(LeadFollowupService::class)->applyFirstHumanAssignFollowupGrace(
@@ -1298,11 +1299,21 @@ class LeadController extends Controller
                 $validated['handled_by'] ?? null
             )) {
                 $validated['next_followup_at'] = $graceLead->next_followup_at;
+                $appliedAssignGrace = true;
             }
         }
 
         $keys = array_keys($validated);
         $oldValues = $lead->only($keys);
+
+        // Moving an overdue pending due (without take/reschedule UI) must keep the late mark.
+        if (! $appliedAssignGrace && array_key_exists('next_followup_at', $validated)) {
+            $this->recordLeadPendingDueMoveAsLateRescheduleIfMissed(
+                $lead,
+                $oldValues['next_followup_at'] ?? $lead->next_followup_at,
+                $validated['next_followup_at'] ?? null
+            );
+        }
 
         $lead->update($validated);
 
@@ -3384,8 +3395,23 @@ class LeadController extends Controller
         $previousTaken = $followup->followup_at;
         $previousNext = $followup->next_followup_at;
 
+        if (! $followup->isRescheduled() && ! empty($validated['followup_at'])) {
+            $newTakenAt = \Carbon\Carbon::parse($validated['followup_at']);
+            if ($error = $this->leadFollowupTakenAtCannotReduceLatenessError(
+                $previousDue,
+                $previousTaken,
+                $newTakenAt
+            )) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->withErrors(['followup_at' => $error]);
+            }
+        }
+
         $payload = [
-            'due_followup_at' => $validated['date'],
+            // Keep original due on history rows so late marks cannot be edited away.
+            'due_followup_at' => $previousDue ?? $validated['date'],
             'remarks' => $validated['remarks'] ?? null,
             'urgency' => $validated['urgency'] ?? $followup->urgency ?? LeadFollowup::URGENCY_MEDIUM,
         ];
@@ -3456,6 +3482,76 @@ class LeadController extends Controller
     protected function followupTimesDiffer(mixed $left, mixed $right): bool
     {
         return $this->normalizeDateTimeForCompare($left) !== $this->normalizeDateTimeForCompare($right);
+    }
+
+    /**
+     * When staff moves an overdue pending lead due forward on the lead form, keep a late-reschedule history row.
+     */
+    protected function recordLeadPendingDueMoveAsLateRescheduleIfMissed(
+        Lead $lead,
+        mixed $previousNext,
+        mixed $newNext
+    ): void {
+        if ($previousNext === null || $previousNext === '' || $newNext === null || $newNext === '') {
+            return;
+        }
+
+        if (! $this->followupTimesDiffer($previousNext, $newNext)) {
+            return;
+        }
+
+        $oldDue = $previousNext instanceof \Carbon\Carbon
+            ? $previousNext->copy()
+            : \Carbon\Carbon::parse($previousNext);
+        $actedAt = now();
+        if (! $oldDue->lt($actedAt)) {
+            return;
+        }
+
+        if (! app(LeadOpenStatusService::class)->isLeadOpen($lead)) {
+            return;
+        }
+
+        $nextReason = trim((string) ($lead->next_followup_reason ?? ''));
+        $nextReason = $nextReason !== '' ? $nextReason : null;
+
+        LeadFollowup::create([
+            'lead_id' => $lead->id,
+            'followup_at' => null,
+            'due_followup_at' => $oldDue,
+            'remarks' => null,
+            'followup_status' => LeadFollowup::STATUS_RESCHEDULE,
+            'urgency' => LeadFollowup::URGENCY_MEDIUM,
+            'next_followup_at' => $newNext,
+            'next_followup_reason' => $nextReason,
+            'created_by' => Auth::id(),
+        ]);
+
+        $changeLogs = app(LeadChangeLogService::class);
+        $changeLogs->recordFollowupMissedIfPast((int) $lead->id, $oldDue, $actedAt);
+        $changeLogs->recordFollowupRescheduled((int) $lead->id, $oldDue, $newNext, $nextReason);
+    }
+
+    protected function leadFollowupTakenAtCannotReduceLatenessError(
+        mixed $dueAt,
+        mixed $previousTakenAt,
+        \Carbon\Carbon $newTakenAt
+    ): ?string {
+        if ($dueAt === null || $dueAt === '' || $previousTakenAt === null || $previousTakenAt === '') {
+            return null;
+        }
+
+        $due = $dueAt instanceof \Carbon\Carbon ? $dueAt : \Carbon\Carbon::parse($dueAt);
+        $previousTaken = $previousTakenAt instanceof \Carbon\Carbon
+            ? $previousTakenAt
+            : \Carbon\Carbon::parse($previousTakenAt);
+
+        if ($previousTaken->gt($due) && $newTakenAt->lt($previousTaken)) {
+            return translate('Follow_up_taken_at_cannot_reduce_recorded_lateness')
+                ?? 'This follow-up was already taken late. Taken on cannot be moved earlier than the recorded time.';
+        }
+
+        return null;
     }
 
     protected function leadFollowupFutureDateRule(): \Closure

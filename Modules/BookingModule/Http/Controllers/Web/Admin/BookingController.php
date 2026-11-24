@@ -4562,13 +4562,36 @@ class BookingController extends Controller
 
         if ($followup->isTaken() && ! empty($validated['followup_at'])) {
             $dueForTaken = $followup->due_followup_at ?? $followup->date;
-            if ($error = $this->bookingFollowupTakenAtOverdueError(
+            $newTakenAt = Carbon::parse($validated['followup_at']);
+            if ($error = $this->bookingFollowupTakenAtOverdueError($dueForTaken, $newTakenAt)) {
+                return $this->redirectBackAfterBookingFollowup($request, $booking)
+                    ->withInput()
+                    ->withErrors(['followup_at' => $error]);
+            }
+            if ($error = $this->bookingFollowupTakenAtCannotReduceLatenessError(
                 $dueForTaken,
-                Carbon::parse($validated['followup_at'])
+                $followup->followup_at,
+                $newTakenAt
             )) {
                 return $this->redirectBackAfterBookingFollowup($request, $booking)
                     ->withInput()
                     ->withErrors(['followup_at' => $error]);
+            }
+        }
+
+        // Moving a still-pending overdue due date is a late reschedule — keep the miss on record/marks.
+        if ($followup->status === 'scheduled' && $dueChanged) {
+            $oldDue = Carbon::parse($previousDue);
+            $actedAt = Carbon::now();
+            if ($oldDue->lt($actedAt)) {
+                return $this->convertOverdueScheduledBookingFollowupToReschedule(
+                    $request,
+                    $booking,
+                    $followup,
+                    $validated,
+                    $oldDue,
+                    $actedAt
+                );
             }
         }
 
@@ -4588,6 +4611,9 @@ class BookingController extends Controller
             $payload['contact_channel'] = null;
             $payload['next_followup_at'] = null;
         } else {
+            // History rows: never rewrite the original due — that would wipe late marks.
+            $payload['date'] = $followup->date;
+            $payload['due_followup_at'] = $followup->due_followup_at ?? $followup->date;
             $payload['followup_at'] = $validated['followup_at'] ?? $followup->followup_at;
             $payload['contact_channel'] = $validated['contact_channel'] ?? $followup->contact_channel;
             $payload['next_followup_at'] = $validated['next_followup_at'] ?? null;
@@ -4615,6 +4641,64 @@ class BookingController extends Controller
         );
 
         Toastr::success(translate('Follow_up_updated_successfully'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    protected function convertOverdueScheduledBookingFollowupToReschedule(
+        Request $request,
+        Booking $booking,
+        BookingFollowup $followup,
+        array $validated,
+        Carbon $oldDue,
+        Carbon $actedAt
+    ): RedirectResponse {
+        $for = (string) ($validated['for'] ?? $followup->for);
+        $nextAt = $validated['date'];
+        $remarks = $validated['remarks'] ?? null;
+
+        BookingAuditLogger::recordFollowupMissedIfPast(
+            (string) $booking->id,
+            $oldDue,
+            $actedAt,
+            $for
+        );
+
+        $followup->update([
+            'for' => $for,
+            'status' => 'rescheduled',
+            'date' => $oldDue,
+            'due_followup_at' => $oldDue,
+            'followup_at' => null,
+            'contact_channel' => null,
+            'remarks' => $remarks,
+            'reschedule_reason' => $remarks,
+            'next_followup_at' => $nextAt,
+            'rescheduled_at' => $actedAt,
+            'urgency' => $validated['urgency'] ?? $followup->urgency ?? BookingFollowup::URGENCY_MEDIUM,
+        ]);
+
+        BookingAuditLogger::recordFollowupRescheduled(
+            (string) $booking->id,
+            $oldDue,
+            $nextAt,
+            $remarks,
+            $for
+        );
+
+        app(BookingFollowupService::class)->schedule(
+            $booking,
+            $nextAt,
+            $for,
+            null,
+            null,
+            $validated['urgency'] ?? $followup->urgency ?? BookingFollowup::URGENCY_MEDIUM
+        );
+
+        Toastr::success(translate('Follow_up_rescheduled_successfully'));
 
         return $this->redirectAfterBookingFollowup($request, $booking);
     }
@@ -4839,6 +4923,28 @@ class BookingController extends Controller
         $due = $dueAt instanceof Carbon ? $dueAt : Carbon::parse($dueAt);
         if ($due->isPast() && $takenAt->lt($due)) {
             return translate('Follow_up_taken_at_cannot_be_before_due_when_overdue');
+        }
+
+        return null;
+    }
+
+    protected function bookingFollowupTakenAtCannotReduceLatenessError(
+        mixed $dueAt,
+        mixed $previousTakenAt,
+        Carbon $newTakenAt
+    ): ?string {
+        if ($dueAt === null || $dueAt === '' || $previousTakenAt === null || $previousTakenAt === '') {
+            return null;
+        }
+
+        $due = $dueAt instanceof Carbon ? $dueAt : Carbon::parse($dueAt);
+        $previousTaken = $previousTakenAt instanceof Carbon
+            ? $previousTakenAt
+            : Carbon::parse($previousTakenAt);
+
+        if ($previousTaken->gt($due) && $newTakenAt->lt($previousTaken)) {
+            return translate('Follow_up_taken_at_cannot_reduce_recorded_lateness')
+                ?? 'This follow-up was already taken late. Taken on cannot be moved earlier than the recorded time.';
         }
 
         return null;

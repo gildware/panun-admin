@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Services\BookingFollowupService;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
@@ -25,6 +26,7 @@ class EmployeeProgressRankMetricDetailService
 {
     public function __construct(
         private readonly LeadFollowupService $leadFollowupService,
+        private readonly BookingFollowupService $bookingFollowupService,
         private readonly LeadDataQualityScoreService $leadDataQuality,
         private readonly LeadOpenStatusService $leadOpenStatus,
         private readonly EmployeeProgressScoreService $progressScore,
@@ -675,15 +677,19 @@ class EmployeeProgressRankMetricDetailService
             ->orderByDesc('h.created_at')
             ->get();
 
-        return collect($rows)->map(function ($row) use ($names) {
-            return [
-                'readable_id' => $row->readable_id ?: $row->booking_id,
-                'assignee' => $names[(string) ($row->assignee_id ?? '')] ?? '—',
-                'status' => $row->booking_status ?: '—',
-                'at' => $row->created_at ? Carbon::parse($row->created_at)->format('d M Y h:i a') : '—',
-                'url' => $row->booking_id ? route('admin.booking.details', $row->booking_id) : null,
-            ];
-        })->all();
+        return collect($rows)
+            ->unique('booking_id')
+            ->map(function ($row) use ($names) {
+                return [
+                    'readable_id' => $row->readable_id ?: $row->booking_id,
+                    'assignee' => $names[(string) ($row->assignee_id ?? '')] ?? '—',
+                    'status' => $row->booking_status ?: '—',
+                    'at' => $row->created_at ? Carbon::parse($row->created_at)->format('d M Y h:i a') : '—',
+                    'url' => $row->booking_id ? route('admin.booking.details', $row->booking_id) : null,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**
@@ -744,18 +750,25 @@ class EmployeeProgressRankMetricDetailService
         $rangeEnd = $periodEnd->copy()->endOfDay();
 
         $periodLeadFollowups = LeadFollowup::query()
-            ->whereNotNull('followup_at')
-            ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+            ->where(function ($query) use ($rangeStart, $rangeEnd) {
+                $query->where(function ($taken) use ($rangeStart, $rangeEnd) {
+                    $taken->whereNotNull('followup_at')
+                        ->whereBetween('followup_at', [$rangeStart, $rangeEnd]);
+                })->orWhere(function ($reschedule) use ($rangeStart, $rangeEnd) {
+                    $reschedule->where('followup_status', LeadFollowup::STATUS_RESCHEDULE)
+                        ->whereBetween('created_at', [$rangeStart, $rangeEnd]);
+                });
+            })
             ->whereHas('lead', function ($query) use ($employeeId) {
                 $query->where('handled_by', $employeeId)
                     ->whereNotNull('handled_by')
                     ->where('handled_by', '!=', Lead::HANDLED_BY_AI);
             })
             ->with(['lead:id,name,phone_number,handled_by,lead_type,non_responsive_at'])
-            ->get(['id', 'lead_id', 'followup_at', 'due_followup_at']);
+            ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'followup_status', 'created_at', 'next_followup_at']);
 
         $leadIds = $periodLeadFollowups->pluck('lead_id')->map(fn ($id) => (string) $id)->filter()->unique()->values()->all();
-        $dueByFollowupId = [];
+        $delayByFollowupId = [];
         $openMeta = [];
         if ($leadIds !== []) {
             $leads = Lead::query()
@@ -765,9 +778,12 @@ class EmployeeProgressRankMetricDetailService
             $openMeta = $this->leadOpenStatus->buildLeadStatusMeta($leads);
             $historyByLead = LeadFollowup::query()
                 ->whereIn('lead_id', $leadIds)
-                ->whereNotNull('followup_at')
-                ->orderBy('followup_at')
-                ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at'])
+                ->where(function ($query) {
+                    $query->whereNotNull('followup_at')
+                        ->orWhere('followup_status', LeadFollowup::STATUS_RESCHEDULE);
+                })
+                ->orderByRaw('COALESCE(followup_at, created_at)')
+                ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at', 'followup_status', 'created_at'])
                 ->groupBy(fn (LeadFollowup $followup) => (string) $followup->lead_id);
 
             foreach ($historyByLead as $leadId => $history) {
@@ -776,7 +792,7 @@ class EmployeeProgressRankMetricDetailService
                     continue;
                 }
                 foreach ($this->leadFollowupService->buildFollowupDelayMeta($lead, $history) as $followupId => $meta) {
-                    $dueByFollowupId[(int) $followupId] = $meta['due_at'] ?? null;
+                    $delayByFollowupId[(int) $followupId] = $meta;
                 }
             }
         }
@@ -786,17 +802,23 @@ class EmployeeProgressRankMetricDetailService
                 continue;
             }
 
-            $due = $dueByFollowupId[(int) $followup->id] ?? $followup->due_followup_at;
-            if (! $due instanceof Carbon) {
-                $due = $due ? Carbon::parse($due) : null;
-            }
-            if (! $due || $followup->followup_at->lte($due)) {
+            $meta = $delayByFollowupId[(int) $followup->id] ?? null;
+            if (($meta['on_time'] ?? null) !== false) {
                 continue;
             }
 
-            $delayMinutes = (int) round($due->diffInMinutes($followup->followup_at));
+            $due = $meta['due_at'] ?? $followup->due_followup_at;
+            if (! $due instanceof Carbon) {
+                $due = $due ? Carbon::parse($due) : null;
+            }
+            $actedAt = $followup->followup_at
+                ?? ($followup->isRescheduled() ? $followup->created_at : null);
+            if (! $actedAt instanceof Carbon) {
+                $actedAt = $actedAt ? Carbon::parse($actedAt) : null;
+            }
+            $delayMinutes = (int) ($meta['delay_minutes'] ?? 0);
             $bucket = $this->lateBucketForMinutes($delayMinutes);
-            if ($bucket['key'] !== $bucketKey) {
+            if ($bucket['key'] !== $bucketKey || ! $due || ! $actedAt) {
                 continue;
             }
 
@@ -804,37 +826,48 @@ class EmployeeProgressRankMetricDetailService
                 'kind' => translate('Lead_followup') ?? 'Lead follow-up',
                 'reference' => $followup->lead?->name ?: $followup->lead?->phone_number ?: $followup->lead_id,
                 'due_at' => $due->format('d M Y h:i a'),
-                'followup_at' => $followup->followup_at->format('d M Y h:i a'),
+                'followup_at' => $actedAt->format('d M Y h:i a'),
                 'delay' => $this->formatDelay($delayMinutes),
                 'url' => $followup->lead_id ? route('admin.lead.show', $followup->lead_id) : null,
             ];
         }
 
         $bookingFollowups = BookingFollowup::query()
-            ->whereNotNull('followup_at')
             ->whereIn('status', ['completed', 'rescheduled'])
-            ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+            ->where(function ($query) use ($rangeStart, $rangeEnd) {
+                $query->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+                    ->orWhereBetween('rescheduled_at', [$rangeStart, $rangeEnd])
+                    ->orWhere(function ($legacyReschedule) use ($rangeStart, $rangeEnd) {
+                        $legacyReschedule->where('status', 'rescheduled')
+                            ->whereNull('followup_at')
+                            ->whereNull('rescheduled_at')
+                            ->whereBetween('updated_at', [$rangeStart, $rangeEnd]);
+                    });
+            })
             ->whereHas('booking', function ($query) use ($employeeId) {
                 $query->where('assignee_id', $employeeId)->whereNotNull('assignee_id');
             })
             ->with(['booking:id,readable_id,assignee_id'])
-            ->get(['id', 'booking_id', 'followup_at', 'due_followup_at', 'date', 'status']);
+            ->get(['id', 'booking_id', 'followup_at', 'due_followup_at', 'date', 'status', 'rescheduled_at', 'updated_at']);
+
+        $bookingDelayMeta = $this->bookingFollowupService->buildFollowupDelayMeta($bookingFollowups);
 
         foreach ($bookingFollowups as $followup) {
-            if ($followup->isRescheduled()) {
+            $meta = $bookingDelayMeta[(int) $followup->id] ?? null;
+            if (! ($meta['was_missed'] ?? false)) {
                 continue;
             }
 
-            $dueRaw = $followup->due_followup_at ?? $followup->date;
-            if (! $dueRaw) {
+            $due = $meta['due_at'] ?? null;
+            $actedAt = $meta['acted_at'] ?? null;
+            if (! $due instanceof Carbon || ! $actedAt instanceof Carbon) {
                 continue;
             }
-            $due = $dueRaw instanceof Carbon ? $dueRaw : Carbon::parse($dueRaw);
-            if ($followup->followup_at->lte($due)) {
+            if ($actedAt->lt($rangeStart) || $actedAt->gt($rangeEnd)) {
                 continue;
             }
 
-            $delayMinutes = (int) round($due->diffInMinutes($followup->followup_at));
+            $delayMinutes = (int) ($meta['delay_minutes'] ?? 0);
             $bucket = $this->lateBucketForMinutes($delayMinutes);
             if ($bucket['key'] !== $bucketKey) {
                 continue;
@@ -844,7 +877,7 @@ class EmployeeProgressRankMetricDetailService
                 'kind' => translate('Booking_followup') ?? 'Booking follow-up',
                 'reference' => $followup->booking?->readable_id ?: $followup->booking_id,
                 'due_at' => $due->format('d M Y h:i a'),
-                'followup_at' => $followup->followup_at->format('d M Y h:i a'),
+                'followup_at' => $actedAt->format('d M Y h:i a'),
                 'delay' => $this->formatDelay($delayMinutes),
                 'url' => $followup->booking_id ? route('admin.booking.details', $followup->booking_id) : null,
             ];

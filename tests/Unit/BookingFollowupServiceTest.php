@@ -3,6 +3,8 @@
 namespace Tests\Unit;
 
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BookingModule\Services\BookingFollowupService;
 use Tests\TestCase;
 
@@ -138,5 +140,30 @@ class BookingFollowupServiceTest extends TestCase
         $newDue = $this->service->firstHumanAssignGraceDueAt('employee-a', 'employee-b', $currentDue);
 
         $this->assertNull($newDue);
+    }
+
+    public function test_reschedule_after_due_is_marked_missed(): void
+    {
+        $late = new BookingFollowup([
+            'status' => 'rescheduled',
+            'due_followup_at' => Carbon::parse('2026-11-24 11:00:00'),
+            'rescheduled_at' => Carbon::parse('2026-11-24 13:10:00'),
+        ]);
+        $late->id = 10;
+
+        $onTime = new BookingFollowup([
+            'status' => 'rescheduled',
+            'due_followup_at' => Carbon::parse('2026-11-24 11:00:00'),
+            'rescheduled_at' => Carbon::parse('2026-11-24 10:45:00'),
+        ]);
+        $onTime->id = 11;
+
+        $meta = $this->service->buildFollowupDelayMeta(new Collection([$late, $onTime]));
+
+        $this->assertTrue($meta[10]['was_missed']);
+        $this->assertFalse($meta[10]['on_time']);
+        $this->assertSame(130, $meta[10]['delay_minutes']);
+        $this->assertFalse($meta[11]['was_missed']);
+        $this->assertTrue($meta[11]['on_time']);
     }
 }

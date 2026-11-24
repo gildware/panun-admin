@@ -679,7 +679,7 @@ class EmployeeProgressMetricHelp
             ),
             self::rankHelpKey('helped_booking_updates') => self::rankEntry(
                 translate('Progress_helped_booking_updates') ?? 'Booking updates for others',
-                'Booking status updates you made on a booking assigned to someone else. Score = quantity × +'.$helpedBookingUpdate.'.',
+                'Distinct bookings assigned to someone else that you updated in this period. Multiple updates on the same booking count once. Score = quantity × +'.$helpedBookingUpdate.'.',
                 3,
                 $helpedBookingUpdate,
             ),

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Services\BookingFollowupService;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
@@ -52,6 +53,7 @@ class EmployeeProgressScoreService
 
     public function __construct(
         private readonly LeadFollowupService $leadFollowupService,
+        private readonly BookingFollowupService $bookingFollowupService,
         private readonly LeadDataQualityScoreService $leadDataQuality,
         private readonly LeadOpenStatusService $leadOpenStatus,
     ) {}
@@ -490,7 +492,7 @@ class EmployeeProgressScoreService
         if (Schema::hasTable($historyTable)) {
             $bookingUpdateRows = DB::table($historyTable.' as h')
                 ->join('bookings as b', 'b.id', '=', 'h.booking_id')
-                ->selectRaw('h.changed_by as user_id, COUNT(*) as total')
+                ->selectRaw('h.changed_by as user_id, COUNT(DISTINCT h.booking_id) as total')
                 ->whereIn('h.changed_by', $employeeIds)
                 ->whereBetween('h.created_at', [$rangeStart, $rangeEnd])
                 ->whereNotNull('h.changed_by')
@@ -909,15 +911,22 @@ class EmployeeProgressScoreService
         $rangeEnd = $periodEnd->copy()->endOfDay();
 
         $periodLeadFollowups = LeadFollowup::query()
-            ->whereNotNull('followup_at')
-            ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+            ->where(function ($query) use ($rangeStart, $rangeEnd) {
+                $query->where(function ($taken) use ($rangeStart, $rangeEnd) {
+                    $taken->whereNotNull('followup_at')
+                        ->whereBetween('followup_at', [$rangeStart, $rangeEnd]);
+                })->orWhere(function ($reschedule) use ($rangeStart, $rangeEnd) {
+                    $reschedule->where('followup_status', LeadFollowup::STATUS_RESCHEDULE)
+                        ->whereBetween('created_at', [$rangeStart, $rangeEnd]);
+                });
+            })
             ->whereHas('lead', function ($query) use ($employeeIds) {
                 $query->whereIn('handled_by', $employeeIds)
                     ->whereNotNull('handled_by')
                     ->where('handled_by', '!=', Lead::HANDLED_BY_AI);
             })
             ->with(['lead:id,handled_by,date_time_of_lead_received,lead_type,non_responsive_at'])
-            ->get(['id', 'lead_id', 'followup_at', 'due_followup_at']);
+            ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'followup_status', 'created_at', 'next_followup_at']);
 
         $leadIds = $periodLeadFollowups->pluck('lead_id')->map(fn ($id) => (string) $id)->filter()->unique()->values()->all();
         if ($leadIds !== []) {
@@ -930,19 +939,22 @@ class EmployeeProgressScoreService
 
             $historyByLead = LeadFollowup::query()
                 ->whereIn('lead_id', $leadIds)
-                ->whereNotNull('followup_at')
-                ->orderBy('followup_at')
-                ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at'])
+                ->where(function ($query) {
+                    $query->whereNotNull('followup_at')
+                        ->orWhere('followup_status', LeadFollowup::STATUS_RESCHEDULE);
+                })
+                ->orderByRaw('COALESCE(followup_at, created_at)')
+                ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at', 'followup_status', 'created_at'])
                 ->groupBy(fn (LeadFollowup $followup) => (string) $followup->lead_id);
 
-            $dueByFollowupId = [];
+            $delayByFollowupId = [];
             foreach ($historyByLead as $leadId => $history) {
                 $lead = $leads->get((string) $leadId);
                 if (! $lead) {
                     continue;
                 }
                 foreach ($this->leadFollowupService->buildFollowupDelayMeta($lead, $history) as $followupId => $meta) {
-                    $dueByFollowupId[(int) $followupId] = $meta['due_at'] ?? null;
+                    $delayByFollowupId[(int) $followupId] = $meta;
                 }
             }
 
@@ -951,11 +963,8 @@ class EmployeeProgressScoreService
                     continue;
                 }
 
-                $due = $dueByFollowupId[(int) $followup->id] ?? $followup->due_followup_at;
-                if (! $due instanceof Carbon) {
-                    $due = $due ? Carbon::parse($due) : null;
-                }
-                if (! $due || $followup->followup_at->lte($due)) {
+                $meta = $delayByFollowupId[(int) $followup->id] ?? null;
+                if (($meta['on_time'] ?? null) !== false) {
                     continue;
                 }
 
@@ -964,32 +973,38 @@ class EmployeeProgressScoreService
                     continue;
                 }
 
-                $delayMinutes = (int) round($due->diffInMinutes($followup->followup_at));
-                $this->addLatePenalty($late[$employeeId], $delayMinutes);
+                $this->addLatePenalty($late[$employeeId], (int) ($meta['delay_minutes'] ?? 0));
             }
         }
 
         $bookingFollowups = BookingFollowup::query()
-            ->whereNotNull('followup_at')
             ->whereIn('status', ['completed', 'rescheduled'])
-            ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+            ->where(function ($query) use ($rangeStart, $rangeEnd) {
+                $query->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+                    ->orWhereBetween('rescheduled_at', [$rangeStart, $rangeEnd])
+                    ->orWhere(function ($legacyReschedule) use ($rangeStart, $rangeEnd) {
+                        $legacyReschedule->where('status', 'rescheduled')
+                            ->whereNull('followup_at')
+                            ->whereNull('rescheduled_at')
+                            ->whereBetween('updated_at', [$rangeStart, $rangeEnd]);
+                    });
+            })
             ->whereHas('booking', function ($query) use ($employeeIds) {
                 $query->whereIn('assignee_id', $employeeIds)->whereNotNull('assignee_id');
             })
             ->with(['booking:id,assignee_id'])
-            ->get(['id', 'booking_id', 'followup_at', 'due_followup_at', 'date', 'status']);
+            ->get(['id', 'booking_id', 'followup_at', 'due_followup_at', 'date', 'status', 'rescheduled_at', 'updated_at']);
+
+        $bookingDelayMeta = $this->bookingFollowupService->buildFollowupDelayMeta($bookingFollowups);
 
         foreach ($bookingFollowups as $followup) {
-            if ($followup->isRescheduled()) {
+            $meta = $bookingDelayMeta[(int) $followup->id] ?? null;
+            if (! ($meta['was_missed'] ?? false)) {
                 continue;
             }
 
-            $dueRaw = $followup->due_followup_at ?? $followup->date;
-            if (! $dueRaw) {
-                continue;
-            }
-            $due = $dueRaw instanceof Carbon ? $dueRaw : Carbon::parse($dueRaw);
-            if ($followup->followup_at->lte($due)) {
+            $actedAt = $meta['acted_at'] ?? null;
+            if (! $actedAt instanceof Carbon || $actedAt->lt($rangeStart) || $actedAt->gt($rangeEnd)) {
                 continue;
             }
 
@@ -998,8 +1013,7 @@ class EmployeeProgressScoreService
                 continue;
             }
 
-            $delayMinutes = (int) round($due->diffInMinutes($followup->followup_at));
-            $this->addLatePenalty($late[$employeeId], $delayMinutes);
+            $this->addLatePenalty($late[$employeeId], (int) ($meta['delay_minutes'] ?? 0));
         }
 
         foreach ($this->openOverdueFollowups($employeeIds, $rangeStart, $rangeEnd) as $open) {

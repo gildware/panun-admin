@@ -7360,6 +7360,7 @@ _Message' => 'Customer notification for provider bid offer
   'Cannot_delete_pending_follow_up' => 'Pending follow-ups cannot be deleted. Take or cancel them first.',
   'Cannot_delete_follow_up_history' => 'Taken or rescheduled follow-ups cannot be deleted because they are audit history.',
   'Follow_up_taken_at_cannot_be_before_due_when_overdue' => 'This follow-up is already overdue. Taken on cannot be earlier than the due time.',
+  'Follow_up_taken_at_cannot_reduce_recorded_lateness' => 'This follow-up was already taken late. Taken on cannot be moved earlier than the recorded time.',
   'This_action_cannot_be_undone' => 'This action cannot be undone.',
   'Edit_Follow_up' => 'Edit Follow-up',
   'Follow_up_taken_at_cannot_be_in_the_future' => 'Follow-up taken time cannot be in the future.',
