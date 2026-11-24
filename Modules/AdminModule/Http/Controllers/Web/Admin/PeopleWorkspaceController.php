@@ -1375,10 +1375,12 @@ class PeopleWorkspaceController extends Controller
             if ($sheetStatus === 'approved') {
                 return 'approved';
             }
+            // Half-day leave stays editable only until the work half meets the day minimum.
             $halfStillOpen = filled($saved[$key]['leave_request_id'] ?? null)
                 && (bool) ($saved[$key]['half'] ?? false)
                 && ! ($saved[$key]['locked'] ?? false)
-                && $this->workspace->timesheetDayIsOpen($date, $today);
+                && $this->workspace->timesheetDayIsOpen($date, $today)
+                && ! $this->workspace->dayMeetsMinimum($saved[$key], $user);
             if ($halfStillOpen) {
                 return 'pending';
             }

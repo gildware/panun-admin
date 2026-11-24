@@ -464,10 +464,12 @@ class PeopleWorkspace
             if ($sheetStatus === 'approved') {
                 return false;
             }
+            // Half-day leave stays open only until the work half meets the day minimum.
             $halfStillOpen = filled($saved[$key]['leave_request_id'] ?? null)
                 && (bool) ($saved[$key]['half'] ?? false)
                 && ! ($saved[$key]['locked'] ?? false)
-                && $this->timesheetDayIsOpen($date, $today);
+                && $this->timesheetDayIsOpen($date, $today)
+                && ! $this->dayMeetsMinimum($saved[$key], $user);
 
             return $halfStillOpen;
         }
@@ -680,6 +682,11 @@ class PeopleWorkspace
             if ($this->attendanceIsLocked($date)) {
                 continue;
             }
+            $existing = $this->timesheetEntryForDate($user, $date);
+            // Opening a profile re-mirrors leave. Never undo a manager day approval.
+            if (is_array($existing) && ($existing['status'] ?? null) === 'approved') {
+                continue;
+            }
             $workRows = $half ? $this->halfLeaveWorkRows($user, $request, $date) : [];
             $rows = array_merge([[
                 'ticket_id' => 'leave',
@@ -698,6 +705,20 @@ class PeopleWorkspace
                 'rows' => $rows,
             ], $amount);
         }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function timesheetEntryForDate(User $user, CarbonInterface $date): ?array
+    {
+        $sheet = PeopleTimesheet::query()
+            ->where('user_id', $user->id)
+            ->whereDate('week_starts_on', $date->copy()->startOfWeek(Carbon::MONDAY)->toDateString())
+            ->first();
+        $entry = is_array($sheet?->entries) ? ($sheet->entries[$date->toDateString()] ?? null) : null;
+
+        return is_array($entry) ? $entry : null;
     }
 
     public function clearLeaveFromTimesheet(PeopleLeaveRequest $request): void
