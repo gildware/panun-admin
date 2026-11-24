@@ -34,10 +34,15 @@
         $popupEnabled = ! $onTimesheetPage && $timesheetWorkspace->timesheetPopupEnabled();
         $popupIntervalSeconds = $timesheetWorkspace->timesheetPopupIntervalSeconds();
         $pendingDays = (int) ($pendingTimesheet['pending_days'] ?? 0);
-        $timesheetUrl = route('admin.people.index', array_filter([
+        $timesheetQuery = array_filter([
             'section' => 'timesheet',
             'month' => $pendingTimesheet['month'] ?? null,
-        ])).(isset($pendingTimesheet['oldest_date']) ? '#ts-day-'.$pendingTimesheet['oldest_date'] : '');
+        ]);
+        $timesheetHash = isset($pendingTimesheet['oldest_date']) ? '#ts-day-'.$pendingTimesheet['oldest_date'] : '';
+        $timesheetUrl = route('admin.people.index', $timesheetQuery).$timesheetHash;
+        $pendingTimesheetUrl = route('admin.people.index', array_merge($timesheetQuery, [
+            'status' => 'pending',
+        ])).$timesheetHash;
         $bannerClass = 'ws-dash-timesheet'.(! empty($pendingTimesheetGate) ? ' ws-dash-timesheet--gate' : '');
         $pendingTitle = $pendingDays === 1
             ? '1 timesheet day still needs to be filled'
@@ -171,6 +176,12 @@
             color: #fff;
         }
         .ws-ts-popup-actions a:hover { background: #9a3412; color: #fff; }
+        .ws-ts-popup-actions a.is-secondary {
+            background: #fff7ed;
+            color: #9a3412;
+            border: 1px solid #fdba74;
+        }
+        .ws-ts-popup-actions a.is-secondary:hover { background: #ffedd5; color: #9a3412; }
         .ws-ts-popup-actions button {
             background: #fff7ed;
             color: #9a3412;
@@ -187,14 +198,14 @@
                 <p>{{ $pendingBody }}</p>
             </div>
         </div>
-        <a class="ws-dash-timesheet-link" href="{{ $timesheetUrl }}">Open timesheet</a>
+        <a class="ws-dash-timesheet-link" href="{{ $pendingTimesheetUrl }}">View pending timesheets</a>
     </aside>
 
     @if($popupEnabled)
         <div class="ws-ts-popup"
              id="ws-ts-popup"
              data-interval-seconds="{{ $popupIntervalSeconds }}"
-             data-timesheet-url="{{ $timesheetUrl }}"
+             data-timesheet-url="{{ $pendingTimesheetUrl }}"
              hidden
              aria-hidden="true"
              role="dialog"
@@ -207,7 +218,8 @@
                 <h2 id="ws-ts-popup-title">{{ $pendingTitle }}</h2>
                 <p>{{ $pendingBody }}</p>
                 <div class="ws-ts-popup-actions">
-                    <a href="{{ $timesheetUrl }}">Open timesheet</a>
+                    <a href="{{ $pendingTimesheetUrl }}">View pending timesheets</a>
+                    <a class="is-secondary" href="{{ $timesheetUrl }}">Open timesheet</a>
                     <button type="button" data-ws-ts-dismiss>Remind me later</button>
                 </div>
             </div>
