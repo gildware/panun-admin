@@ -350,6 +350,36 @@ class PeopleWorkspace
     }
 
     /**
+     * First day this person must fill a timesheet: later of company start,
+     * joining date, and the person's timesheet start date.
+     */
+    public function timesheetStartsOnFor(?User $user = null): ?Carbon
+    {
+        $start = $this->timesheetStartsOn();
+        if (! $user) {
+            return $start;
+        }
+
+        $profile = $user->relationLoaded('peopleProfile')
+            ? $user->peopleProfile
+            : PeopleProfile::query()->where('user_id', $user->id)->first();
+        if ($profile && ! $user->relationLoaded('peopleProfile')) {
+            $user->setRelation('peopleProfile', $profile);
+        }
+
+        foreach ([
+            $profile?->joined_on?->copy()->startOfDay(),
+            $profile?->timesheet_start_date?->copy()->startOfDay(),
+        ] as $candidate) {
+            if ($candidate && ($start === null || $candidate->gt($start))) {
+                $start = $candidate;
+            }
+        }
+
+        return $start;
+    }
+
+    /**
      * Dashboard reminder when this employee still has timesheet days to fill.
      *
      * @return array{pending_days: int, pending_since: int, month: string, oldest_date: string}|null
@@ -364,17 +394,7 @@ class PeopleWorkspace
 
         $today = $this->timesheetToday();
         $latestFillable = $this->latestFillableTimesheetDay($today);
-        $start = $this->timesheetStartsOn() ?? $today->copy()->subMonths(11)->startOfMonth();
-        $profile = $user->relationLoaded('peopleProfile')
-            ? $user->peopleProfile
-            : PeopleProfile::query()->where('user_id', $user->id)->first();
-        if ($profile && ! $user->relationLoaded('peopleProfile')) {
-            $user->setRelation('peopleProfile', $profile);
-        }
-        $joined = $profile?->joined_on?->copy()->startOfDay();
-        if ($joined && $joined->gt($start)) {
-            $start = $joined;
-        }
+        $start = $this->timesheetStartsOnFor($user) ?? $today->copy()->subMonths(11)->startOfMonth();
         if ($start->gt($latestFillable)) {
             return null;
         }
@@ -428,7 +448,7 @@ class PeopleWorkspace
     private function timesheetDayIsPending(CarbonInterface $date, CarbonInterface $today, array $holidays, array $saved, User $user): bool
     {
         $key = $date->toDateString();
-        if ($this->isBeforeTimesheetStart($date)) {
+        if ($this->isBeforeTimesheetStart($date, $user)) {
             return false;
         }
         if (($saved[$key]['status'] ?? null) === 'week_off') {
@@ -1464,7 +1484,7 @@ class PeopleWorkspace
         for ($i = 0; $i < 7; $i++) {
             $day = $start->copy()->addDays($i);
             $entry = $entries[$day->toDateString()] ?? null;
-            if ($this->isBeforeTimesheetStart($day) || $this->isWeekOff($day, $user) || isset($holidays[$day->toDateString()]) || (is_array($entry) && ($entry['status'] ?? null) === 'week_off')) {
+            if ($this->isBeforeTimesheetStart($day, $user) || $this->isWeekOff($day, $user) || isset($holidays[$day->toDateString()]) || (is_array($entry) && ($entry['status'] ?? null) === 'week_off')) {
                 continue;
             }
             $required++;
@@ -1479,9 +1499,9 @@ class PeopleWorkspace
         return $required > 0;
     }
 
-    public function isBeforeTimesheetStart(CarbonInterface $day): bool
+    public function isBeforeTimesheetStart(CarbonInterface $day, ?User $user = null): bool
     {
-        $starts = $this->timesheetStartsOn();
+        $starts = $this->timesheetStartsOnFor($user);
 
         return $starts !== null && Carbon::parse($day->toDateString())->startOfDay()->lt($starts);
     }
@@ -1889,7 +1909,7 @@ class PeopleWorkspace
         $start = $month->copy()->startOfMonth();
         $end = $start->copy()->endOfMonth();
         $today = now()->startOfDay();
-        $startsOn = $this->timesheetStartsOn();
+        $companyStartsOn = $this->timesheetStartsOn();
         $companyOff = array_flip($this->weekOffDays());
         $letters = [1 => 'Mo', 2 => 'Tu', 3 => 'We', 4 => 'Th', 5 => 'Fr', 6 => 'Sa', 7 => 'Su'];
 
@@ -2008,6 +2028,7 @@ class PeopleWorkspace
             $userLeave = $leaveByUser[(string) $user->id] ?? [];
             $userHands = $handsByUser[(string) $user->id] ?? [];
             $skipsTimesheet = ! $this->requiresTimesheet($user);
+            $startsOn = $this->timesheetStartsOnFor($user) ?? $companyStartsOn;
             $dayHours = $this->requiredDayHours($user);
             $halfHours = $this->halfLeaveHours($user);
             $cells = [];

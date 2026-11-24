@@ -171,6 +171,10 @@
                                 <dd>{{ $profile->requiresTimesheet() ? 'Required' : 'Can skip' }}</dd>
                             </div>
                             <div class="ep-fact">
+                                <dt>Timesheet start date</dt>
+                                <dd class="{{ $profile->timesheet_start_date ? '' : 'is-empty' }}">{{ $profile->timesheet_start_date ? $profile->timesheet_start_date->format('j M Y') : '—' }}</dd>
+                            </div>
+                            <div class="ep-fact">
                                 <dt>Department</dt>
                                 <dd class="{{ $profile->department ? '' : 'is-empty' }}">{{ $profile->department ?: '—' }}</dd>
                             </div>

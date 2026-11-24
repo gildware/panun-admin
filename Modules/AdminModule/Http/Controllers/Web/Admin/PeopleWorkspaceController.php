@@ -346,8 +346,8 @@ class PeopleWorkspaceController extends Controller
 
             return $this->timesheetRedirect($request);
         }
-        if ($this->workspace->isBeforeTimesheetStart($date)) {
-            $starts = $this->workspace->timesheetStartsOn();
+        if ($this->workspace->isBeforeTimesheetStart($date, $user)) {
+            $starts = $this->workspace->timesheetStartsOnFor($user);
             Toastr::error('Timesheets start on '.($starts ? $starts->format('j F Y') : 'a later date').'.');
 
             return $this->timesheetRedirect($request);
@@ -1104,7 +1104,15 @@ class PeopleWorkspaceController extends Controller
         $today = $this->workspace->timesheetToday();
         $currentMonth = $today->copy()->startOfMonth();
         $month = $currentMonth->copy();
-        $start = $this->workspace->timesheetStartsOn();
+
+        if (! $user->relationLoaded('peopleProfile')) {
+            $user->setRelation(
+                'peopleProfile',
+                PeopleProfile::query()->where('user_id', $user->id)->first()
+            );
+        }
+
+        $start = $this->workspace->timesheetStartsOnFor($user);
         $startMonth = $start?->copy()->startOfMonth();
         $requested = (string) $request->query('month', '');
         if (preg_match('/^\d{4}-\d{2}$/', $requested)) {
@@ -1119,13 +1127,6 @@ class PeopleWorkspaceController extends Controller
         }
         if ($startMonth && $startMonth->lte($currentMonth) && $month->lt($startMonth)) {
             $month = $startMonth->copy();
-        }
-
-        if (! $user->relationLoaded('peopleProfile')) {
-            $user->setRelation(
-                'peopleProfile',
-                PeopleProfile::query()->where('user_id', $user->id)->first()
-            );
         }
 
         $this->workspace->mirrorOpenLeave($user);
@@ -1361,7 +1362,7 @@ class PeopleWorkspaceController extends Controller
     private function timesheetDayState(Carbon $date, Carbon $today, array $holidays, array $saved, User $user): string
     {
         $key = $date->toDateString();
-        if ($this->workspace->isBeforeTimesheetStart($date)) {
+        if ($this->workspace->isBeforeTimesheetStart($date, $user)) {
             return 'before';
         }
         if (($saved[$key]['status'] ?? null) === 'week_off') {
@@ -1523,7 +1524,7 @@ class PeopleWorkspaceController extends Controller
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->copy()->addDays($i)->startOfDay();
             $entry = $entries[$day->toDateString()] ?? null;
-            if ($this->workspace->isBeforeTimesheetStart($day) || $this->workspace->isWeekOff($day, $user) || in_array($day->toDateString(), $holidays, true) || (is_array($entry) && ($entry['status'] ?? null) === 'week_off')) {
+            if ($this->workspace->isBeforeTimesheetStart($day, $user) || $this->workspace->isWeekOff($day, $user) || in_array($day->toDateString(), $holidays, true) || (is_array($entry) && ($entry['status'] ?? null) === 'week_off')) {
                 continue;
             }
             $required++;
@@ -1940,7 +1941,7 @@ class PeopleWorkspaceController extends Controller
         if ($holiday) {
             return 'holiday';
         }
-        if ($this->workspace->isBeforeTimesheetStart($day)) {
+        if ($this->workspace->isBeforeTimesheetStart($day, $person)) {
             return 'before';
         }
         if ($day->gt($today)) {
